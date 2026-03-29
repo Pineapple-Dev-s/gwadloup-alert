@@ -92,7 +92,7 @@ const UI = {
   },
 
   bindModals() {
-    document.querySelectorAll('[data-close-modal]').forEach(el => {
+    document.querySelectorAll('[data-close]').forEach(el => {
       el.addEventListener('click', () => {
         el.closest('.modal').classList.remove('open');
         document.body.style.overflow = '';
