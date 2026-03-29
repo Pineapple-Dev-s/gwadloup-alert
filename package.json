@@ -1,6 +1,6 @@
 {
   "name": "gwadloup-alert",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Plateforme citoyenne de signalement pour la Guadeloupe",
   "main": "server.js",
   "scripts": {
@@ -10,7 +10,6 @@
   "dependencies": {
     "express": "^4.18.2",
     "compression": "^1.7.4",
-    "helmet": "^7.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1"
   },
