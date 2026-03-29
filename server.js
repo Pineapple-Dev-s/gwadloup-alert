@@ -8,7 +8,6 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
 app.use(cors());
 app.use(compression());
 app.use(helmet({
@@ -18,6 +17,7 @@ app.use(helmet({
       scriptSrc: [
         "'self'",
         "'unsafe-inline'",
+        "'unsafe-eval'",
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",
         "https://cdnjs.cloudflare.com"
@@ -35,6 +35,7 @@ app.use(helmet({
         "data:",
         "blob:",
         "https://*.tile.openstreetmap.org",
+        "https://*.basemaps.cartocdn.com",
         "https://i.ibb.co",
         "https://image.ibb.co",
         "https://*.supabase.co"
@@ -42,6 +43,7 @@ app.use(helmet({
       connectSrc: [
         "'self'",
         "https://*.supabase.co",
+        "wss://*.supabase.co",
         "https://api.imgbb.com",
         "https://nominatim.openstreetmap.org"
       ],
@@ -58,11 +60,10 @@ app.use(helmet({
 }));
 
 app.use(express.static(path.join(__dirname, 'public'), {
-  maxAge: '1d',
+  maxAge: '7d',
   etag: true
 }));
 
-// API endpoint pour les variables d'environnement publiques
 app.get('/api/config', (req, res) => {
   res.json({
     supabaseUrl: process.env.SUPABASE_URL,
@@ -71,16 +72,14 @@ app.get('/api/config', (req, res) => {
   });
 });
 
-// Health check pour Render
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// SPA fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log(`🟢 Gwadloup Alèrt en ligne sur le port ${PORT}`);
+  console.log(`🟢 Gwadloup Alèrt v2.0 — Port ${PORT}`);
 });
