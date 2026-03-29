@@ -312,14 +312,30 @@ textarea.inp{resize:vertical;min-height:70px}
 .toast__x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:.7rem}
 
 /* LOADER */
-.loader{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:5000}
+.loader{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:5000;flex-direction:column}
 .loader.active{display:flex}
 .loader__in{text-align:center;color:var(--text2)}
-.loader__in>:first-child{font-size:2rem;display:block;margin-bottom:16px;animation:lbounce 1.2s infinite}
-@keyframes lbounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-.loader__bar{width:160px;height:2px;background:var(--bg3);border-radius:1px;overflow:hidden;margin:0 auto 12px}
-.loader__bar div{width:30%;height:100%;background:linear-gradient(90deg,var(--green),var(--blue));border-radius:1px;animation:lslide .8s ease-in-out infinite}
-@keyframes lslide{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}
+.loader__grid{
+  display:grid;grid-template-columns:repeat(3,16px);gap:6px;
+  margin:0 auto 24px;width:fit-content;
+}
+.loader__cell{
+  width:16px;height:16px;border-radius:3px;
+  background:var(--green2);opacity:.15;
+  animation:lcell 1.2s ease-in-out infinite;
+}
+.loader__cell:nth-child(1){animation-delay:0s}
+.loader__cell:nth-child(2){animation-delay:.1s}
+.loader__cell:nth-child(3){animation-delay:.2s}
+.loader__cell:nth-child(4){animation-delay:.3s}
+.loader__cell:nth-child(5){animation-delay:.4s}
+.loader__cell:nth-child(6){animation-delay:.5s}
+.loader__cell:nth-child(7){animation-delay:.6s}
+.loader__cell:nth-child(8){animation-delay:.7s}
+.loader__cell:nth-child(9){animation-delay:.8s}
+@keyframes lcell{0%,100%{opacity:.15;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
+.loader__text{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--text3);letter-spacing:1px}
+.loader__text span{color:var(--green);font-weight:700}
 
 /* LEAFLET */
 .custom-marker{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid var(--bg2);box-shadow:0 2px 6px rgba(0,0,0,.4)}
