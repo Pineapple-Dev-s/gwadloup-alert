@@ -640,39 +640,29 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
 
 
-/* === LOGO v3 === */
+/* === LOGO === */
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);flex-shrink:0}
 .logo__symbol{
-  width:42px;height:42px;position:relative;
-  background:linear-gradient(135deg,#00875A 0%,#00C471 50%,#0065FF 100%);
-  border-radius:12px;display:flex;align-items:center;justify-content:center;
-  box-shadow:0 4px 16px rgba(0,135,90,.3);
-  transition:all .3s cubic-bezier(.34,1.56,.64,1);
-  overflow:hidden;
+  font-size:1.6rem;line-height:1;
+  background:linear-gradient(135deg,var(--primary),#0065FF);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 1px 2px rgba(0,135,90,.3));
 }
-.logo:hover .logo__symbol{transform:scale(1.08) rotate(-3deg);box-shadow:0 6px 24px rgba(0,135,90,.4)}
-.logo__g{
-  font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.4rem;
-  color:#fff;line-height:1;z-index:1;
-}
-.logo__dot{
-  position:absolute;bottom:6px;right:6px;width:8px;height:8px;
-  background:#FFAB00;border-radius:50%;border:2px solid rgba(255,255,255,.9);
-  box-shadow:0 0 8px rgba(255,171,0,.6);
-  animation:dot-pulse 2s ease-in-out infinite;
-}
-@keyframes dot-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:.7}}
 .logo__name{
-  font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.1rem;
-  color:var(--text);display:block;line-height:1.15;letter-spacing:-.3px;
+  font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.05rem;
+  color:var(--text);display:block;line-height:1.15;letter-spacing:-.5px;
 }
-.logo__alert{
-  background:linear-gradient(135deg,var(--primary),var(--blue));
+.logo__sep{
+  color:var(--primary);font-weight:300;margin:0 1px;
+}
+.logo__name span{
+  background:linear-gradient(135deg,var(--primary),#0065FF);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
   font-weight:800;
 }
 .logo__sub{
-  font-size:.5rem;color:var(--text3);letter-spacing:3px;font-weight:600;
-  font-family:'JetBrains Mono',monospace;
+  font-size:.52rem;color:var(--text3);letter-spacing:2.5px;font-weight:500;
+  text-transform:uppercase;display:block;
 }
 
 /* === WIKI === */
