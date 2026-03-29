@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const compression = require('compression');
-const helmet = require('helmet');
 const cors = require('cors');
 const path = require('path');
 
@@ -10,60 +9,21 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(compression());
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: [
-        "'self'",
-        "'unsafe-inline'",
-        "'unsafe-eval'",
-        "https://unpkg.com",
-        "https://cdn.jsdelivr.net",
-        "https://cdnjs.cloudflare.com"
-      ],
-      styleSrc: [
-        "'self'",
-        "'unsafe-inline'",
-        "https://unpkg.com",
-        "https://cdn.jsdelivr.net",
-        "https://fonts.googleapis.com",
-        "https://cdnjs.cloudflare.com"
-      ],
-      imgSrc: [
-        "'self'",
-        "data:",
-        "blob:",
-        "https://*.tile.openstreetmap.org",
-        "https://*.basemaps.cartocdn.com",
-        "https://i.ibb.co",
-        "https://image.ibb.co",
-        "https://*.supabase.co"
-      ],
-      connectSrc: [
-        "'self'",
-        "https://*.supabase.co",
-        "wss://*.supabase.co",
-        "https://api.imgbb.com",
-        "https://nominatim.openstreetmap.org"
-      ],
-      fontSrc: [
-        "'self'",
-        "https://fonts.gstatic.com",
-        "https://cdnjs.cloudflare.com"
-      ],
-      frameSrc: ["'none'"],
-      objectSrc: ["'none'"]
-    }
-  },
-  crossOriginEmbedderPolicy: false
-}));
+
+// PAS de helmet — on gère les headers manuellement pour éviter les problèmes CSP
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
 
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '7d',
   etag: true
 }));
 
+// API config — DOIT être avant le fallback
 app.get('/api/config', (req, res) => {
   res.json({
     supabaseUrl: process.env.SUPABASE_URL,
@@ -76,10 +36,11 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// SPA fallback — DOIT être en dernier
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log(`🟢 Gwadloup Alèrt v2.0 — Port ${PORT}`);
+  console.log(`Gwadloup Alert v2 — Port ${PORT}`);
 });
