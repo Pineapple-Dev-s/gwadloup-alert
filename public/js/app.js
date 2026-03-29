@@ -1,34 +1,53 @@
-// ============================================
-// GWADLOUP ALÈRT — Application principale
-// ============================================
-
 const App = {
   config: null,
   supabase: null,
   currentUser: null,
   currentProfile: null,
   reports: [],
-  currentPage: 0,
-  pageSize: 20,
-  filters: {
-    category: '',
-    status: '',
-    commune: ''
-  },
+  filters: { category: '', status: '', commune: '' },
 
-  // Catégories avec labels et emojis
   categories: {
-    pothole: { emoji: '🕳️', label: 'Nid de poule' },
-    abandoned_vehicle: { emoji: '🚗', label: 'Véhicule abandonné' },
-    illegal_dump: { emoji: '🗑️', label: 'Dépôt sauvage' },
-    broken_light: { emoji: '💡', label: 'Éclairage défaillant' },
-    flooding: { emoji: '🌊', label: 'Inondation' },
-    vegetation: { emoji: '🌿', label: 'Végétation envahissante' },
-    damaged_sign: { emoji: '🚧', label: 'Signalisation abîmée' },
-    dangerous_road: { emoji: '⚠️', label: 'Route dangereuse' },
-    noise: { emoji: '🔊', label: 'Nuisance sonore' },
-    water_leak: { emoji: '💧', label: 'Fuite d\'eau' },
-    other: { emoji: '📌', label: 'Autre' }
+    // Routes & Voirie
+    pothole: { emoji: '🕳️', label: 'Nid de poule', group: 'Routes & Voirie' },
+    dangerous_road: { emoji: '⚠️', label: 'Route dangereuse', group: 'Routes & Voirie' },
+    damaged_sign: { emoji: '🚧', label: 'Signalisation abîmée', group: 'Routes & Voirie' },
+    missing_marking: { emoji: '🚸', label: 'Marquage effacé', group: 'Routes & Voirie' },
+    speed_bump_needed: { emoji: '🔶', label: 'Ralentisseur nécessaire', group: 'Routes & Voirie' },
+    // Véhicules
+    abandoned_vehicle: { emoji: '🚗', label: 'Véhicule abandonné', group: 'Véhicules' },
+    abandoned_boat: { emoji: '⛵', label: 'Bateau abandonné', group: 'Véhicules' },
+    // Déchets
+    illegal_dump: { emoji: '🗑️', label: 'Dépôt sauvage', group: 'Déchets & Pollution' },
+    beach_pollution: { emoji: '🏖️', label: 'Pollution de plage', group: 'Déchets & Pollution' },
+    river_pollution: { emoji: '🏞️', label: 'Pollution de rivière', group: 'Déchets & Pollution' },
+    overflowing_bin: { emoji: '🗑️', label: 'Poubelle débordante', group: 'Déchets & Pollution' },
+    // Éclairage
+    broken_light: { emoji: '💡', label: 'Éclairage défaillant', group: 'Éclairage' },
+    exposed_cable: { emoji: '⚡', label: 'Câble exposé', group: 'Éclairage' },
+    // Eau
+    water_leak: { emoji: '💧', label: 'Fuite d\'eau', group: 'Eau' },
+    flooding: { emoji: '🌊', label: 'Inondation', group: 'Eau' },
+    sewer_issue: { emoji: '🚿', label: 'Problème assainissement', group: 'Eau' },
+    stagnant_water: { emoji: '🦟', label: 'Eau stagnante', group: 'Eau' },
+    // Végétation
+    vegetation: { emoji: '🌿', label: 'Végétation envahissante', group: 'Végétation' },
+    fallen_tree: { emoji: '🌳', label: 'Arbre tombé', group: 'Végétation' },
+    invasive_species: { emoji: '🌱', label: 'Espèce invasive', group: 'Végétation' },
+    // Infrastructures
+    damaged_building: { emoji: '🏚️', label: 'Bâtiment endommagé', group: 'Infrastructures' },
+    abandoned_building: { emoji: '🏗️', label: 'Bâtiment abandonné', group: 'Infrastructures' },
+    damaged_sidewalk: { emoji: '🚶', label: 'Trottoir abîmé', group: 'Infrastructures' },
+    missing_railing: { emoji: '🚧', label: 'Garde-fou manquant', group: 'Infrastructures' },
+    // Sécurité
+    dangerous_area: { emoji: '🛡️', label: 'Zone dangereuse', group: 'Sécurité' },
+    missing_crosswalk: { emoji: '🚶', label: 'Passage piéton manquant', group: 'Sécurité' },
+    school_zone_issue: { emoji: '🏫', label: 'Problème zone scolaire', group: 'Sécurité' },
+    // Nuisances
+    noise: { emoji: '🔊', label: 'Nuisance sonore', group: 'Nuisances' },
+    stray_animals: { emoji: '🐕', label: 'Animaux errants', group: 'Nuisances' },
+    mosquito_breeding: { emoji: '🦟', label: 'Foyer à moustiques', group: 'Nuisances' },
+    // Autre
+    other: { emoji: '📌', label: 'Autre', group: 'Autre' }
   },
 
   statuses: {
@@ -50,80 +69,54 @@ const App = {
     try {
       UI.showLoading();
 
-      // Charger la configuration
-      const configResp = await fetch('/api/config');
-      this.config = await configResp.json();
+      const resp = await fetch('/api/config');
+      this.config = await resp.json();
 
-      // Initialiser Supabase
       this.supabase = window.supabase.createClient(
         this.config.supabaseUrl,
         this.config.supabaseAnonKey
       );
 
-      // Initialiser l'authentification
       await Auth.init();
-
-      // Initialiser la carte
       MapManager.init();
-
-      // Initialiser l'UI
       UI.init();
-
-      // Charger les signalements
       await Reports.loadAll();
-
-      // Écouter les changements en temps réel
       this.subscribeRealtime();
 
       UI.hideLoading();
-
-      console.log('✅ Gwadloup Alèrt initialisé');
-    } catch (error) {
-      console.error('Erreur d\'initialisation:', error);
+      console.log('✅ Gwadloup Alèrt v2.0');
+    } catch (err) {
+      console.error('Init error:', err);
       UI.hideLoading();
-      UI.toast('Erreur lors du chargement de l\'application', 'error');
+      UI.toast('Erreur de chargement', 'error');
     }
   },
 
   subscribeRealtime() {
     this.supabase
-      .channel('public:reports')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'reports'
-      }, (payload) => {
-        console.log('Realtime:', payload.eventType);
-        if (payload.eventType === 'INSERT') {
-          Reports.handleNewReport(payload.new);
-        } else if (payload.eventType === 'UPDATE') {
-          Reports.handleUpdatedReport(payload.new);
-        } else if (payload.eventType === 'DELETE') {
-          Reports.handleDeletedReport(payload.old);
-        }
+      .channel('reports-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, (payload) => {
+        if (payload.eventType === 'INSERT') Reports.handleNewReport(payload.new);
+        else if (payload.eventType === 'UPDATE') Reports.handleUpdatedReport(payload.new);
+        else if (payload.eventType === 'DELETE') Reports.handleDeletedReport(payload.old);
       })
       .subscribe();
   },
 
-  // Utilitaires
-  timeAgo(dateString) {
-    const now = new Date();
-    const date = new Date(dateString);
-    const seconds = Math.floor((now - date) / 1000);
-
-    if (seconds < 60) return 'À l\'instant';
-    if (seconds < 3600) return `Il y a ${Math.floor(seconds / 60)} min`;
-    if (seconds < 86400) return `Il y a ${Math.floor(seconds / 3600)}h`;
-    if (seconds < 2592000) return `Il y a ${Math.floor(seconds / 86400)}j`;
-    return date.toLocaleDateString('fr-FR');
+  timeAgo(d) {
+    const s = Math.floor((new Date() - new Date(d)) / 1000);
+    if (s < 60) return 'À l\'instant';
+    if (s < 3600) return `Il y a ${Math.floor(s / 60)} min`;
+    if (s < 86400) return `Il y a ${Math.floor(s / 3600)}h`;
+    if (s < 2592000) return `Il y a ${Math.floor(s / 86400)}j`;
+    return new Date(d).toLocaleDateString('fr-FR');
   },
 
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+  escapeHtml(t) {
+    const d = document.createElement('div');
+    d.textContent = t;
+    return d.innerHTML;
   }
 };
 
-// Lancer l'app au chargement
 document.addEventListener('DOMContentLoaded', () => App.init());
