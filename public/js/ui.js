@@ -1,7 +1,3 @@
-// ============================================
-// GWADLOUP ALÈRT — Interface utilisateur
-// ============================================
-
 const UI = {
   init() {
     this.bindNavigation();
@@ -9,89 +5,137 @@ const UI = {
     this.bindFilters();
     this.bindReportForm();
     this.bindBurgerMenu();
+    this.bindCursorGlow();
+    this.buildCategoryGrid();
+    this.bindPasswordToggle();
     ImageUpload.init();
   },
 
-  // --- Navigation ---
+  // Cursor glow
+  bindCursorGlow() {
+    const glow = document.getElementById('cursor-glow');
+    if (!glow) return;
+
+    document.addEventListener('mousemove', (e) => {
+      glow.style.left = e.clientX + 'px';
+      glow.style.top = e.clientY + 'px';
+    });
+  },
+
+  // Password toggle
+  bindPasswordToggle() {
+    const toggle = document.getElementById('toggle-login-pw');
+    if (toggle) {
+      toggle.addEventListener('click', () => {
+        const input = document.getElementById('login-password');
+        const icon = toggle.querySelector('i');
+        if (input.type === 'password') {
+          input.type = 'text';
+          icon.className = 'fas fa-eye-slash';
+        } else {
+          input.type = 'password';
+          icon.className = 'fas fa-eye';
+        }
+      });
+    }
+  },
+
+  // Build category grid dynamically
+  buildCategoryGrid() {
+    const grid = document.getElementById('category-grid');
+    if (!grid) return;
+
+    let html = '';
+    const grouped = {};
+
+    Object.entries(App.categories).forEach(([key, val]) => {
+      if (!grouped[val.group]) grouped[val.group] = [];
+      grouped[val.group].push({ key, ...val });
+    });
+
+    Object.entries(grouped).forEach(([group, cats]) => {
+      cats.forEach(cat => {
+        html += `
+          <label class="category-card" data-category="${cat.key}">
+            <input type="radio" name="category" value="${cat.key}">
+            <div class="category-card__icon">${cat.emoji}</div>
+            <div class="category-card__name">${cat.label}</div>
+          </label>
+        `;
+      });
+    });
+
+    grid.innerHTML = html;
+  },
+
+  // Navigation
   bindNavigation() {
     document.querySelectorAll('.header__nav-link').forEach(link => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
-        const view = link.dataset.view;
-        this.switchView(view);
-
-        // Fermer le menu mobile
+        this.switchView(link.dataset.view);
         document.getElementById('main-nav').classList.remove('open');
+        document.getElementById('burger-menu').classList.remove('open');
       });
     });
 
-    // Logo → retour carte
     document.getElementById('logo-link').addEventListener('click', (e) => {
       e.preventDefault();
       this.switchView('map');
     });
   },
 
-  switchView(viewName) {
-    // Mettre à jour la navigation
+  switchView(name) {
     document.querySelectorAll('.header__nav-link').forEach(l => {
-      l.classList.toggle('active', l.dataset.view === viewName);
+      l.classList.toggle('active', l.dataset.view === name);
     });
-
-    // Afficher la vue
     document.querySelectorAll('.view').forEach(v => {
-      v.classList.toggle('active', v.id === `view-${viewName}`);
+      v.classList.toggle('active', v.id === `view-${name}`);
     });
-
-    // Redimensionner la carte si nécessaire
-    if (viewName === 'map' && MapManager.map) {
+    if (name === 'map' && MapManager.map) {
       setTimeout(() => MapManager.map.invalidateSize(), 100);
     }
-
-    // Recharger les stats si nécessaire
-    if (viewName === 'stats') {
-      Reports.updateStats();
+    if (name === 'stats') Reports.updateStats();
+    if (name === 'list') {
+      document.getElementById('list-count').textContent = `${App.reports.length} résultat${App.reports.length > 1 ? 's' : ''}`;
     }
   },
 
-  // --- Burger menu ---
+  // Burger
   bindBurgerMenu() {
-    document.getElementById('burger-menu').addEventListener('click', () => {
+    const burger = document.getElementById('burger-menu');
+    burger.addEventListener('click', () => {
+      burger.classList.toggle('open');
       document.getElementById('main-nav').classList.toggle('open');
     });
   },
 
-  // --- Modals ---
+  // Modals
   bindModals() {
-    // Fermer les modales
     document.querySelectorAll('[data-close-modal]').forEach(el => {
       el.addEventListener('click', () => {
         const modal = el.closest('.modal');
         if (modal) modal.classList.remove('open');
+        document.body.style.overflow = '';
       });
     });
 
-    // Touche Escape
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         document.querySelectorAll('.modal.open').forEach(m => m.classList.remove('open'));
+        document.body.style.overflow = '';
       }
     });
 
-    // Bouton nouveau signalement
     document.getElementById('btn-new-report').addEventListener('click', () => {
       if (!App.currentUser) {
-        this.toast('Connectez-vous pour signaler un problème', 'warning');
+        this.toast('Connectez-vous pour signaler', 'warning');
         this.openModal('modal-login');
         return;
       }
       Reports.resetForm();
       this.openModal('modal-report');
-
-      // Initialiser la mini carte après un délai (la modale doit être visible)
-      setTimeout(() => {
-        MapManager.initMiniMap();
-      }, 300);
+      setTimeout(() => MapManager.initMiniMap(), 300);
     });
   },
 
@@ -102,29 +146,25 @@ const UI = {
 
   closeModal(id) {
     document.getElementById(id).classList.remove('open');
-    // Vérifier s'il reste des modales ouvertes
     if (!document.querySelector('.modal.open')) {
       document.body.style.overflow = '';
     }
   },
 
-  // --- Filtres ---
+  // Filters
   bindFilters() {
     document.getElementById('filter-category').addEventListener('change', (e) => {
       App.filters.category = e.target.value;
       Reports.loadAll();
     });
-
     document.getElementById('filter-status').addEventListener('change', (e) => {
       App.filters.status = e.target.value;
       Reports.loadAll();
     });
-
     document.getElementById('filter-commune').addEventListener('change', (e) => {
       App.filters.commune = e.target.value;
       Reports.loadAll();
     });
-
     document.getElementById('btn-reset-filters').addEventListener('click', () => {
       App.filters = { category: '', status: '', commune: '' };
       document.getElementById('filter-category').value = '';
@@ -132,172 +172,41 @@ const UI = {
       document.getElementById('filter-commune').value = '';
       Reports.loadAll();
     });
-
-    // Tri dans la vue liste
     document.getElementById('sort-reports').addEventListener('change', (e) => {
       const sort = e.target.value;
-      if (sort === 'newest') {
-        App.reports.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      } else if (sort === 'oldest') {
-        App.reports.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-      } else if (sort === 'most-voted') {
-        App.reports.sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
-      }
+      if (sort === 'newest') App.reports.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      else if (sort === 'oldest') App.reports.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      else if (sort === 'most-voted') App.reports.sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
       Reports.renderList();
     });
   },
 
-  // --- Formulaire de signalement ---
+  // Report form
   bindReportForm() {
-    // Sélection de catégorie
-    document.querySelectorAll('.category-card').forEach(card => {
-      card.addEventListener('click', () => {
-        document.getElementById('btn-step1-next').disabled = false;
-      });
+    document.getElementById('category-grid').addEventListener('change', () => {
+      document.getElementById('btn-step1-next').disabled = false;
     });
 
-    // Navigation entre étapes
     document.querySelectorAll('.btn--next').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const nextStep = parseInt(btn.dataset.next);
-        this.goToStep(nextStep);
-      });
+      btn.addEventListener('click', () => this.goToStep(parseInt(btn.dataset.next)));
     });
 
     document.querySelectorAll('.btn--prev').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const prevStep = parseInt(btn.dataset.prev);
-        this.goToStep(prevStep);
-      });
+      btn.addEventListener('click', () => this.goToStep(parseInt(btn.dataset.prev)));
     });
 
-    // Géolocalisation
+    // Geolocation
     document.getElementById('btn-geolocate').addEventListener('click', () => {
       if (!navigator.geolocation) {
-        this.toast('La géolocalisation n\'est pas supportée par votre navigateur', 'error');
+        this.toast('Géolocalisation non supportée', 'error');
         return;
       }
 
       const btn = document.getElementById('btn-geolocate');
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-inline" style="border-color:rgba(0,0,0,0.2);border-top-color:var(--primary);"></span> Localisation...';
+      btn.innerHTML = '<span class="spinner-inline" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--primary);width:14px;height:14px;"></span> Localisation...';
 
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords;
-
-          // Vérifier que c'est en Guadeloupe
-          if (latitude < 15.8 || latitude > 16.6 || longitude < -61.9 || longitude > -60.9) {
-            this.toast('Vous ne semblez pas être en Guadeloupe. Placez manuellement le marqueur.', 'warning');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-crosshairs"></i> Me géolocaliser';
-            return;
-          }
-
-          MapManager.setMiniMapMarker(latitude, longitude);
-          MapManager.reverseGeocode(latitude, longitude);
-
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fas fa-crosshairs"></i> Me géolocaliser';
-        },
-        (error) => {
-          console.error('Erreur géolocalisation:', error);
-          this.toast('Impossible de vous géolocaliser. Placez le marqueur manuellement.', 'warning');
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fas fa-crosshairs"></i> Me géolocaliser';
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    });
-
-    // Recherche d'adresse
-    let searchTimeout;
-    document.getElementById('address-search').addEventListener('input', (e) => {
-      clearTimeout(searchTimeout);
-      const query = e.target.value.trim();
-      if (query.length < 3) return;
-
-      searchTimeout = setTimeout(async () => {
-        const results = await MapManager.searchAddress(query);
-        if (results.length > 0) {
-          const first = results[0];
-          const lat = parseFloat(first.lat);
-          const lon = parseFloat(first.lon);
-          MapManager.setMiniMapMarker(lat, lon);
-          MapManager.reverseGeocode(lat, lon);
-        }
-      }, 500);
-    });
-
-    // Compteur de caractères pour la description
-    document.getElementById('report-description').addEventListener('input', (e) => {
-      document.getElementById('desc-count').textContent = e.target.value.length;
-    });
-
-    // Soumission du formulaire
-    document.getElementById('report-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      Reports.submitReport();
-    });
-  },
-
-  goToStep(stepNum) {
-    // Masquer toutes les étapes
-    document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
-    document.getElementById(`step-${stepNum}`).classList.add('active');
-
-    // Mettre à jour l'indicateur
-    document.querySelectorAll('.step-indicator .step').forEach(s => {
-      const num = parseInt(s.dataset.step);
-      s.classList.remove('active', 'completed');
-      if (num < stepNum) s.classList.add('completed');
-      if (num === stepNum) s.classList.add('active');
-    });
-
-    // Si on arrive à l'étape 2, redimensionner la mini carte
-    if (stepNum === 2 && MapManager.miniMap) {
-      setTimeout(() => MapManager.miniMap.invalidateSize(), 100);
-    }
-  },
-
-  // --- Toast notifications ---
-  toast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-
-    const icons = {
-      success: 'fas fa-check-circle',
-      error: 'fas fa-exclamation-circle',
-      warning: 'fas fa-exclamation-triangle',
-      info: 'fas fa-info-circle'
-    };
-
-    const toast = document.createElement('div');
-    toast.className = `toast toast--${type}`;
-    toast.innerHTML = `
-      <i class="toast__icon ${icons[type]}"></i>
-      <span class="toast__message">${message}</span>
-      <button class="toast__close" onclick="this.closest('.toast').remove()">
-        <i class="fas fa-times"></i>
-      </button>
-    `;
-
-    container.appendChild(toast);
-
-    // Auto-dismiss après 5 secondes
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateX(100px)';
-      toast.style.transition = '0.3s ease';
-      setTimeout(() => toast.remove(), 300);
-    }, 5000);
-  },
-
-  // --- Loading ---
-  showLoading() {
-    document.getElementById('loading-overlay').classList.add('active');
-  },
-
-  hideLoading() {
-    document.getElementById('loading-overlay').classList.remove('active');
-  }
-};
+          if (latitude < 15.8 || 
