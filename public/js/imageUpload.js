@@ -1,69 +1,143 @@
-const ImageUpload = {
-  files: [], maxFiles: 4,
+var ImageUpload = {
+  files: [],
+  maxFiles: 4,
 
-  init() {
-    const dz = document.getElementById('photo-dropzone');
-    const inp = document.getElementById('photo-input');
-    dz.addEventListener('click', () => inp.click());
-    inp.addEventListener('change', (e) => { this.handleFiles(Array.from(e.target.files)); inp.value = ''; });
-    dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
-    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
-    dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('dragover'); this.handleFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))); });
+  init: function() {
+    var self = this;
+    var dz = document.getElementById('photo-dropzone');
+    var inp = document.getElementById('photo-input');
+
+    dz.addEventListener('click', function() { inp.click(); });
+
+    inp.addEventListener('change', function(e) {
+      self.handleFiles(Array.from(e.target.files));
+      inp.value = '';
+    });
+
+    dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', function() { dz.classList.remove('dragover'); });
+    dz.addEventListener('drop', function(e) {
+      e.preventDefault();
+      dz.classList.remove('dragover');
+      var files = Array.from(e.dataTransfer.files).filter(function(f) { return f.type.startsWith('image/'); });
+      self.handleFiles(files);
+    });
   },
 
-  handleFiles(newFiles) {
-    const rem = this.maxFiles - this.files.length;
-    if (rem <= 0) { UI.toast(`Max ${this.maxFiles} photos`, 'warning'); return; }
-    for (const file of newFiles.slice(0, rem)) {
-      if (file.size > 10 * 1024 * 1024) { UI.toast(`${file.name} trop lourd`, 'warning'); continue; }
-      const id = Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-      this.files.push({ id, file, url: null });
-      this.renderThumb({ id, file });
-    }
+  handleFiles: function(newFiles) {
+    var self = this;
+    var remaining = this.maxFiles - this.files.length;
+    if (remaining <= 0) { UI.toast('Max ' + this.maxFiles + ' photos', 'warning'); return; }
+
+    var toAdd = newFiles.slice(0, remaining);
+    toAdd.forEach(function(file) {
+      if (file.size > 10 * 1024 * 1024) {
+        UI.toast(file.name + ' trop lourd (max 10MB)', 'warning');
+        return;
+      }
+      var id = Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+      self.files.push({ id: id, file: file, url: null });
+      self.renderThumb(id, file);
+    });
   },
 
-  renderThumb(item) {
-    const preview = document.getElementById('photo-preview');
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const d = document.createElement('div');
-      d.className = 'thumb'; d.id = `thumb-${item.id}`;
-      d.innerHTML = `<img src="${e.target.result}"><button type="button" class="thumb__rm" onclick="ImageUpload.remove('${item.id}')"><i class="fas fa-times"></i></button>`;
-      preview.appendChild(d);
+  renderThumb: function(id, file) {
+    var preview = document.getElementById('photo-preview');
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var div = document.createElement('div');
+      div.className = 'thumb';
+      div.id = 'thumb-' + id;
+      div.innerHTML = '<img src="' + e.target.result + '">' +
+        '<button type="button" class="thumb__rm" onclick="ImageUpload.removeFile(\'' + id + '\')">' +
+        '<i class="fas fa-times"></i></button>';
+      preview.appendChild(div);
     };
-    reader.readAsDataURL(item.file);
+    reader.readAsDataURL(file);
   },
 
-  remove(id) {
-    this.files = this.files.filter(f => f.id !== id);
-    document.getElementById(`thumb-${id}`)?.remove();
+  removeFile: function(id) {
+    this.files = this.files.filter(function(f) { return f.id !== id; });
+    var el = document.getElementById('thumb-' + id);
+    if (el) el.remove();
   },
 
-  async compress(file) {
-    try {
-      return await imageCompression(file, { maxSizeMB: 0.8, maxWidthOrHeight: 1600, useWebWorker: true, fileType: 'image/webp', initialQuality: 0.8 });
-    } catch (e) { return file; }
+  compress: function(file) {
+    // Ultra compression: target 400KB max, 1200px max dimension, WebP
+    var options = {
+      maxSizeMB: 0.4,
+      maxWidthOrHeight: 1200,
+      useWebWorker: true,
+      fileType: 'image/webp',
+      initialQuality: 0.75
+    };
+
+    return imageCompression(file, options).then(function(compressed) {
+      var originalKB = (file.size / 1024).toFixed(0);
+      var compressedKB = (compressed.size / 1024).toFixed(0);
+      console.log('Compression: ' + originalKB + 'KB → ' + compressedKB + 'KB (' + Math.round((1 - compressed.size / file.size) * 100) + '% réduit)');
+      return compressed;
+    }).catch(function() {
+      return file;
+    });
   },
 
-  async uploadAll() {
-    const urls = [];
-    for (const item of this.files) {
-      if (item.url) { urls.push(item.url); continue; }
-      const thumb = document.getElementById(`thumb-${item.id}`);
-      if (thumb) { const ld = document.createElement('div'); ld.className = 'thumb__loader'; ld.innerHTML = '<span class="spinner" style="border-color:rgba(0,135,90,.2);border-top-color:var(--primary)"></span>'; thumb.appendChild(ld); }
-      try {
-        const compressed = await this.compress(item.file);
-        const fd = new FormData(); fd.append('image', compressed);
-        const r = await fetch(`https://api.imgbb.com/1/upload?key=${App.config.imgbbApiKey}`, { method: 'POST', body: fd });
-        const d = await r.json();
-        if (!d.success) throw new Error('Upload failed');
-        item.url = d.data.display_url;
-        urls.push(item.url);
-      } catch (e) { console.error('Upload error:', e); UI.toast('Erreur upload photo', 'error'); }
-      if (thumb) { const ld = thumb.querySelector('.thumb__loader'); if (ld) ld.remove(); }
-    }
-    return urls;
+  uploadAll: function() {
+    var self = this;
+    var urls = [];
+    var chain = Promise.resolve();
+
+    this.files.forEach(function(item) {
+      chain = chain.then(function() {
+        if (item.url) {
+          urls.push(item.url);
+          return;
+        }
+
+        var thumb = document.getElementById('thumb-' + item.id);
+        if (thumb) {
+          var loader = document.createElement('div');
+          loader.className = 'thumb__loader';
+          loader.innerHTML = '<span class="spinner"></span>';
+          thumb.appendChild(loader);
+        }
+
+        return self.compress(item.file).then(function(compressed) {
+          var fd = new FormData();
+          fd.append('image', compressed);
+          return fetch('https://api.imgbb.com/1/upload?key=' + App.config.imgbbApiKey, {
+            method: 'POST',
+            body: fd
+          });
+        }).then(function(resp) {
+          return resp.json();
+        }).then(function(data) {
+          if (!data.success) throw new Error('Upload failed');
+          item.url = data.data.display_url;
+          urls.push(item.url);
+
+          // Remove loader
+          if (thumb) {
+            var ld = thumb.querySelector('.thumb__loader');
+            if (ld) ld.remove();
+          }
+        }).catch(function(err) {
+          console.error('Upload error:', err);
+          UI.toast('Erreur upload photo', 'error');
+          if (thumb) {
+            var ld = thumb.querySelector('.thumb__loader');
+            if (ld) ld.remove();
+          }
+        });
+      });
+    });
+
+    return chain.then(function() { return urls; });
   },
 
-  reset() { this.files = []; document.getElementById('photo-preview').innerHTML = ''; }
+  reset: function() {
+    this.files = [];
+    var preview = document.getElementById('photo-preview');
+    if (preview) preview.innerHTML = '';
+  }
 };
