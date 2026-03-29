@@ -209,4 +209,132 @@ const UI = {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords;
-          if (latitude < 15.8 || 
+          if (latitude < 15.8 || latitude > 16.6 || longitude < -61.9 || longitude > -60.9) {
+            this.toast('Vous n\'êtes pas en Guadeloupe. Placez le marqueur manuellement.', 'warning');
+          } else {
+            MapManager.setMiniMapMarker(latitude, longitude);
+            MapManager.reverseGeocode(latitude, longitude);
+          }
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-crosshairs"></i> Me géolocaliser';
+        },
+        () => {
+          this.toast('Géolocalisation impossible. Placez le marqueur sur la carte.', 'warning');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-crosshairs"></i> Me géolocaliser';
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+
+    // Address search with results dropdown
+    let searchTimeout;
+    const searchInput = document.getElementById('address-search');
+    const resultsEl = document.getElementById('search-results');
+
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      const q = e.target.value.trim();
+      if (q.length < 3) {
+        resultsEl.style.display = 'none';
+        return;
+      }
+
+      searchTimeout = setTimeout(async () => {
+        const results = await MapManager.searchAddress(q);
+        if (results.length > 0) {
+          resultsEl.innerHTML = results.map(r =>
+            `<div class="search-result-item" data-lat="${r.lat}" data-lon="${r.lon}">${r.display_name}</div>`
+          ).join('');
+          resultsEl.style.display = 'block';
+        } else {
+          resultsEl.innerHTML = '<div class="search-result-item" style="color:var(--text-light);cursor:default;">Aucun résultat</div>';
+          resultsEl.style.display = 'block';
+        }
+      }, 400);
+    });
+
+    resultsEl.addEventListener('click', (e) => {
+      const item = e.target.closest('.search-result-item');
+      if (item && item.dataset.lat) {
+        const lat = parseFloat(item.dataset.lat);
+        const lon = parseFloat(item.dataset.lon);
+        MapManager.setMiniMapMarker(lat, lon);
+        MapManager.reverseGeocode(lat, lon);
+        searchInput.value = item.textContent;
+        resultsEl.style.display = 'none';
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.location-search')) {
+        resultsEl.style.display = 'none';
+      }
+    });
+
+    // Char count
+    document.getElementById('report-description').addEventListener('input', (e) => {
+      document.getElementById('desc-count').textContent = e.target.value.length;
+    });
+
+    // Priority cards
+    document.querySelectorAll('.priority-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.priority-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+      });
+    });
+
+    // Submit
+    document.getElementById('report-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      Reports.submitReport();
+    });
+  },
+
+  goToStep(n) {
+    document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
+    document.getElementById(`step-${n}`).classList.add('active');
+
+    document.querySelectorAll('.step-indicator .step').forEach(s => {
+      const num = parseInt(s.dataset.step);
+      s.classList.remove('active', 'completed');
+      if (num < n) s.classList.add('completed');
+      if (num === n) s.classList.add('active');
+    });
+
+    if (n === 2 && MapManager.miniMap) {
+      setTimeout(() => MapManager.miniMap.invalidateSize(), 100);
+    }
+  },
+
+  // Toast
+  toast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const icons = {
+      success: 'fas fa-check-circle',
+      error: 'fas fa-exclamation-circle',
+      warning: 'fas fa-exclamation-triangle',
+      info: 'fas fa-info-circle'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast--${type}`;
+    toast.innerHTML = `
+      <i class="toast__icon ${icons[type]}"></i>
+      <span class="toast__message">${message}</span>
+      <button class="toast__close" onclick="this.closest('.toast').remove()"><i class="fas fa-times"></i></button>
+    `;
+    container.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(100px)';
+      toast.style.transition = '0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 5000);
+  },
+
+  showLoading() { document.getElementById('loading-overlay').classList.add('active'); },
+  hideLoading() { document.getElementById('loading-overlay').classList.remove('active'); }
+};
