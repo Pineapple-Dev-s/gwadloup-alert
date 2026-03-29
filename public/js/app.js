@@ -35,25 +35,22 @@ const App = {
   async init() {
     try {
       UI.showLoading();
+
       const r = await fetch('/api/config');
       if (!r.ok) throw new Error('Config error');
       this.config = await r.json();
 
-      // Init Supabase avec options pour éviter le lock timeout
-      this.supabase = window.supabase.createClient(this.config.supabaseUrl, this.config.supabaseAnonKey, {
-        auth: {
-          autoRefreshToken: true,
-          persistSession: true,
-          detectSessionInUrl: true,
-          flowType: 'implicit',
-          lock: {
-            // Disable lock to avoid timeout issues on free tier
-            enabled: false
-          }
-        }
-      });
+      if (!this.config.supabaseUrl || !this.config.supabaseAnonKey) {
+        throw new Error('Missing Supabase config');
+      }
 
-      // Gérer le retour après confirmation email
+      // Init Supabase — PAS d'options auth custom, laisser les défauts
+      this.supabase = window.supabase.createClient(
+        this.config.supabaseUrl,
+        this.config.supabaseAnonKey
+      );
+
+      // Gérer retour confirmation email
       await this.handleAuthRedirect();
 
       await Auth.init();
@@ -61,7 +58,9 @@ const App = {
       UI.init();
       await Reports.loadAll();
       this.subscribeRealtime();
+
       UI.hideLoading();
+      console.log('✅ Gwadloup Alèrt OK');
     } catch (err) {
       console.error('Init:', err);
       UI.hideLoading();
@@ -72,15 +71,17 @@ const App = {
   async handleAuthRedirect() {
     const hash = window.location.hash;
     if (hash && (hash.includes('access_token') || hash.includes('error'))) {
-      // Supabase va automatiquement parser le hash avec detectSessionInUrl
-      // On attend un peu que la session soit établie
-      await new Promise(resolve => setTimeout(resolve, 500));
-      // Nettoyer l'URL
-      window.history.replaceState(null, '', window.location.pathname);
-      // Si c'est une confirmation réussie
-      if (hash.includes('access_token')) {
-        setTimeout(() => UI.toast('Email confirmé ! Vous êtes connecté 🎉', 'success'), 1000);
+      try {
+        // Attendre que Supabase parse le hash
+        await new Promise(resolve => setTimeout(resolve, 800));
+        const { data } = await this.supabase.auth.getSession();
+        if (data?.session) {
+          setTimeout(() => UI.toast('Email confirmé ! Bienvenue 🎉', 'success'), 1500);
+        }
+      } catch (e) {
+        console.error('Auth redirect:', e);
       }
+      window.history.replaceState(null, '', window.location.pathname);
     }
   },
 
@@ -96,9 +97,9 @@ const App = {
   timeAgo(d) {
     const s = Math.floor((new Date() - new Date(d)) / 1000);
     if (s < 60) return 'À l\'instant';
-    if (s < 3600) return `Il y a ${Math.floor(s/60)}min`;
-    if (s < 86400) return `Il y a ${Math.floor(s/3600)}h`;
-    if (s < 2592000) return `Il y a ${Math.floor(s/86400)}j`;
+    if (s < 3600) return `${Math.floor(s/60)}min`;
+    if (s < 86400) return `${Math.floor(s/3600)}h`;
+    if (s < 2592000) return `${Math.floor(s/86400)}j`;
     return new Date(d).toLocaleDateString('fr-FR');
   },
 
