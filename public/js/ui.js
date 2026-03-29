@@ -10,11 +10,16 @@ const UI = {
   },
 
   buildCatGrid() {
-    const grid = document.getElementById('category-grid');
-    if (!grid) return;
-    grid.innerHTML = Object.entries(App.categories).map(([k, v]) =>
+    const g = document.getElementById('category-grid');
+    if (!g) return;
+    g.innerHTML = Object.entries(App.categories).map(([k, v]) =>
       `<label class="cat-card"><input type="radio" name="category" value="${k}"><div class="cat-card__icon">${v.emoji}</div><div class="cat-card__name">${v.label}</div></label>`
     ).join('');
+
+    // Event listener pour activer le bouton next
+    g.addEventListener('change', () => {
+      document.getElementById('btn-step1-next').disabled = false;
+    });
   },
 
   bindNav() {
@@ -33,18 +38,72 @@ const UI = {
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${name}`));
     if (name === 'map' && MapManager.map) setTimeout(() => MapManager.map.invalidateSize(), 100);
     if (name === 'stats') Reports.updateStats();
+    if (name === 'wiki') this.loadWiki();
+  },
+
+  // === WIKI ===
+  async loadWiki() {
+    try {
+      const r = await fetch('/api/wiki');
+      const pages = await r.json();
+
+      const nav = document.getElementById('wiki-nav');
+      const icons = { accueil: 'fas fa-home', categories: 'fas fa-tags', communes: 'fas fa-map', technologie: 'fas fa-code' };
+
+      nav.innerHTML = pages.map((p, i) =>
+        `<button class="wiki-nav__link ${i === 0 ? 'active' : ''}" data-page="${p.slug}"><i class="${icons[p.slug] || 'fas fa-file-alt'}"></i>${p.title}</button>`
+      ).join('');
+
+      // Click events
+      nav.querySelectorAll('.wiki-nav__link').forEach(btn => {
+        btn.addEventListener('click', () => {
+          nav.querySelectorAll('.wiki-nav__link').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          this.loadWikiPage(btn.dataset.page);
+        });
+      });
+
+      // Load first page
+      if (pages.length > 0) this.loadWikiPage(pages[0].slug);
+      else document.getElementById('wiki-content').innerHTML = '<p>Aucune page wiki</p>';
+    } catch (e) {
+      document.getElementById('wiki-content').innerHTML = '<p>Erreur de chargement du wiki</p>';
+    }
+  },
+
+  async loadWikiPage(slug) {
+    const content = document.getElementById('wiki-content');
+    content.innerHTML = '<div class="wiki-loading"><span class="spinner" style="border-color:var(--border);border-top-color:var(--primary)"></span> Chargement...</div>';
+    try {
+      const r = await fetch(`/api/wiki/${slug}`);
+      if (!r.ok) throw new Error('Not found');
+      const md = await r.text();
+      content.innerHTML = marked.parse(md);
+    } catch (e) {
+      content.innerHTML = '<p>Page introuvable</p>';
+    }
   },
 
   bindBurger() {
-    const b = document.getElementById('burger-menu');
-    b.addEventListener('click', () => { b.classList.toggle('open'); document.getElementById('main-nav').classList.toggle('open'); });
+    document.getElementById('burger-menu').addEventListener('click', function() {
+      this.classList.toggle('open');
+      document.getElementById('main-nav').classList.toggle('open');
+    });
   },
 
   bindModals() {
     document.querySelectorAll('[data-close-modal]').forEach(el => {
-      el.addEventListener('click', () => { el.closest('.modal').classList.remove('open'); document.body.style.overflow = ''; });
+      el.addEventListener('click', () => {
+        el.closest('.modal').classList.remove('open');
+        document.body.style.overflow = '';
+      });
     });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { document.querySelectorAll('.modal.open').forEach(m => m.classList.remove('open')); document.body.style.overflow = ''; } });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal.open').forEach(m => m.classList.remove('open'));
+        document.body.style.overflow = '';
+      }
+    });
     document.getElementById('btn-new-report').addEventListener('click', () => {
       if (!App.currentUser) { this.toast('Connectez-vous', 'warning'); this.openModal('modal-login'); return; }
       Reports.resetForm();
@@ -77,11 +136,6 @@ const UI = {
   },
 
   bindForm() {
-    // Category selection
-    document.getElementById('category-grid').addEventListener('change', () => {
-      document.getElementById('btn-step1-next').disabled = false;
-    });
-
     // Step navigation
     document.getElementById('btn-step1-next').addEventListener('click', () => this.goStep(2));
     document.getElementById('btn-step2-next').addEventListener('click', () => this.goStep(3));
@@ -91,17 +145,17 @@ const UI = {
 
     // Geolocation
     document.getElementById('btn-geolocate').addEventListener('click', () => {
-      if (!navigator.geolocation) { this.toast('Géolocalisation non supportée', 'error'); return; }
+      if (!navigator.geolocation) { this.toast('Non supporté', 'error'); return; }
       const btn = document.getElementById('btn-geolocate');
-      btn.disabled = true; btn.innerHTML = '<span class="spinner" style="border-color:rgba(0,0,0,.15);border-top-color:var(--primary);width:12px;height:12px"></span> Localisation...';
+      btn.disabled = true; btn.innerHTML = '<span class="spinner" style="border-color:rgba(0,0,0,.15);border-top-color:var(--primary);width:12px;height:12px"></span>';
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude: lat, longitude: lng } = pos.coords;
-          if (lat < 15.8 || lat > 16.6 || lng < -61.9 || lng > -60.9) this.toast('Vous n\'êtes pas en Guadeloupe', 'warning');
+          if (lat < 15.8 || lat > 16.6 || lng < -61.9 || lng > -60.9) this.toast('Pas en Guadeloupe', 'warning');
           else { MapManager.setPin(lat, lng); MapManager.reverseGeo(lat, lng); }
-          btn.disabled = false; btn.innerHTML = '<i class="fas fa-crosshairs"></i> Me localiser';
+          btn.disabled = false; btn.innerHTML = '<i class="fas fa-crosshairs"></i> Localiser';
         },
-        () => { this.toast('Impossible de vous localiser', 'warning'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-crosshairs"></i> Me localiser'; },
+        () => { this.toast('Localisation impossible', 'warning'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-crosshairs"></i> Localiser'; },
         { enableHighAccuracy: true, timeout: 10000 }
       );
     });
@@ -119,7 +173,7 @@ const UI = {
         if (results.length > 0) {
           sr.innerHTML = results.map(r => `<div class="loc-result" data-lat="${r.lat}" data-lon="${r.lon}">${r.display_name}</div>`).join('');
           sr.classList.add('open');
-        } else { sr.innerHTML = '<div class="loc-result" style="color:var(--text3);cursor:default">Aucun résultat</div>'; sr.classList.add('open'); }
+        } else { sr.classList.remove('open'); }
       }, 400);
     });
     sr.addEventListener('click', (e) => {
@@ -133,14 +187,17 @@ const UI = {
     });
     document.addEventListener('click', (e) => { if (!e.target.closest('.loc-search')) sr.classList.remove('open'); });
 
-    // Char count
+    // Description count
     document.getElementById('report-description').addEventListener('input', (e) => {
       document.getElementById('desc-count').textContent = e.target.value.length;
     });
 
     // Priority
     document.querySelectorAll('.prio').forEach(p => {
-      p.addEventListener('click', () => { document.querySelectorAll('.prio').forEach(x => x.classList.remove('active')); p.classList.add('active'); });
+      p.addEventListener('click', () => {
+        document.querySelectorAll('.prio').forEach(x => x.classList.remove('active'));
+        p.classList.add('active');
+      });
     });
 
     // Submit
@@ -160,13 +217,12 @@ const UI = {
   },
 
   toast(msg, type = 'info') {
-    const c = document.getElementById('toast-container');
-    const icons = { success: 'fas fa-check-circle', error: 'fas fa-exclamation-circle', warning: 'fas fa-exclamation-triangle', info: 'fas fa-info-circle' };
+    const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
     const t = document.createElement('div');
     t.className = `toast toast--${type}`;
-    t.innerHTML = `<i class="toast__icon ${icons[type]}"></i><span class="toast__msg">${msg}</span><button class="toast__x" onclick="this.closest('.toast').remove()"><i class="fas fa-times"></i></button>`;
-    c.appendChild(t);
-    setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(80px)'; t.style.transition = '.3s'; setTimeout(() => t.remove(), 300); }, 5000);
+    t.innerHTML = `<i class="toast__icon fas ${icons[type]}"></i><span class="toast__msg">${msg}</span><button class="toast__x" onclick="this.closest('.toast').remove()"><i class="fas fa-times"></i></button>`;
+    document.getElementById('toast-container').appendChild(t);
+    setTimeout(() => { t.style.cssText = 'opacity:0;transform:translateX(80px);transition:.3s'; setTimeout(() => t.remove(), 300); }, 4000);
   },
 
   showLoading() { document.getElementById('loading-overlay').classList.add('active'); },
