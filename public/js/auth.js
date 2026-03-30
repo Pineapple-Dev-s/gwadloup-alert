@@ -29,7 +29,6 @@ var Auth = {
 
   bind: function() {
     var self = this;
-
     var btnLogin = document.getElementById('btn-login');
     var btnRegister = document.getElementById('btn-register');
     var btnLogout = document.getElementById('btn-logout');
@@ -78,7 +77,6 @@ var Auth = {
       if (result.data) {
         App.currentProfile = result.data;
       } else {
-        // Create profile if not exists
         var meta = App.currentUser.user_metadata || {};
         var ins = await App.supabase.from('profiles').insert({
           id: App.currentUser.id,
@@ -110,22 +108,9 @@ var Auth = {
 
       var name = App.currentProfile.username || 'Citoyen';
       var initial = name.charAt(0).toUpperCase();
-
-      var els = {
-        'user-avatar': initial,
-        'dropdown-avatar': initial,
-        'user-display-name': name,
-        'dropdown-name': name,
-        'dropdown-rep': (App.currentProfile.reputation || 0) + ' pts'
-      };
-      for (var id in els) {
-        var el = document.getElementById(id);
-        if (el) el.textContent = els[id];
-      }
-
-      if (adminSection) {
-        adminSection.style.display = App.currentProfile.role === 'admin' ? 'block' : 'none';
-      }
+      var els = { 'user-avatar': initial, 'dropdown-avatar': initial, 'user-display-name': name, 'dropdown-name': name, 'dropdown-rep': (App.currentProfile.reputation || 0) + ' pts' };
+      for (var id in els) { var el = document.getElementById(id); if (el) el.textContent = els[id]; }
+      if (adminSection) adminSection.style.display = App.currentProfile.role === 'admin' ? 'block' : 'none';
     } else {
       if (authBtns) authBtns.style.display = 'flex';
       if (userMenu) userMenu.style.display = 'none';
@@ -141,9 +126,7 @@ var Auth = {
     var btn = document.getElementById('btn-login-submit');
 
     if (!email || !password) { this._showError(errEl, 'Remplissez tous les champs'); return; }
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Connexion...';
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Connexion...';
 
     try {
       var result = await App.supabase.auth.signInWithPassword({ email: email, password: password });
@@ -157,11 +140,8 @@ var Auth = {
         UI.toast('Connecté !', 'success');
         if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
       }
-    } catch(e) {
-      this._showError(errEl, 'Erreur de connexion');
-    }
-    btn.disabled = false;
-    btn.innerHTML = 'Se connecter';
+    } catch(e) { this._showError(errEl, 'Erreur de connexion'); }
+    btn.disabled = false; btn.innerHTML = 'Se connecter';
   },
 
   register: async function() {
@@ -178,15 +158,10 @@ var Auth = {
     if (password.length < 6) { this._showError(errEl, 'Mot de passe trop court (min 6)'); return; }
     if (password !== confirm) { this._showError(errEl, 'Les mots de passe ne correspondent pas'); return; }
 
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Création...';
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Création...';
 
     try {
-      var result = await App.supabase.auth.signUp({
-        email: email,
-        password: password,
-        options: { data: { username: username, commune: commune } }
-      });
+      var result = await App.supabase.auth.signUp({ email: email, password: password, options: { data: { username: username, commune: commune } } });
       if (result.error) {
         var msg = result.error.message;
         if (msg.indexOf('already registered') !== -1) msg = 'Cet email est déjà utilisé';
@@ -195,11 +170,8 @@ var Auth = {
         UI.closeModal('modal-register');
         UI.toast('Compte créé ! Vérifiez votre email.', 'success');
       }
-    } catch(e) {
-      this._showError(errEl, 'Erreur lors de l\'inscription');
-    }
-    btn.disabled = false;
-    btn.innerHTML = 'Créer mon compte';
+    } catch(e) { this._showError(errEl, 'Erreur lors de l\'inscription'); }
+    btn.disabled = false; btn.innerHTML = 'Créer mon compte';
   },
 
   logout: async function() {
@@ -220,19 +192,14 @@ var Auth = {
 
     var initial = (p.username || 'C').charAt(0).toUpperCase();
     var level = this._getLevel(p.reputation || 0);
-
     var myReports = App.reports.filter(function(r) { return r.user_id === App.currentUser.id; });
     var resolved = myReports.filter(function(r) { return r.status === 'resolved'; }).length;
-
     var communes = this._getCommuneOptions();
 
     var html = '<div class="profile">' +
       '<div class="profile__header">' +
         '<div class="profile__banner"></div>' +
-        '<div class="profile__avatar-wrap">' +
-          '<div class="profile__avatar">' + initial + '</div>' +
-          '<span class="profile__level">Nv.' + level.num + '</span>' +
-        '</div>' +
+        '<div class="profile__avatar-wrap"><div class="profile__avatar">' + initial + '</div><span class="profile__level">Nv.' + level.num + '</span></div>' +
         '<div class="profile__name">' + App.esc(p.username) + '</div>' +
         '<div class="profile__email">' + App.esc(App.currentUser.email) + '</div>' +
         (p.commune ? '<div class="profile__commune"><i class="fas fa-map-pin"></i> ' + App.esc(p.commune) + '</div>' : '') +
@@ -243,37 +210,21 @@ var Auth = {
         '<div class="profile__stat profile__stat--green"><div class="profile__stat-value">' + resolved + '</div><div class="profile__stat-icon"><i class="fas fa-check"></i></div><div class="profile__stat-label">Résolus</div></div>' +
         '<div class="profile__stat profile__stat--purple"><div class="profile__stat-value">' + level.name + '</div><div class="profile__stat-icon"><i class="fas fa-star"></i></div><div class="profile__stat-label">Niveau</div></div>' +
         '<div class="profile__stat profile__stat--yellow"><div class="profile__stat-value">' + (p.reputation || 0) + '</div><div class="profile__stat-icon"><i class="fas fa-trophy"></i></div><div class="profile__stat-label">Réputation</div></div>' +
-      '</div>';
-
-    // Badges
-    html += '<div class="profile__section">' +
-      '<div class="profile__section-title"><i class="fas fa-award"></i> Badges</div>' +
-      '<div id="profile-badges-container"></div>' +
-    '</div>';
-
-    // Settings
-    html += '<div class="profile__section">' +
-      '<div class="profile__section-title"><i class="fas fa-cog"></i> Paramètres</div>' +
-      '<div class="profile__setting">' +
-        '<label>Commune</label>' +
-        '<select class="inp" id="profile-commune">' + communes + '</select>' +
       '</div>' +
-      '<div class="profile__setting">' +
-        '<label>Nouveau mot de passe</label>' +
-        '<input type="password" class="inp" id="profile-new-password" placeholder="Laisser vide pour ne pas changer" minlength="6">' +
-      '</div>' +
-      '<button class="btn btn--primary" id="btn-save-profile" style="margin-top:8px"><i class="fas fa-save"></i> Sauvegarder</button>' +
-    '</div></div>';
+      '<div class="profile__section"><div class="profile__section-title"><i class="fas fa-award"></i> Badges</div><div id="profile-badges-container"></div></div>' +
+      '<div class="profile__section"><div class="profile__section-title"><i class="fas fa-cog"></i> Paramètres</div>' +
+        '<div class="profile__setting"><label>Commune</label><select class="inp" id="profile-commune">' + communes + '</select></div>' +
+        '<div class="profile__setting"><label>Nouveau mot de passe</label><input type="password" class="inp" id="profile-new-password" placeholder="Laisser vide pour ne pas changer" minlength="6"></div>' +
+        '<button class="btn btn--primary" id="btn-save-profile" style="margin-top:8px"><i class="fas fa-save"></i> Sauvegarder</button>' +
+      '</div></div>';
 
     var container = document.getElementById('profile-content');
     if (container) container.innerHTML = html;
     UI.openModal('modal-profile');
 
-    // Set current commune
     var communeSel = document.getElementById('profile-commune');
     if (communeSel && p.commune) communeSel.value = p.commune;
 
-    // Render badges
     if (typeof Badges !== 'undefined') {
       Badges.computeStats().then(function(stats) {
         var badgesEl = document.getElementById('profile-badges-container');
@@ -281,11 +232,8 @@ var Auth = {
       });
     }
 
-    // Save button
     var saveBtn = document.getElementById('btn-save-profile');
-    if (saveBtn) {
-      saveBtn.addEventListener('click', function() { Auth._saveProfile(); });
-    }
+    if (saveBtn) saveBtn.addEventListener('click', function() { Auth._saveProfile(); });
   },
 
   _saveProfile: async function() {
@@ -294,20 +242,13 @@ var Auth = {
 
     if (commune && commune.value !== (App.currentProfile.commune || '')) {
       var res = await App.supabase.from('profiles').update({ commune: commune.value }).eq('id', App.currentUser.id);
-      if (!res.error) {
-        App.currentProfile.commune = commune.value;
-        UI.toast('Commune mise à jour', 'success');
-      }
+      if (!res.error) { App.currentProfile.commune = commune.value; UI.toast('Commune mise à jour', 'success'); }
     }
 
     if (newPwd && newPwd.value && newPwd.value.length >= 6) {
       var res = await App.supabase.auth.updateUser({ password: newPwd.value });
-      if (res.error) {
-        UI.toast('Erreur mot de passe: ' + res.error.message, 'error');
-      } else {
-        newPwd.value = '';
-        UI.toast('Mot de passe mis à jour', 'success');
-      }
+      if (res.error) { UI.toast('Erreur mot de passe: ' + res.error.message, 'error'); }
+      else { newPwd.value = ''; UI.toast('Mot de passe mis à jour', 'success'); }
     }
   },
 
@@ -315,13 +256,12 @@ var Auth = {
     var dd = document.getElementById('user-dropdown');
     if (dd) dd.classList.remove('open');
     if (!App.currentUser) return;
-
     var myReports = App.reports.filter(function(r) { return r.user_id === App.currentUser.id; });
     var container = document.getElementById('my-reports-content');
     if (!container) return;
 
     if (myReports.length === 0) {
-      container.innerHTML = '<div class="empty"><span><i class="fas fa-inbox fa-3x"></i></span><h3>Aucun signalement</h3><p style="color:var(--text2)">Vous n\'avez pas encore créé de signalement</p></div>';
+      container.innerHTML = '<div class="empty"><i class="fas fa-inbox"></i><h3>Aucun signalement</h3><p>Vous n\'avez pas encore créé de signalement</p></div>';
     } else {
       var html = '<div style="padding:16px">';
       for (var i = 0; i < myReports.length; i++) {
@@ -347,7 +287,11 @@ var Auth = {
     var container = document.getElementById('admin-reports-list');
     if (!container) return;
 
-    var html = '<h3 style="margin-bottom:12px;font-size:.9rem"><i class="fas fa-shield-alt" style="color:var(--purple)"></i> Gestion des signalements (' + App.reports.length + ')</h3>';
+    // Banner admin section
+    var html = UI.showBannerAdmin();
+
+    html += '<div style="border-top:1px solid var(--border);margin:16px 0;padding-top:16px"></div>';
+    html += '<h3 style="margin-bottom:12px;font-size:.9rem;display:flex;align-items:center;gap:6px"><i class="fas fa-shield-alt" style="color:var(--purple)"></i> Gestion des signalements (' + App.reports.length + ')</h3>';
 
     for (var i = 0; i < App.reports.length; i++) {
       var r = App.reports[i];
@@ -377,8 +321,7 @@ var Auth = {
       UI.toast('Statut mis à jour', 'success');
       var report = App.reports.find(function(r) { return r.id === id; });
       if (report) report.status = status;
-      Reports.renderList();
-      Reports.updateStats();
+      if (typeof Reports !== 'undefined') { Reports.renderList(); Reports.updateStats(); }
     }
   },
 
@@ -397,9 +340,8 @@ var Auth = {
     if (result.error) { UI.toast('Erreur', 'error'); } else {
       UI.toast('Supprimé', 'success');
       App.reports = App.reports.filter(function(r) { return r.id !== id; });
-      MapManager.removeReport(id);
-      Reports.renderList();
-      Reports.updateStats();
+      if (typeof MapManager !== 'undefined') MapManager.removeReport(id);
+      if (typeof Reports !== 'undefined') { Reports.renderList(); Reports.updateStats(); }
       this.showAdmin();
     }
   },
@@ -414,9 +356,7 @@ var Auth = {
       UI.toast('Article supprimé', 'success');
       UI.closeModal('modal-wiki-article');
       UI.loadCommunityArticles();
-    } catch(e) {
-      UI.toast('Erreur suppression', 'error');
-    }
+    } catch(e) { UI.toast('Erreur suppression', 'error'); }
   },
 
   _showError: function(el, msg) {
@@ -449,9 +389,7 @@ var Auth = {
     var html = '<option value="">Choisir...</option>';
     for (var g in groups) {
       html += '<optgroup label="' + g + '">';
-      for (var i = 0; i < groups[g].length; i++) {
-        html += '<option>' + groups[g][i] + '</option>';
-      }
+      for (var i = 0; i < groups[g].length; i++) html += '<option>' + groups[g][i] + '</option>';
       html += '</optgroup>';
     }
     return html;
