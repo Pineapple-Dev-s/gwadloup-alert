@@ -124,12 +124,14 @@ var Reports = {
     var isOwner = App.currentUser && report.user_id === App.currentUser.id;
     var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
 
+    var authorHtml = '<span style="cursor:pointer;text-decoration:underline dotted" onclick="UI.openPublicProfile(\'' + report.user_id + '\')"><i class="fas fa-user"></i> ' + App.esc(authorName) + '</span>';
+
     var html = galHtml + '<div class="det__body">' +
       '<div class="det__badges"><span class="badge badge--cat"><i class="fas ' + fa + '"></i> ' + cat.label + '</span>' +
       '<span class="badge badge--' + report.status + '">' + status.label + '</span>' +
       '<span class="badge" style="background:' + priority.color + '22;color:' + priority.color + '">' + priority.label + '</span></div>' +
       '<h2 class="det__title">' + App.esc(report.title) + '</h2>' +
-      '<div class="det__meta"><span><i class="fas fa-user"></i> ' + App.esc(authorName) + '</span>' +
+      '<div class="det__meta">' + authorHtml +
       '<span><i class="fas fa-map-pin"></i> ' + (report.commune || 'Guadeloupe') + '</span>' +
       '<span><i class="fas fa-clock"></i> ' + App.ago(report.created_at) + '</span></div>' +
       '<p class="det__desc">' + App.esc(report.description) + '</p>';
