@@ -8,7 +8,6 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Groq keys
 const GROQ_KEYS = (process.env.GROQ_KEYS || '').split(',').map(k => k.trim()).filter(Boolean);
 let groqIdx = 0;
 function getGroqKey() {
@@ -16,7 +15,6 @@ function getGroqKey() {
   return GROQ_KEYS[groqIdx++ % GROQ_KEYS.length];
 }
 
-// Bad words - EXTENDED
 const BAD_WORDS = [
   'putain','merde','connard','connasse','enculé','enculer','nique','niquer',
   'salope','salaud','bordel','foutre','bite','couille','chier',
@@ -39,7 +37,7 @@ const ALWAYS_FLAG = [
   'darmanin','borne','attal','bardella',
   'putain','merde','connard','enculé','nique','fdp','ntm',
   'nazi','hitler','pédophile',
-  'idiot','imbécile','cr��tin','débile','abruti','con ','bouffon',
+  'idiot','imbécile','crétin','débile','abruti','con ','bouffon',
   'taré','demeuré','gogol','stupide'
 ];
 const SOFT_INSULTS = [
@@ -83,7 +81,6 @@ function containsBadWords(text) {
   return { found: found.length > 0, words: [...new Set(found)], severity };
 }
 
-// Anti spam
 const cooldowns = new Map();
 function checkCooldown(userId) {
   const now = Date.now(), d = cooldowns.get(userId);
@@ -99,7 +96,6 @@ function markDelete(userId) {
   if (d) d.delCount++; else cooldowns.set(userId, { last: Date.now(), delCount: 1, delReset: Date.now() });
 }
 
-// Security - FIXED CSP: added wss:// for Supabase realtime
 app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -111,7 +107,7 @@ app.use((req, res, next) => {
     "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " +
     "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; " +
     "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; " +
-    "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://i.ibb.co https://*.tile.openstreetmap.org; " +
+    "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://i.ibb.co https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.tile.opentopomap.org https://server.arcgisonline.com https://stamen-tiles.a.ssl.fastly.net; " +
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.imgbb.com https://nominatim.openstreetmap.org https://api.groq.com; " +
     "frame-src 'none'; object-src 'none'; base-uri 'self'");
   if (req.secure || req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
@@ -141,7 +137,6 @@ setInterval(() => { const n = Date.now(); for (const [k, v] of hits) if (n - v.t
 
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '30d', etag: true, dotfiles: 'deny' }));
 
-// Config
 app.get('/api/config', limit(60, 60000), (req, res) => {
   res.json({
     supabaseUrl: process.env.SUPABASE_URL || '',
@@ -153,9 +148,8 @@ app.get('/api/config', limit(60, 60000), (req, res) => {
   });
 });
 
-app.get('/api/health', (req, res) => res.json({ ok: true, groq: GROQ_KEYS.length, uptime: process.uptime() }));
+app.get('/api/health', (req, res) => res.json({ ok: true, groq: GROQ_KEYS.length }));
 
-// Wiki static
 app.get('/api/wiki-static', limit(30, 60000), (req, res) => {
   const dir = path.join(__dirname, 'wiki');
   if (!fs.existsSync(dir)) return res.json([]);
@@ -170,7 +164,6 @@ app.get('/api/wiki-static/:page', limit(60, 60000), (req, res) => {
   else res.status(404).json({ error: 'Not found' });
 });
 
-// Anti-farm
 app.post('/api/check-farm', limit(60, 60000), (req, res) => {
   if (!req.body.userId) return res.status(400).json({ error: 'Missing' });
   res.json(checkCooldown(req.body.userId));
@@ -180,9 +173,10 @@ app.post('/api/mark-delete', limit(30, 60000), (req, res) => {
   res.json({ ok: true });
 });
 
-// Moderation
+// Moderation — now accepts context param for wiki markdown output
 app.post('/api/moderate', limit(60, 60000), async (req, res) => {
-  const { title, description } = req.body;
+  const { title, description, context } = req.body;
+  const isWiki = context === 'wiki';
   const check = containsBadWords((title || '') + ' ' + (description || ''));
   if (!check.found) return res.json({ flagged: false });
 
@@ -196,6 +190,10 @@ app.post('/api/moderate', limit(60, 60000), async (req, res) => {
     }
     return res.json({ flagged: true, reformulated: true, cleaned: { title: ct, description: cd } });
   }
+
+  const markdownInstruction = isWiki
+    ? `\n\nIMPORTANT: Le contenu est pour un wiki/forum qui utilise Markdown. CONSERVE tout le formatage Markdown existant (titres ##, listes -, **gras**, *italique*, tableaux, liens, code, etc). Ne supprime JAMAIS le formatage Markdown, reformule uniquement le texte problématique en gardant la structure.`
+    : '';
 
   try {
     const ctrl = new AbortController();
@@ -226,12 +224,12 @@ INTERDICTIONS ABSOLUES :
 EXEMPLES :
 - "Macron est un idiot" → "La politique actuelle pose des questions"
 - "Ce mec est un connard il gare sa voiture n'importe où" → "Quelqu'un gare son véhicule de manière gênante"
-- "T'es bête ou quoi ?" → "Je ne suis pas d'accord avec ce point de vue"
+- "T'es bête ou quoi ?" → "Je ne suis pas d'accord avec ce point de vue"${markdownInstruction}
 
 Réponds UNIQUEMENT en JSON : {"title":"...","description":"..."}` },
-          { role: 'user', content: `Titre: ${(title || '').substring(0, 300)}\nDescription: ${(description || '').substring(0, 2000)}` }
+          { role: 'user', content: `Titre: ${(title || '').substring(0, 300)}\nDescription: ${(description || '').substring(0, 5000)}` }
         ],
-        temperature: 0.3, max_tokens: 600
+        temperature: 0.3, max_tokens: isWiki ? 2000 : 600
       }),
       signal: ctrl.signal
     });
@@ -246,14 +244,12 @@ Réponds UNIQUEMENT en JSON : {"title":"...","description":"..."}` },
     let parsed;
     try { parsed = JSON.parse(txt); } catch (e) { throw new Error('JSON parse'); }
 
-    // Check for apology/refusal
     const apology = ['je suis désolé','je ne peux pas','je ne suis pas en mesure','veuillez reformuler',
       'je ne peux pas répondre','nous sommes là pour','de manière respectueuse','je m\'excuse',
       'contenu inapproprié','message inapproprié','il m\'est impossible'];
     const combined = ((parsed.title || '') + ' ' + (parsed.description || '')).toLowerCase();
-    if (apology.some(p => combined.includes(p))) throw new Error('Apology detected');
+    if (apology.some(p => combined.includes(p))) throw new Error('Apology');
 
-    // Re-check result
     const recheck = containsBadWords((parsed.title || '') + ' ' + (parsed.description || ''));
     if (recheck.found) {
       let ct = parsed.title || '', cd = parsed.description || '';
@@ -267,7 +263,7 @@ Réponds UNIQUEMENT en JSON : {"title":"...","description":"..."}` },
 
     return res.json({ flagged: true, reformulated: true, cleaned: {
       title: (parsed.title || 'Signalement').substring(0, 150),
-      description: (parsed.description || 'Description').substring(0, 2000)
+      description: (parsed.description || 'Description').substring(0, 5000)
     }});
   } catch (e) {
     let ct = title || '', cd = description || '';
@@ -280,12 +276,7 @@ Réponds UNIQUEMENT en JSON : {"title":"...","description":"..."}` },
   }
 });
 
-// Export stats API
-app.get('/api/stats/export', limit(10, 60000), async (req, res) => {
-  res.json({ message: 'Use the frontend export feature' });
-});
-
 app.all('/api/*', (req, res) => res.status(404).json({ error: 'Route inconnue' }));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Erreur serveur' }); });
-app.listen(PORT, () => console.log(`Gwadloup Alert v9 — port ${PORT} — ${GROQ_KEYS.length} Groq key(s)`));
+app.listen(PORT, () => console.log(`Gwadloup Alert v10 — port ${PORT} — ${GROQ_KEYS.length} Groq key(s)`));
