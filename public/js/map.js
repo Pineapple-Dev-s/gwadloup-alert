@@ -1,7 +1,8 @@
 var MapManager = {
   map: null, miniMap: null, miniMapMarker: null, markerCluster: null, markers: {},
   CENTER: [16.1745, -61.4510],
-  BOUNDS: [[15.8, -61.9], [16.6, -60.9]],
+  // Wider bounds to include Les Saintes, Western Basse-Terre, and Eastern Grande Terre + Désirade
+  BOUNDS: [[15.7, -62.0], [16.65, -60.9]],
   currentLayer: null,
 
   tileLayers: {
@@ -147,7 +148,7 @@ var MapManager = {
 
   flyTo: function(lat, lng, z) { this.map.flyTo([lat, lng], z || 16, { duration: 1 }); },
 
-  isInGuadeloupe: function(lat, lng) { return lat >= 15.8 && lat <= 16.6 && lng >= -61.9 && lng <= -60.9; },
+  isInGuadeloupe: function(lat, lng) { return lat >= 15.7 && lat <= 16.65 && lng >= -62.0 && lng <= -60.9; },
 
   initMiniMap: function() {
     var self = this;
@@ -162,7 +163,7 @@ var MapManager = {
 
       self.miniMap = L.map('mini-map', {
         center: self.CENTER, zoom: 11, minZoom: 10, maxZoom: 18,
-        maxBounds: [[15.7, -62.0], [16.7, -60.8]], maxBoundsViscosity: 1.0
+        maxBounds: [[15.65, -62.05], [16.7, -60.85]], maxBoundsViscosity: 1.0
       });
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         subdomains: 'abcd', maxZoom: 20
@@ -233,13 +234,13 @@ var MapManager = {
     }
   },
 
-  searchAddr: async function(q) {
+  async searchAddr: async function(q) {
     try {
-      var r = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q + ' Guadeloupe') + '&limit=5&viewbox=-61.9,15.8,-60.9,16.6&bounded=1', { headers: { 'Accept-Language': 'fr' } });
+      var r = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q + ' Guadeloupe') + '&limit=5&viewbox=-62.0,15.7,-60.9,16.65&bounded=1', { headers: { 'Accept-Language': 'fr' } });
       var results = await r.json();
       return results.filter(function(item) {
         var lat = parseFloat(item.lat), lon = parseFloat(item.lon);
-        return lat >= 15.8 && lat <= 16.6 && lon >= -61.9 && lon <= -60.9;
+        return lat >= 15.7 && lat <= 16.65 && lon >= -62.0 && lon <= -60.9;
       });
     } catch (e) { return []; }
   }
