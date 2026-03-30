@@ -1,6 +1,5 @@
 var Share = {
   init: function() {
-    // Check hash for deep links: #report/ID or #article/ID
     var hash = window.location.hash;
     if (hash) {
       var parts = hash.replace('#', '').split('/');
@@ -15,7 +14,6 @@ var Share = {
         }, 2000);
       }
     }
-    // Also check query params
     var params = new URLSearchParams(window.location.search);
     if (params.get('report')) {
       setTimeout(function() { Reports.openDetail(params.get('report')); }, 2000);
@@ -39,20 +37,23 @@ var Share = {
     this._openShareModal(url, report.title);
   },
 
+  // ALIAS — fixes onclick="Share.report(...)" calls
+  report: function(reportId) {
+    this.shareReport(reportId);
+  },
+
   shareArticle: function(articleId, articleTitle) {
     var url = window.location.origin + '/#article/' + articleId;
     this._openShareModal(url, articleTitle || 'Article');
   },
 
   _openShareModal: function(url, title) {
-    // Try native share API first (works on mobile + some desktop browsers)
     if (navigator.share) {
       navigator.share({
         title: 'Gwadloup Alert',
         text: title,
         url: url
       }).catch(function() {
-        // User cancelled — show manual modal
         Share._showModal(url, title);
       });
       return;
@@ -61,7 +62,6 @@ var Share = {
   },
 
   _showModal: function(url, title) {
-    // Remove old
     var old = document.getElementById('share-overlay');
     if (old) old.remove();
 
@@ -70,7 +70,6 @@ var Share = {
     var encText = encodeURIComponent(fullText);
     var encBoth = encodeURIComponent(fullText + '\n' + url);
 
-    // Build modal
     var overlay = document.createElement('div');
     overlay.id = 'share-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)';
@@ -78,7 +77,6 @@ var Share = {
     var box = document.createElement('div');
     box.style.cssText = 'background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:0;max-width:380px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.4);animation:mslide .2s ease';
 
-    // Header
     var header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)';
     header.innerHTML = '<h3 style="font-size:.9rem;font-weight:700;display:flex;align-items:center;gap:6px"><i class="fas fa-share-alt" style="color:var(--green)"></i> Partager</h3>';
@@ -89,14 +87,11 @@ var Share = {
     header.appendChild(closeBtn);
     box.appendChild(header);
 
-    // Body
     var body = document.createElement('div');
     body.style.cssText = 'padding:16px';
 
-    // Title preview
     body.innerHTML = '<p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;padding:8px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)"><i class="fas fa-link" style="color:var(--green);margin-right:4px"></i> ' + App.esc(title) + '</p>';
 
-    // Grid
     var grid = document.createElement('div');
     grid.className = 'share-grid';
 
@@ -135,7 +130,6 @@ var Share = {
     }
     body.appendChild(grid);
 
-    // URL box
     var urlBox = document.createElement('div');
     urlBox.style.cssText = 'display:flex;gap:4px;margin-top:4px';
     var urlInput = document.createElement('input');
@@ -156,7 +150,6 @@ var Share = {
     box.appendChild(body);
     overlay.appendChild(box);
 
-    // Click outside to close
     overlay.addEventListener('click', function(e) {
       if (e.target === overlay) overlay.remove();
     });
