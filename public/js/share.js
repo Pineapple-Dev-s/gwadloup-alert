@@ -1,19 +1,31 @@
 var Share = {
   init: function() {
-    // Listen for deep links on page load
-    var params = new URLSearchParams(window.location.search);
-    var reportId = params.get('report');
-    var articleId = params.get('article');
-    if (reportId) {
-      setTimeout(function() { Reports.openDetail(reportId); }, 1500);
+    // Check hash for deep links: #report/ID or #article/ID
+    var hash = window.location.hash;
+    if (hash) {
+      var parts = hash.replace('#', '').split('/');
+      if (parts[0] === 'report' && parts[1]) {
+        setTimeout(function() { Reports.openDetail(parts[1]); }, 2000);
+      }
+      if (parts[0] === 'article' && parts[1]) {
+        setTimeout(function() {
+          var wikiTab = document.querySelector('[data-view="wiki"]');
+          if (wikiTab) wikiTab.click();
+          setTimeout(function() { UI.openArticle(parts[1]); }, 500);
+        }, 2000);
+      }
     }
-    if (articleId) {
+    // Also check query params
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('report')) {
+      setTimeout(function() { Reports.openDetail(params.get('report')); }, 2000);
+    }
+    if (params.get('article')) {
       setTimeout(function() {
-        // Switch to wiki tab
         var wikiTab = document.querySelector('[data-view="wiki"]');
         if (wikiTab) wikiTab.click();
-        setTimeout(function() { UI.openArticle(articleId); }, 500);
-      }, 1500);
+        setTimeout(function() { UI.openArticle(params.get('article')); }, 500);
+      }, 2000);
     }
   },
 
@@ -23,135 +35,148 @@ var Share = {
       if (App.reports[i].id === reportId) { report = App.reports[i]; break; }
     }
     if (!report) { UI.toast('Signalement introuvable', 'error'); return; }
-    var url = window.location.origin + '/?report=' + reportId;
-    var title = report.title || 'Signalement';
-    this._open(url, title, (report.description || '').substring(0, 120));
+    var url = window.location.origin + '/#report/' + reportId;
+    this._openShareModal(url, report.title);
   },
 
   shareArticle: function(articleId, articleTitle) {
-    var url = window.location.origin + '/?article=' + articleId;
-    var title = articleTitle || 'Article';
-    this._open(url, title, '');
+    var url = window.location.origin + '/#article/' + articleId;
+    this._openShareModal(url, articleTitle || 'Article');
   },
 
-  _open: function(url, title, desc) {
-    // Try native share first (mobile)
+  _openShareModal: function(url, title) {
+    // Try native share API first (works on mobile + some desktop browsers)
     if (navigator.share) {
       navigator.share({
-        title: 'Gwadloup Alert — ' + title,
-        text: desc || title,
+        title: 'Gwadloup Alert',
+        text: title,
         url: url
-      }).then(function() {
-        UI.toast('Partagé !', 'success');
-      }).catch(function(err) {
-        // User cancelled or error — show fallback
-        if (err.name !== 'AbortError') {
-          Share._showPopup(url, title);
-        }
+      }).catch(function() {
+        // User cancelled — show manual modal
+        Share._showModal(url, title);
       });
       return;
     }
-    // Desktop fallback
-    this._showPopup(url, title);
+    this._showModal(url, title);
   },
 
-  _showPopup: function(url, title) {
-    // Remove existing
-    var old = document.getElementById('share-modal');
+  _showModal: function(url, title) {
+    // Remove old
+    var old = document.getElementById('share-overlay');
     if (old) old.remove();
 
-    var fullTitle = 'Gwadloup Alert — ' + title;
-
-    var modal = document.createElement('div');
-    modal.id = 'share-modal';
-    modal.className = 'modal open';
-    modal.innerHTML = '<div class="modal__bg" id="share-modal-bg"></div>' +
-      '<div class="modal__box modal__box--sm" style="max-width:380px">' +
-      '<div class="modal__top"><h2><i class="fas fa-share-alt" style="color:var(--green)"></i> Partager</h2>' +
-      '<button class="modal__x" id="share-modal-close"><i class="fas fa-times"></i></button></div>' +
-      '<div style="padding:16px">' +
-      '<p style="font-size:.78rem;color:var(--text2);margin-bottom:12px">' + App.esc(title) + '</p>' +
-
-      '<div class="share-grid">' +
-      '<button class="share-item share-item--whatsapp" id="share-wa"><div class="share-item__icon"><i class="fab fa-whatsapp"></i></div><span>WhatsApp</span></button>' +
-      '<button class="share-item share-item--facebook" id="share-fb"><div class="share-item__icon"><i class="fab fa-facebook-f"></i></div><span>Facebook</span></button>' +
-      '<button class="share-item share-item--twitter" id="share-tw"><div class="share-item__icon"><i class="fab fa-twitter"></i></div><span>Twitter</span></button>' +
-      '<button class="share-item share-item--telegram" id="share-tg"><div class="share-item__icon"><i class="fab fa-telegram-plane"></i></div><span>Telegram</span></button>' +
-      '<button class="share-item share-item--email" id="share-email"><div class="share-item__icon"><i class="fas fa-envelope"></i></div><span>Email</span></button>' +
-      '<button class="share-item share-item--copy" id="share-copy"><div class="share-item__icon"><i class="fas fa-link"></i></div><span>Copier</span></button>' +
-      '</div>' +
-
-      '<div class="share-url-box">' +
-      '<input type="text" class="inp" id="share-url-input" value="' + url + '" readonly style="font-family:\'JetBrains Mono\',monospace;font-size:.72rem">' +
-      '<button class="btn btn--primary" id="share-url-copy" style="flex-shrink:0"><i class="fas fa-copy"></i></button>' +
-      '</div>' +
-
-      '</div></div>';
-
-    document.body.appendChild(modal);
-    document.body.style.overflow = 'hidden';
-
-    // Encode for URLs
+    var fullText = title + ' — Gwadloup Alert';
     var encUrl = encodeURIComponent(url);
-    var encTitle = encodeURIComponent(fullTitle);
-    var encBoth = encodeURIComponent(fullTitle + '\n' + url);
+    var encText = encodeURIComponent(fullText);
+    var encBoth = encodeURIComponent(fullText + '\n' + url);
 
-    // Close handlers
-    var closeModal = function() {
-      modal.remove();
-      if (!document.querySelector('.modal.open')) document.body.style.overflow = '';
-    };
-    document.getElementById('share-modal-bg').addEventListener('click', closeModal);
-    document.getElementById('share-modal-close').addEventListener('click', closeModal);
+    // Build modal
+    var overlay = document.createElement('div');
+    overlay.id = 'share-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)';
 
-    // Share handlers
-    document.getElementById('share-wa').addEventListener('click', function() {
-      window.open('https://wa.me/?text=' + encBoth, '_blank');
-      closeModal();
-    });
-    document.getElementById('share-fb').addEventListener('click', function() {
-      window.open('https://www.facebook.com/sharer/sharer.php?u=' + encUrl, '_blank', 'width=600,height=400');
-      closeModal();
-    });
-    document.getElementById('share-tw').addEventListener('click', function() {
-      window.open('https://twitter.com/intent/tweet?text=' + encTitle + '&url=' + encUrl, '_blank', 'width=600,height=400');
-      closeModal();
-    });
-    document.getElementById('share-tg').addEventListener('click', function() {
-      window.open('https://t.me/share/url?url=' + encUrl + '&text=' + encTitle, '_blank', 'width=600,height=400');
-      closeModal();
-    });
-    document.getElementById('share-email').addEventListener('click', function() {
-      window.location.href = 'mailto:?subject=' + encTitle + '&body=' + encBoth;
-      closeModal();
-    });
-    document.getElementById('share-copy').addEventListener('click', function() {
-      Share._copy(url);
-      closeModal();
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:0;max-width:380px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.4);animation:mslide .2s ease';
+
+    // Header
+    var header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)';
+    header.innerHTML = '<h3 style="font-size:.9rem;font-weight:700;display:flex;align-items:center;gap:6px"><i class="fas fa-share-alt" style="color:var(--green)"></i> Partager</h3>';
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'modal__x';
+    closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+    closeBtn.addEventListener('click', function() { overlay.remove(); });
+    header.appendChild(closeBtn);
+    box.appendChild(header);
+
+    // Body
+    var body = document.createElement('div');
+    body.style.cssText = 'padding:16px';
+
+    // Title preview
+    body.innerHTML = '<p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;padding:8px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)"><i class="fas fa-link" style="color:var(--green);margin-right:4px"></i> ' + App.esc(title) + '</p>';
+
+    // Grid
+    var grid = document.createElement('div');
+    grid.className = 'share-grid';
+
+    var buttons = [
+      { id: 'wa', icon: 'fab fa-whatsapp', label: 'WhatsApp', url: 'https://wa.me/?text=' + encBoth, cls: 'share-item--whatsapp' },
+      { id: 'fb', icon: 'fab fa-facebook-f', label: 'Facebook', url: 'https://www.facebook.com/sharer/sharer.php?u=' + encUrl, cls: 'share-item--facebook' },
+      { id: 'tw', icon: 'fab fa-twitter', label: 'Twitter', url: 'https://twitter.com/intent/tweet?text=' + encText + '&url=' + encUrl, cls: 'share-item--twitter' },
+      { id: 'tg', icon: 'fab fa-telegram-plane', label: 'Telegram', url: 'https://t.me/share/url?url=' + encUrl + '&text=' + encText, cls: 'share-item--telegram' },
+      { id: 'em', icon: 'fas fa-envelope', label: 'Email', url: 'mailto:?subject=' + encText + '&body=' + encBoth, cls: 'share-item--email' },
+      { id: 'cp', icon: 'fas fa-link', label: 'Copier', url: null, cls: 'share-item--copy' }
+    ];
+
+    for (var i = 0; i < buttons.length; i++) {
+      var b = buttons[i];
+      var btn = document.createElement('button');
+      btn.className = 'share-item ' + b.cls;
+      btn.innerHTML = '<div class="share-item__icon"><i class="' + b.icon + '"></i></div><span>' + b.label + '</span>';
+      if (b.url) {
+        (function(shareUrl) {
+          btn.addEventListener('click', function() {
+            if (shareUrl.startsWith('mailto:')) {
+              window.location.href = shareUrl;
+            } else {
+              window.open(shareUrl, '_blank', 'width=600,height=400,noopener');
+            }
+            overlay.remove();
+          });
+        })(b.url);
+      } else {
+        btn.addEventListener('click', function() {
+          Share._copyText(url);
+          overlay.remove();
+        });
+      }
+      grid.appendChild(btn);
+    }
+    body.appendChild(grid);
+
+    // URL box
+    var urlBox = document.createElement('div');
+    urlBox.style.cssText = 'display:flex;gap:4px;margin-top:4px';
+    var urlInput = document.createElement('input');
+    urlInput.type = 'text';
+    urlInput.className = 'inp';
+    urlInput.value = url;
+    urlInput.readOnly = true;
+    urlInput.style.cssText = 'flex:1;font-family:"JetBrains Mono",monospace;font-size:.7rem';
+    urlInput.addEventListener('click', function() { this.select(); });
+    var copyBtn2 = document.createElement('button');
+    copyBtn2.className = 'btn btn--primary';
+    copyBtn2.innerHTML = '<i class="fas fa-copy"></i>';
+    copyBtn2.addEventListener('click', function() { Share._copyText(url); });
+    urlBox.appendChild(urlInput);
+    urlBox.appendChild(copyBtn2);
+    body.appendChild(urlBox);
+
+    box.appendChild(body);
+    overlay.appendChild(box);
+
+    // Click outside to close
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) overlay.remove();
     });
 
-    // URL copy
-    document.getElementById('share-url-copy').addEventListener('click', function() {
-      Share._copy(url);
-    });
-    document.getElementById('share-url-input').addEventListener('click', function() {
-      this.select();
-    });
+    document.body.appendChild(overlay);
   },
 
-  _copy: function(text) {
+  _copyText: function(text) {
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(text).then(function() {
-        UI.toast('Lien copié dans le presse-papier !', 'success');
+        UI.toast('Lien copié !', 'success');
       }).catch(function() {
-        Share._fallbackCopy(text);
+        Share._fallback(text);
       });
     } else {
-      Share._fallbackCopy(text);
+      Share._fallback(text);
     }
   },
 
-  _fallbackCopy: function(text) {
+  _fallback: function(text) {
     var ta = document.createElement('textarea');
     ta.value = text;
     ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
@@ -162,7 +187,7 @@ var Share = {
       document.execCommand('copy');
       UI.toast('Lien copié !', 'success');
     } catch (e) {
-      UI.toast('Erreur — copiez manuellement', 'error');
+      UI.toast('Copiez manuellement le lien', 'warning');
     }
     ta.remove();
   }
