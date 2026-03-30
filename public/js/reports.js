@@ -92,12 +92,12 @@ var Reports = {
   renderLeaderboard: async function() {
     var el = document.getElementById('leaderboard-list'); if (!el) return;
     try {
-      var { data } = await App.supabase.from('profiles').select('username, reports_count, reputation').order('reputation', { ascending: false }).limit(10);
+      var { data } = await App.supabase.from('profiles').select('username, reports_count, reputation, id').order('reputation', { ascending: false }).limit(10);
       if (!data || data.length === 0) { el.innerHTML = '<p style="color:var(--text3);font-size:.8rem;text-align:center;padding:16px">Pas encore de contributeurs</p>'; return; }
       var html = '';
       for (var i = 0; i < data.length; i++) {
         var u = data[i], initial = u.username ? u.username.charAt(0).toUpperCase() : '?';
-        html += '<div class="lb"><span class="lb__rank">' + (i + 1) + '</span><div class="lb__av">' + initial + '</div><div class="lb__info"><div class="lb__name">' + App.esc(u.username || 'Anonyme') + '</div><div class="lb__sub">' + (u.reports_count || 0) + ' signalements</div></div><span class="lb__pts">' + (u.reputation || 0) + ' pts</span></div>';
+        html += '<div class="lb"><span class="lb__rank">' + (i + 1) + '</span><div class="lb__av">' + initial + '</div><div class="lb__info"><div class="lb__name" style="cursor:pointer;text-decoration:underline dotted" onclick="UI.openPublicProfile(\'' + u.id + '\')">' + App.esc(u.username || 'Anonyme') + '</div><div class="lb__sub">' + (u.reports_count || 0) + ' signalements</div></div><span class="lb__pts">' + (u.reputation || 0) + ' pts</span></div>';
       }
       el.innerHTML = html;
     } catch (e) { el.innerHTML = '<p style="color:var(--text3);font-size:.8rem">Erreur</p>'; }
@@ -119,19 +119,24 @@ var Reports = {
     try { var { data: profile } = await App.supabase.from('profiles').select('username').eq('id', report.user_id).single(); if (profile) authorName = profile.username; } catch (e) {}
 
     var hasVoted = false;
-    if (App.currentUser) { try { var { data: vote } = await App.supabase.from('votes').select('id').eq('report_id', id).eq('user_id', App.currentUser.id).single(); if (vote) hasVoted = true; } catch (e) {} }
+    if (App.currentUser) { try { var { data: vote } = await App.supabase.from('votes').select('id').eq('report_id', id).eq('user_id', App.currentUser.id).maybeSingle(); if (vote) hasVoted = true; } catch (e) {} }
 
     var isOwner = App.currentUser && report.user_id === App.currentUser.id;
     var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
 
-    var authorHtml = '<span style="cursor:pointer;text-decoration:underline dotted" onclick="UI.openPublicProfile(\'' + report.user_id + '\')"><i class="fas fa-user"></i> ' + App.esc(authorName) + '</span>';
+    // Count REAL votes from votes table
+    var realVotes = 0;
+    try {
+      var countR = await App.supabase.from('votes').select('id', { count: 'exact', head: true }).eq('report_id', id);
+      realVotes = countR.count || 0;
+    } catch (e) {}
 
     var html = galHtml + '<div class="det__body">' +
       '<div class="det__badges"><span class="badge badge--cat"><i class="fas ' + fa + '"></i> ' + cat.label + '</span>' +
       '<span class="badge badge--' + report.status + '">' + status.label + '</span>' +
       '<span class="badge" style="background:' + priority.color + '22;color:' + priority.color + '">' + priority.label + '</span></div>' +
       '<h2 class="det__title">' + App.esc(report.title) + '</h2>' +
-      '<div class="det__meta">' + authorHtml +
+      '<div class="det__meta"><span style="cursor:pointer;text-decoration:underline dotted" onclick="UI.openPublicProfile(\'' + report.user_id + '\')"><i class="fas fa-user"></i> ' + App.esc(authorName) + '</span>' +
       '<span><i class="fas fa-map-pin"></i> ' + (report.commune || 'Guadeloupe') + '</span>' +
       '<span><i class="fas fa-clock"></i> ' + App.ago(report.created_at) + '</span></div>' +
       '<p class="det__desc">' + App.esc(report.description) + '</p>';
@@ -142,9 +147,9 @@ var Reports = {
         '<p style="font-size:.82rem;color:var(--text)">' + App.esc(report.admin_response) + '</p></div>';
     }
 
-    if (App.currentUser) {
+    if (isAdmin) {
       html += '<div style="background:var(--bg3);border-radius:var(--r);padding:12px;margin-bottom:16px">' +
-        '<div style="font-size:.75rem;font-weight:600;margin-bottom:6px;color:var(--text2)"><i class="fas fa-exchange-alt"></i> Mettre à jour le statut</div>' +
+        '<div style="font-size:.75rem;font-weight:600;margin-bottom:6px;color:var(--text2)"><i class="fas fa-exchange-alt"></i> Gérer le statut (Admin)</div>' +
         '<div style="display:flex;gap:4px;flex-wrap:wrap">';
       var statuses = ['pending', 'acknowledged', 'in_progress', 'resolved'];
       var statusLabels = { pending: 'En attente', acknowledged: 'Vu', in_progress: 'En cours', resolved: 'Résolu' };
@@ -155,7 +160,7 @@ var Reports = {
     }
 
     html += '<div class="det__actions">' +
-      '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="Reports.toggleVote(\'' + id + '\')"><i class="fas fa-arrow-up"></i> <span id="vote-count-' + id + '">' + (report.upvotes || 0) + '</span> Soutenir</button>' +
+      '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="Reports.toggleVote(\'' + id + '\')" id="report-vote-btn-' + id + '"><i class="fas fa-arrow-up"></i> <span id="report-vote-count-' + id + '">' + realVotes + '</span> Soutenir</button>' +
       '<button class="btn btn--outline" onclick="Share.report({id:\'' + id + '\',title:\'' + App.esc(report.title).replace(/'/g, "\\'") + '\',description:\'' + App.esc(report.description.substring(0, 100)).replace(/'/g, "\\'") + '\'})"><i class="fas fa-share-alt"></i> Partager</button>' +
       '<button class="btn btn--outline" onclick="UI.closeModal(\'modal-detail\');MapManager.flyTo(' + report.latitude + ',' + report.longitude + ')"><i class="fas fa-map"></i> Carte</button>';
     if (isOwner || isAdmin) html += '<button class="btn btn--danger" onclick="Reports.deleteFromDetail(\'' + id + '\')"><i class="fas fa-trash"></i> Supprimer</button>';
@@ -177,7 +182,6 @@ var Reports = {
     if (!isOwner && !isAdmin) { UI.toast('Non autorisé', 'error'); return; }
     if (!confirm('Supprimer ce signalement ?')) return;
     try {
-      // Mark deletion for anti-farm
       if (isOwner) {
         await fetch('/api/mark-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: App.currentUser.id }) });
       }
@@ -190,7 +194,6 @@ var Reports = {
       App.reports = App.reports.filter(function(r) { return r.id !== id; });
       MapManager.removeReport(id);
       this.renderList(); this.updateStats();
-      // NO points refund - anti-farm measure
     } catch (e) { UI.toast('Erreur', 'error'); }
   },
 
@@ -202,7 +205,7 @@ var Reports = {
       var html = '';
       for (var i = 0; i < comments.length; i++) {
         var c = comments[i], name = (c.profiles && c.profiles.username) || 'Anonyme';
-        html += '<div class="cmt"><div class="cmt__av">' + name.charAt(0).toUpperCase() + '</div><div class="cmt__body"><div class="cmt__head"><span class="cmt__author">' + App.esc(name) + '</span><span class="cmt__date">' + App.ago(c.created_at) + '</span></div><div class="cmt__text">' + App.esc(c.content) + '</div></div></div>';
+        html += '<div class="cmt"><div class="cmt__av">' + name.charAt(0).toUpperCase() + '</div><div class="cmt__body"><div class="cmt__head"><span class="cmt__author" style="cursor:pointer;text-decoration:underline dotted" onclick="UI.openPublicProfile(\'' + c.user_id + '\')">' + App.esc(name) + '</span><span class="cmt__date">' + App.ago(c.created_at) + '</span></div><div class="cmt__text">' + App.esc(c.content) + '</div></div></div>';
       }
       el.innerHTML = html;
     } catch (e) { el.innerHTML = '<p style="color:var(--text3)">Erreur</p>'; }
@@ -224,18 +227,30 @@ var Reports = {
   toggleVote: async function(id) {
     if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
     try {
-      var { data: existing } = await App.supabase.from('votes').select('id').eq('report_id', id).eq('user_id', App.currentUser.id).single();
-      var report = App.reports.find(function(r) { return r.id === id; });
+      var { data: existing } = await App.supabase.from('votes').select('id').eq('report_id', id).eq('user_id', App.currentUser.id).maybeSingle();
       if (existing) {
         await App.supabase.from('votes').delete().eq('id', existing.id);
-        await App.supabase.from('reports').update({ upvotes: Math.max(0, (report.upvotes || 1) - 1) }).eq('id', id);
         UI.toast('Vote retiré', 'info');
       } else {
         await App.supabase.from('votes').insert({ report_id: id, user_id: App.currentUser.id });
-        await App.supabase.from('reports').update({ upvotes: (report.upvotes || 0) + 1 }).eq('id', id);
         UI.toast('Merci !', 'success');
       }
-      await this.loadAll(); this.openDetail(id);
+
+      // Recompute real vote count
+      var countR = await App.supabase.from('votes').select('id', { count: 'exact', head: true }).eq('report_id', id);
+      var totalVotes = countR.count || 0;
+
+      // Update in base
+      await App.supabase.from('reports').update({ upvotes: totalVotes }).eq('id', id);
+
+      // Update UI
+      var countEl = document.getElementById('report-vote-count-' + id);
+      var btnEl = document.getElementById('report-vote-btn-' + id);
+      if (countEl) countEl.textContent = totalVotes;
+      if (btnEl) {
+        if (existing) btnEl.classList.remove('voted');
+        else btnEl.classList.add('voted');
+      }
     } catch (e) { UI.toast('Erreur', 'error'); }
   },
 
@@ -246,7 +261,6 @@ var Reports = {
     if (!content || content.length < 2) { UI.toast('Trop court', 'warning'); return; }
     if (content.length > 1000) { UI.toast('Trop long (max 1000)', 'warning'); return; }
     try {
-      // Always moderate comments
       var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: '', description: content }) });
       var modData = await modResp.json();
       if (modData.flagged && modData.reformulated && modData.cleaned) {
@@ -281,7 +295,6 @@ var Reports = {
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Envoi...';
 
     try {
-      // Anti-farm check
       var farmResp = await fetch('/api/check-farm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: App.currentUser.id }) });
       var farmData = await farmResp.json();
       if (!farmData.allowed) {
@@ -290,7 +303,6 @@ var Reports = {
         return;
       }
 
-      // ALWAYS moderate - Groq will reformulate if needed, NEVER blocks
       var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title, description: description }) });
       var modData = await modResp.json();
       if (modData.flagged && modData.reformulated && modData.cleaned) {
