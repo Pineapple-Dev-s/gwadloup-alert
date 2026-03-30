@@ -1,9 +1,7 @@
 var MapManager = {
   map: null, miniMap: null, miniMapMarker: null, markerCluster: null, markers: {},
   CENTER: [16.1745, -61.4510],
-  // Wider bounds to include Les Saintes, Western Basse-Terre, and Eastern Grande Terre + Désirade
-  BOUNDS: [[15.7, -62.0], [16.65, -60.9]],
-  currentLayer: null,
+  BOUNDS: [[15.6, -62.1], [16.7, -60.8]],
 
   tileLayers: {
     'Carte': {
@@ -32,18 +30,19 @@ var MapManager = {
       sub: 'abc'
     }
   },
+  currentLayer: null,
 
   init: function() {
     var self = this;
     this.map = L.map('map', {
-      center: this.CENTER, zoom: 11, minZoom: 9, maxZoom: 18,
-      maxBounds: this.BOUNDS, maxBoundsViscosity: 1.0, zoomControl: true
+      center: this.CENTER, zoom: 10, minZoom: 8, maxZoom: 18,
+      maxBounds: this.BOUNDS, maxBoundsViscosity: 0.8, zoomControl: true
     });
 
-    var defaultTile = this.tileLayers['Carte'];
-    var opts = { attribution: defaultTile.attr, maxZoom: 20 };
-    if (defaultTile.sub) opts.subdomains = defaultTile.sub;
-    this.currentLayer = L.tileLayer(defaultTile.url, opts).addTo(this.map);
+    var def = this.tileLayers['Carte'];
+    var opts = { attribution: def.attr, maxZoom: 20 };
+    if (def.sub) opts.subdomains = def.sub;
+    this.currentLayer = L.tileLayer(def.url, opts).addTo(this.map);
 
     this.markerCluster = L.markerClusterGroup({
       chunkedLoading: true, maxClusterRadius: 50,
@@ -75,12 +74,11 @@ var MapManager = {
     this.map.addControl(new LayerControl());
 
     var menu = document.getElementById('layer-switcher-menu');
-    var layerNames = Object.keys(this.tileLayers);
     var icons = { 'Carte': 'fa-map', 'Sombre': 'fa-moon', 'Satellite': 'fa-satellite', 'Terrain': 'fa-mountain', 'OSM': 'fa-globe' };
+    var names = Object.keys(this.tileLayers);
     var html = '';
-    for (var i = 0; i < layerNames.length; i++) {
-      var name = layerNames[i];
-      html += '<button class="layer-switcher__item' + (name === 'Carte' ? ' layer-switcher__item--active' : '') + '" data-layer="' + name + '"><i class="fas ' + (icons[name] || 'fa-map') + '"></i><span>' + name + '</span></button>';
+    for (var i = 0; i < names.length; i++) {
+      html += '<button class="layer-switcher__item' + (names[i] === 'Carte' ? ' layer-switcher__item--active' : '') + '" data-layer="' + names[i] + '"><i class="fas ' + (icons[names[i]] || 'fa-map') + '"></i><span>' + names[i] + '</span></button>';
     }
     menu.innerHTML = html;
 
@@ -94,7 +92,7 @@ var MapManager = {
     menu.querySelectorAll('.layer-switcher__item').forEach(function(item) {
       item.addEventListener('click', function() {
         self.switchLayer(item.getAttribute('data-layer'));
-        menu.querySelectorAll('.layer-switcher__item').forEach(function(i) { i.classList.remove('layer-switcher__item--active'); });
+        menu.querySelectorAll('.layer-switcher__item').forEach(function(x) { x.classList.remove('layer-switcher__item--active'); });
         item.classList.add('layer-switcher__item--active');
         menu.classList.remove('open');
       });
@@ -112,7 +110,7 @@ var MapManager = {
 
   getFaForCat: function(cat) {
     var c = App.categories[cat] || App.categories.other;
-    return (UI && UI.catIcons ? UI.catIcons : {})[c.icon] || 'fa-map-pin';
+    return (UI && UI.catIcons) ? (UI.catIcons[c.icon] || 'fa-map-pin') : 'fa-map-pin';
   },
 
   mkIcon: function(cat) {
@@ -148,7 +146,9 @@ var MapManager = {
 
   flyTo: function(lat, lng, z) { this.map.flyTo([lat, lng], z || 16, { duration: 1 }); },
 
-  isInGuadeloupe: function(lat, lng) { return lat >= 15.7 && lat <= 16.65 && lng >= -62.0 && lng <= -60.9; },
+  isInGuadeloupe: function(lat, lng) {
+    return lat >= 15.6 && lat <= 16.7 && lng >= -62.1 && lng <= -60.8;
+  },
 
   initMiniMap: function() {
     var self = this;
@@ -162,8 +162,8 @@ var MapManager = {
       container.style.height = '220px';
 
       self.miniMap = L.map('mini-map', {
-        center: self.CENTER, zoom: 11, minZoom: 10, maxZoom: 18,
-        maxBounds: [[15.65, -62.05], [16.7, -60.85]], maxBoundsViscosity: 1.0
+        center: self.CENTER, zoom: 10, minZoom: 8, maxZoom: 18,
+        maxBounds: [[15.5, -62.2], [16.8, -60.7]], maxBoundsViscosity: 0.8
       });
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         subdomains: 'abcd', maxZoom: 20
@@ -234,13 +234,13 @@ var MapManager = {
     }
   },
 
-  async searchAddr: async function(q) {
+  searchAddr: async function(q) {
     try {
-      var r = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q + ' Guadeloupe') + '&limit=5&viewbox=-62.0,15.7,-60.9,16.65&bounded=1', { headers: { 'Accept-Language': 'fr' } });
+      var r = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q + ' Guadeloupe') + '&limit=5&viewbox=-62.1,15.6,-60.8,16.7&bounded=1', { headers: { 'Accept-Language': 'fr' } });
       var results = await r.json();
       return results.filter(function(item) {
         var lat = parseFloat(item.lat), lon = parseFloat(item.lon);
-        return lat >= 15.7 && lat <= 16.65 && lon >= -62.0 && lon <= -60.9;
+        return lat >= 15.6 && lat <= 16.7 && lon >= -62.1 && lon <= -60.8;
       });
     } catch (e) { return []; }
   }
