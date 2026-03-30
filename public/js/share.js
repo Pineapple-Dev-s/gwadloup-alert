@@ -4,8 +4,13 @@ var Share = {
     var text = '🏝️ ' + report.title + ' — Gwadloup Alert';
 
     if (navigator.share) {
-      navigator.share({ title: text, text: report.description.substring(0, 100) + '...', url: url }).catch(function() {});
+      // For mobile (Native share)
+      navigator.share({ title: text, text: report.description.substring(0, 100) + '...', url: url }).catch(function() {
+        // Fallback if browser blocks or user cancels native share
+        Share.showMenu(url, text, report);
+      });
     } else {
+      // Fallback for PC / Desktop
       Share.showMenu(url, text, report);
     }
   },
@@ -13,8 +18,11 @@ var Share = {
   article: function(article) {
     var url = window.location.origin + '?article=' + article.id;
     var text = '📖 ' + article.title + ' — Gwadloup Alert';
+
     if (navigator.share) {
-      navigator.share({ title: text, url: url }).catch(function() {});
+      navigator.share({ title: text, url: url }).catch(function() {
+        Share.showMenu(url, text);
+      });
     } else {
       Share.showMenu(url, text);
     }
