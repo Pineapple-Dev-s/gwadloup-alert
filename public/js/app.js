@@ -72,7 +72,7 @@ const App = {
       UI.init();
       await Reports.loadAll();
 
-      // Realtime - wrapped in try/catch to not crash if CSP blocks websocket
+      // Realtime
       try {
         this.supabase.channel('rt').on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, function(p) {
           if (p.eventType === 'INSERT') Reports.handleNew(p.new);
@@ -83,7 +83,7 @@ const App = {
         console.warn('Realtime unavailable:', rtErr.message);
       }
 
-      // Auto-refresh fallback if realtime fails
+      // Auto-refresh fallback
       setInterval(function() {
         if (document.visibilityState === 'visible') Reports.loadAll();
       }, 60000);
@@ -92,7 +92,7 @@ const App = {
     } catch (e) {
       console.error('Init:', e);
       UI.hideLoading();
-      UI.toast('Erreur de chargement — rechargez la page', 'error');
+      UI.toast('Erreur de chargement', 'error');
     }
   },
 
@@ -111,16 +111,6 @@ const App = {
     var d = document.createElement('div');
     d.textContent = t;
     return d.innerHTML;
-  },
-
-  // Utility: debounce
-  debounce: function(fn, ms) {
-    var timer;
-    return function() {
-      var args = arguments, ctx = this;
-      clearTimeout(timer);
-      timer = setTimeout(function() { fn.apply(ctx, args); }, ms);
-    };
   }
 };
 
