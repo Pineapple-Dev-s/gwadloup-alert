@@ -2,27 +2,141 @@ const MapManager = {
   map: null, miniMap: null, miniMapMarker: null, markerCluster: null, markers: {},
   CENTER: [16.1745, -61.4510],
   BOUNDS: [[15.8, -61.9], [16.6, -60.9]],
+  currentLayer: null,
+  layerControl: null,
+
+  tileLayers: {
+    'Carte': {
+      url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      attr: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+      sub: 'abcd'
+    },
+    'Sombre': {
+      url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      attr: '&copy; OSM &copy; CARTO',
+      sub: 'abcd'
+    },
+    'Satellite': {
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      attr: '&copy; Esri',
+      sub: null
+    },
+    'Terrain': {
+      url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+      attr: '&copy; OpenTopoMap',
+      sub: 'abc'
+    },
+    'OSM': {
+      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      attr: '&copy; OpenStreetMap',
+      sub: 'abc'
+    }
+  },
 
   init() {
     this.map = L.map('map', {
       center: this.CENTER, zoom: 11, minZoom: 9, maxZoom: 18,
       maxBounds: this.BOUNDS, maxBoundsViscosity: 1.0, zoomControl: true
     });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-      subdomains: 'abcd', maxZoom: 20
-    }).addTo(this.map);
+
+    // Default layer
+    var defaultTile = this.tileLayers['Carte'];
+    var opts = { attribution: defaultTile.attr, maxZoom: 20 };
+    if (defaultTile.sub) opts.subdomains = defaultTile.sub;
+    this.currentLayer = L.tileLayer(defaultTile.url, opts).addTo(this.map);
+
     this.markerCluster = L.markerClusterGroup({
       chunkedLoading: true, maxClusterRadius: 50,
-      iconCreateFunction: (c) => {
-        const n = c.getChildCount();
-        let s = n > 30 ? 'large' : n > 10 ? 'medium' : 'small';
+      iconCreateFunction: function(c) {
+        var n = c.getChildCount();
+        var s = n > 30 ? 'large' : n > 10 ? 'medium' : 'small';
         return L.divIcon({ html: '<div class="cluster-icon cluster-icon--' + s + '">' + n + '</div>', className: '', iconSize: [46, 46] });
       }
     });
     this.map.addLayer(this.markerCluster);
-    setTimeout(() => this.map.invalidateSize(), 200);
-    setTimeout(() => this.map.invalidateSize(), 500);
+
+    // Add layer switcher button
+    this.addLayerSwitcher();
+
+    setTimeout(function() { MapManager.map.invalidateSize(); }, 200);
+    setTimeout(function() { MapManager.map.invalidateSize(); }, 500);
+  },
+
+  addLayerSwitcher: function() {
+    var self = this;
+
+    // Create custom control
+    var LayerControl = L.Control.extend({
+      options: { position: 'bottomright' },
+      onAdd: function() {
+        var container = L.DomUtil.create('div', 'layer-switcher');
+        container.innerHTML =
+          '<button class="layer-switcher__btn" id="layer-switcher-btn" title="Changer de calque">' +
+          '<i class="fas fa-layer-group"></i></button>' +
+          '<div class="layer-switcher__menu" id="layer-switcher-menu"></div>';
+
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.disableScrollPropagation(container);
+        return container;
+      }
+    });
+
+    this.map.addControl(new LayerControl());
+
+    // Populate menu
+    var menu = document.getElementById('layer-switcher-menu');
+    var layerNames = Object.keys(this.tileLayers);
+    var html = '';
+    for (var i = 0; i < layerNames.length; i++) {
+      var name = layerNames[i];
+      var icons = {
+        'Carte': 'fa-map',
+        'Sombre': 'fa-moon',
+        'Satellite': 'fa-satellite',
+        'Terrain': 'fa-mountain',
+        'OSM': 'fa-globe'
+      };
+      var icon = icons[name] || 'fa-map';
+      var activeClass = name === 'Carte' ? ' layer-switcher__item--active' : '';
+      html += '<button class="layer-switcher__item' + activeClass + '" data-layer="' + name + '">' +
+        '<i class="fas ' + icon + '"></i><span>' + name + '</span></button>';
+    }
+    menu.innerHTML = html;
+
+    // Toggle menu
+    var btn = document.getElementById('layer-switcher-btn');
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      menu.classList.toggle('open');
+    });
+
+    // Close on outside click
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.layer-switcher')) {
+        menu.classList.remove('open');
+      }
+    });
+
+    // Layer selection
+    menu.querySelectorAll('.layer-switcher__item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        var layerName = item.getAttribute('data-layer');
+        self.switchLayer(layerName);
+        // Update active state
+        menu.querySelectorAll('.layer-switcher__item').forEach(function(i) { i.classList.remove('layer-switcher__item--active'); });
+        item.classList.add('layer-switcher__item--active');
+        menu.classList.remove('open');
+      });
+    });
+  },
+
+  switchLayer: function(name) {
+    var layerDef = this.tileLayers[name];
+    if (!layerDef) return;
+    if (this.currentLayer) this.map.removeLayer(this.currentLayer);
+    var opts = { attribution: layerDef.attr, maxZoom: 20 };
+    if (layerDef.sub) opts.subdomains = layerDef.sub;
+    this.currentLayer = L.tileLayer(layerDef.url, opts).addTo(this.map);
   },
 
   getFaForCat(cat) {
@@ -48,7 +162,7 @@ const MapManager = {
         '<div class="pop__title">' + App.esc(r.title) + '</div>' +
         '<div class="pop__addr">' + (r.address ? App.esc(r.address.substring(0, 50)) : 'Guadeloupe') + '</div>' +
         '<div class="pop__foot"><span class="pop__votes"><i class="fas fa-arrow-up"></i> ' + (r.upvotes || 0) + '</span>' +
-        '<button class="pop__btn" onclick="Reports.openDetail(\'' + r.id + '\')">Details</button></div></div>',
+        '<button class="pop__btn" onclick="Reports.openDetail(\'' + r.id + '\')">Détails</button></div></div>',
         { maxWidth: 280 }
       );
     this.markers[r.id] = m;
@@ -71,12 +185,12 @@ const MapManager = {
       subdomains: 'abcd', maxZoom: 20
     }).addTo(this.miniMap);
 
-    this.miniMap.on('click', (e) => {
-      if (!this.isInGuadeloupe(e.latlng.lat, e.latlng.lng)) { UI.toast('Choisissez un lieu en Guadeloupe', 'warning'); return; }
-      this.setPin(e.latlng.lat, e.latlng.lng);
-      this.reverseGeo(e.latlng.lat, e.latlng.lng);
+    this.miniMap.on('click', function(e) {
+      if (!MapManager.isInGuadeloupe(e.latlng.lat, e.latlng.lng)) { UI.toast('Choisissez un lieu en Guadeloupe', 'warning'); return; }
+      MapManager.setPin(e.latlng.lat, e.latlng.lng);
+      MapManager.reverseGeo(e.latlng.lat, e.latlng.lng);
     });
-    setTimeout(() => this.miniMap.invalidateSize(), 100);
+    setTimeout(function() { MapManager.miniMap.invalidateSize(); }, 100);
   },
 
   setPin(lat, lng) {
@@ -84,22 +198,21 @@ const MapManager = {
     if (this.miniMapMarker) {
       this.miniMapMarker.setLatLng([lat, lng]);
     } else {
-      // Custom pin icon for minimap
       var pinIcon = L.divIcon({
         html: '<div class="pin-select"><div class="pin-select__dot"></div><div class="pin-select__pulse"></div></div>',
         className: '', iconSize: [40, 40], iconAnchor: [20, 20]
       });
       this.miniMapMarker = L.marker([lat, lng], { draggable: true, icon: pinIcon }).addTo(this.miniMap);
-      this.miniMapMarker.on('dragend', (e) => {
+      this.miniMapMarker.on('dragend', function(e) {
         var p = e.target.getLatLng();
-        if (!this.isInGuadeloupe(p.lat, p.lng)) {
+        if (!MapManager.isInGuadeloupe(p.lat, p.lng)) {
           UI.toast('Lieu hors Guadeloupe', 'warning');
-          this.miniMapMarker.setLatLng([lat, lng]);
+          MapManager.miniMapMarker.setLatLng([lat, lng]);
           return;
         }
         document.getElementById('report-lat').value = p.lat;
         document.getElementById('report-lng').value = p.lng;
-        this.reverseGeo(p.lat, p.lng);
+        MapManager.reverseGeo(p.lat, p.lng);
       });
     }
     this.miniMap.setView([lat, lng], 16);
