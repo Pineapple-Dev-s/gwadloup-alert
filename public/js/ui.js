@@ -17,6 +17,7 @@ var UI = {
     this.nav();
     this.modals();
     this.filters();
+    this.listControls();
     this.form();
     this.burger();
     this.catGrid();
@@ -1079,4 +1080,33 @@ var UI = {
     var loader = document.getElementById('loading-overlay');
     if (loader) loader.classList.remove('active');
   }
+
+
+  // ═══════════════ LIST CONTROLS ═══════════════
+  listControls: function() {
+    // Toggle cards/list view
+    var toggleBtn = document.getElementById('btn-toggle-view');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', function() {
+        Reports.viewMode = Reports.viewMode === 'list' ? 'cards' : 'list';
+        this.innerHTML = Reports.viewMode === 'cards' ? '<i class="fas fa-list"></i>' : '<i class="fas fa-th-large"></i>';
+        Reports.renderList();
+      });
+    }
+
+    // Status filter tabs
+    var tabs = document.querySelectorAll('.list-header__tab');
+    tabs.forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        tabs.forEach(function(t) { t.classList.remove('active'); });
+        this.classList.add('active');
+        var filter = this.getAttribute('data-filter');
+        App.filters.status = filter;
+        // Also update the select
+        var sel = document.getElementById('filter-status');
+        if (sel) sel.value = filter;
+        Reports.loadAll();
+      });
+    });
+  },
 };
