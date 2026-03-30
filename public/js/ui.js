@@ -572,35 +572,56 @@ var UI = {
     this.toast('Supprimé','success'); this.loadTagProposals();
   },
 
-  // === PUBLIC PROFILE ===
   openPublicProfile: async function(userId) {
-    var c = document.getElementById('public-profile-content'); if (!c) return;
+    if (!userId) return;
+    var c = document.getElementById('public-profile-content');
+    if (!c) return;
     c.innerHTML = '<p class="wiki__load">Chargement...</p>';
     this.openModal('modal-public-profile');
     try {
       var pr = await App.supabase.from('profiles').select('*').eq('id', userId).single();
       if (pr.error) throw pr.error;
-      var p = pr.data, name = p.username || 'Anonyme', ini = name.charAt(0).toUpperCase();
+      var p = pr.data;
+      var name = p.username || 'Anonyme';
+      var ini = name.charAt(0).toUpperCase();
       var rc = await App.supabase.from('reports').select('id').eq('user_id', userId);
       var reportCount = rc.data ? rc.data.length : 0;
+      var joinDate = p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long' }) : '';
 
-      var html = '<div class="pub-profile">' +
-        '<div class="pub-profile__avatar">' + ini + '</div>' +
-        '<div class="pub-profile__name">' + App.esc(name) + '</div>' +
-        '<div class="pub-profile__meta">' +
-        (p.commune ? '<i class="fas fa-map-pin"></i> ' + App.esc(p.commune) + ' · ' : '') +
-        '<i class="fas fa-calendar"></i> ' + new Date(p.created_at).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long' }) + '</div>' +
-
-        '<div class="pub-profile__stats">' +
+      var html = '<div style="padding:24px;text-align:center">' +
+        '<div style="width:72px;height:72px;border-radius:50%;background:var(--green2);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;margin:0 auto 10px;box-shadow:0 4px 16px rgba(63,185,80,.3)">' + ini + '</div>' +
+        '<h2 style="font-size:1.15rem;font-weight:700;margin-bottom:4px">' + App.esc(name) + '</h2>' +
+        '<div style="font-size:.75rem;color:var(--text2);margin-bottom:16px">' +
+        (p.commune ? '<i class="fas fa-map-pin" style="color:var(--green)"></i> ' + App.esc(p.commune) + ' · ' : '') +
+        '<i class="fas fa-calendar"></i> ' + joinDate + '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px">' +
         '<div class="sc"><div class="sc__v" style="font-size:1.3rem">' + reportCount + '</div><div class="sc__l">Signalements</div></div>' +
         '<div class="sc"><div class="sc__v" style="font-size:1.3rem;color:var(--green)">' + (p.reputation || 0) + '</div><div class="sc__l">Réputation</div></div>' +
         '<div class="sc"><div class="sc__v" style="font-size:1.3rem;color:var(--yellow)" id="pub-badge-num">...</div><div class="sc__l">Badges</div></div>' +
         '</div>' +
-
         '<div id="pub-badges-area" style="text-align:left"><div style="text-align:center;padding:16px;color:var(--text3)"><span class="spinner"></span></div></div>' +
         '</div>';
 
       c.innerHTML = html;
+
+      if (typeof Badges !== 'undefined') {
+        Badges.getUnlocked(p, userId).then(function(result) {
+          var area = document.getElementById('pub-badges-area');
+          var num = document.getElementById('pub-badge-num');
+          if (area) area.innerHTML = Badges.renderGrid(result.unlocked, true);
+          if (num) num.textContent = result.unlocked.length;
+        });
+      } else {
+        var area = document.getElementById('pub-badges-area');
+        if (area) area.innerHTML = '';
+        var num = document.getElementById('pub-badge-num');
+        if (num) num.textContent = '0';
+      }
+    } catch (e) {
+      console.error('Public profile error:', e);
+      c.innerHTML = '<p style="color:var(--red);padding:20px;text-align:center">Profil introuvable</p>';
+    }
+  },
 
       // Load badges
       if (typeof Badges !== 'undefined') {
