@@ -347,18 +347,69 @@ var Auth = {
         var r = myReports[i];
         var cat = App.categories[r.category] || App.categories.other;
         var status = App.statuses[r.status] || App.statuses.pending;
-        html += '<div class="adm" style="cursor:pointer" onclick="UI.closeModal(\'modal-my-reports\');Reports.openDetail(\'' + r.id + '\')">' +
-          '<div class="adm__info"><div class="adm__title">' + App.esc(r.title) + '</div>' +
+        html += '<div class="adm" id="my-report-' + r.id + '">' +
+          '<div class="adm__info" style="cursor:pointer" onclick="UI.closeModal(\'modal-my-reports\');Reports.openDetail(\'' + r.id + '\')">' +
+          '<div class="adm__title">' + App.esc(r.title) + '</div>' +
           '<div class="adm__meta"><span class="badge badge--cat">' + cat.label + '</span> ' +
           '<span class="badge badge--' + r.status + '">' + status.label + '</span> ' +
           App.ago(r.created_at) + '</div></div>' +
           '<span style="font-size:.78rem;color:var(--orange)"><i class="fas fa-arrow-up"></i> ' + (r.upvotes || 0) + '</span>' +
+          '<button class="btn btn--danger" onclick="Auth.deleteOwnReport(\'' + r.id + '\')" title="Supprimer"><i class="fas fa-trash"></i></button>' +
           '</div>';
       }
       html += '</div>';
       container.innerHTML = html;
     }
     UI.openModal('modal-my-reports');
+  },
+
+  deleteOwnReport: async function(reportId) {
+    if (!App.currentUser) return;
+
+    var report = App.reports.find(function(r) { return r.id === reportId; });
+    if (!report) { UI.toast('Signalement introuvable', 'error'); return; }
+
+    // Only allow deleting own reports
+    if (report.user_id !== App.currentUser.id) {
+      UI.toast('Vous ne pouvez supprimer que vos propres signalements', 'error');
+      return;
+    }
+
+    if (!confirm('Supprimer ce signalement ? Cette action est irréversible.')) return;
+
+    try {
+      // Delete comments first
+      await App.supabase.from('comments').delete().eq('report_id', reportId);
+      // Delete votes
+      await App.supabase.from('votes').delete().eq('report_id', reportId);
+      // Delete report
+      var { error } = await App.supabase.from('reports').delete().eq('id', reportId);
+
+      if (error) {
+        UI.toast('Erreur de suppression: ' + error.message, 'error');
+      } else {
+        UI.toast('Signalement supprimé', 'success');
+        App.reports = App.reports.filter(function(r) { return r.id !== reportId; });
+        MapManager.removeReport(reportId);
+        Reports.renderList();
+        Reports.updateStats();
+
+        // Update profile stats
+        if (App.currentProfile) {
+          App.currentProfile.reports_count = Math.max(0, (App.currentProfile.reports_count || 1) - 1);
+          await App.supabase.from('profiles').update({
+            reports_count: App.currentProfile.reports_count
+          }).eq('id', App.currentUser.id);
+        }
+
+        // Remove from my reports panel
+        var el = document.getElementById('my-report-' + reportId);
+        if (el) el.remove();
+      }
+    } catch (e) {
+      console.error('Delete own report error:', e);
+      UI.toast('Erreur de suppression', 'error');
+    }
   },
 
   showAdmin: function() {
@@ -388,7 +439,7 @@ var Auth = {
           '<option value="resolved"' + (r.status === 'resolved' ? ' selected' : '') + '>Résolu</option>' +
           '<option value="rejected"' + (r.status === 'rejected' ? ' selected' : '') + '>Rejeté</option>' +
           '</select>' +
-          '<button class="btn btn--ghost" style="color:var(--red)" onclick="Auth.deleteReport(\'' + r.id + '\')" title="Supprimer"><i class="fas fa-trash"></i></button>' +
+          '<button class="btn btn--danger" onclick="Auth.deleteReport(\'' + r.id + '\')" title="Supprimer"><i class="fas fa-trash"></i></button>' +
           '<div style="width:100%"><textarea placeholder="Réponse admin..." onchange="Auth.updateResponse(\'' + r.id + '\',this.value)">' + (r.admin_response || '') + '</textarea></div>' +
           '</div>';
       }
@@ -418,25 +469,51 @@ var Auth = {
   deleteReport: async function(reportId) {
     if (!confirm('Supprimer ce signalement ? Cette action est irréversible.')) return;
 
-    // Delete comments first
-    await App.supabase.from('comments').delete().eq('report_id', reportId);
-    // Delete votes
-    await App.supabase.from('votes').delete().eq('report_id', reportId);
-    // Delete report
-    var { error } = await App.supabase.from('reports').delete().eq('id', reportId);
+    try {
+      await App.supabase.from('comments').delete().eq('report_id', reportId);
+      await App.supabase.from('votes').delete().eq('report_id', reportId);
+      var { error } = await App.supabase.from('reports').delete().eq('id', reportId);
 
-    if (error) {
-      UI.toast('Erreur de suppression: ' + error.message, 'error');
-    } else {
-      UI.toast('Signalement supprimé', 'success');
-      // Remove from local
-      App.reports = App.reports.filter(function(r) { return r.id !== reportId; });
-      MapManager.removeReport(reportId);
-      Reports.renderList();
-      Reports.updateStats();
-      // Remove from admin panel
-      var el = document.getElementById('adm-' + reportId);
-      if (el) el.remove();
+      if (error) {
+        UI.toast('Erreur de suppression: ' + error.message, 'error');
+      } else {
+        UI.toast('Signalement supprimé', 'success');
+        App.reports = App.reports.filter(function(r) { return r.id !== reportId; });
+        MapManager.removeReport(reportId);
+        Reports.renderList();
+        Reports.updateStats();
+        var el = document.getElementById('adm-' + reportId);
+        if (el) el.remove();
+      }
+    } catch (e) {
+      console.error('Admin delete error:', e);
+      UI.toast('Erreur de suppression', 'error');
+    }
+  },
+
+  deleteWikiPage: async function(slug) {
+    if (!App.currentProfile || App.currentProfile.role !== 'admin') {
+      UI.toast('Accès refusé', 'error');
+      return;
+    }
+    if (!confirm('Supprimer l\'article "' + slug + '" ? Cette action est irréversible.')) return;
+
+    try {
+      var resp = await fetch('/api/wiki/' + slug, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ author: App.currentProfile.username || 'Admin' })
+      });
+      var data = await resp.json();
+
+      if (resp.ok) {
+        UI.toast('Article supprimé', 'success');
+        UI.loadWiki();
+      } else {
+        UI.toast(data.error || 'Erreur', 'error');
+      }
+    } catch (e) {
+      UI.toast('Erreur réseau', 'error');
     }
   }
 };
