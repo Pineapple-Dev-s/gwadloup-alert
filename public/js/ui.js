@@ -27,8 +27,18 @@ var UI = {
     this.catGrid();
     this.community();
     this.wikiEdit();
+    this.contactEmail();
     this.debug();
     ImageUpload.init();
+  },
+
+  contactEmail: function() {
+    if (App.config && App.config.contactEmail) {
+      var link = document.getElementById('contact-email-link');
+      var display = document.getElementById('contact-email-display');
+      if (link) link.href = 'mailto:' + App.config.contactEmail;
+      if (display) display.textContent = App.config.contactEmail;
+    }
   },
 
   debug: function() {
@@ -342,6 +352,12 @@ var UI = {
         }, 400);
       });
 
+      searchInput.addEventListener('focus', function() {
+        if (searchResults.children.length > 0 && searchInput.value.trim().length >= 3) {
+          searchResults.classList.add('open');
+        }
+      });
+
       searchResults.addEventListener('click', function(e) {
         var item = e.target.closest('.loc-r');
         if (item && item.dataset.lat) {
@@ -449,13 +465,16 @@ var UI = {
       if (!r.ok) throw new Error();
       return r.text();
     }).then(function(md) {
-      // Remove history comment
       md = md.replace(/^<!--[\s\S]*?-->\n?/, '');
-      var editBtn = '';
+      var actionBtns = '';
       if (App.currentUser) {
-        editBtn = '<div style="text-align:right;margin-bottom:12px"><button class="btn btn--ghost" onclick="UI.editWikiPage(\'' + slug + '\')"><i class="fas fa-edit"></i> Modifier</button></div>';
+        actionBtns += '<button class="btn btn--ghost" onclick="UI.editWikiPage(\'' + slug + '\')"><i class="fas fa-edit"></i> Modifier</button>';
       }
-      el.innerHTML = editBtn + marked.parse(md);
+      if (App.currentProfile && App.currentProfile.role === 'admin') {
+        actionBtns += ' <button class="btn btn--danger" onclick="Auth.deleteWikiPage(\'' + slug + '\')"><i class="fas fa-trash"></i> Supprimer</button>';
+      }
+      var toolbar = actionBtns ? '<div style="text-align:right;margin-bottom:12px">' + actionBtns + '</div>' : '';
+      el.innerHTML = toolbar + marked.parse(md);
     }).catch(function() {
       el.innerHTML = '<p>Page introuvable</p>';
     });
@@ -566,9 +585,10 @@ var UI = {
       var html = '';
       for (var i = 0; i < logs.length; i++) {
         var log = logs[i];
+        var actionIcon = log.action === 'deleted' ? '🗑️ Supprimé' : (log.isNew ? '📝 Créé' : '✏️ Modifié');
         html += '<div class="adm" style="cursor:default">' +
           '<div class="adm__info">' +
-          '<div class="adm__title">' + (log.isNew ? '📝 Créé' : '✏️ Modifié') + ': ' + App.esc(log.page) + '</div>' +
+          '<div class="adm__title">' + actionIcon + ': ' + App.esc(log.page) + '</div>' +
           '<div class="adm__meta">Par ' + App.esc(log.author) + ' • ' + App.ago(log.timestamp) + ' • ' + log.contentLength + ' car.</div>' +
           '</div></div>';
       }
@@ -651,7 +671,6 @@ var UI = {
         return;
       }
 
-      // Sort by votes
       proposals.sort(function(a, b) { return (b.votes || 0) - (a.votes || 0); });
 
       var html = '';
