@@ -1,11 +1,12 @@
 const MapManager = {
   map: null, miniMap: null, miniMapMarker: null, markerCluster: null, markers: {},
   CENTER: [16.1745, -61.4510],
-  BOUNDS: [[15.8, -62.0], [16.55, -60.95]],
+  BOUNDS: [[15.8, -61.9], [16.6, -60.9]],
+  STRICT_BOUNDS: L.latLngBounds([[15.8, -61.9], [16.6, -60.9]]),
 
   init() {
     this.map = L.map('map', {
-      center: this.CENTER, zoom: 11, minZoom: 10, maxZoom: 18,
+      center: this.CENTER, zoom: 11, minZoom: 9, maxZoom: 18,
       maxBounds: this.BOUNDS,
       maxBoundsViscosity: 1.0,
       zoomControl: true
@@ -18,9 +19,9 @@ const MapManager = {
 
     this.markerCluster = L.markerClusterGroup({
       chunkedLoading: true, maxClusterRadius: 50,
-      iconCreateFunction: function(c) {
-        var n = c.getChildCount();
-        var s = n > 30 ? 'large' : n > 10 ? 'medium' : 'small';
+      iconCreateFunction: (c) => {
+        const n = c.getChildCount();
+        let s = n > 30 ? 'large' : n > 10 ? 'medium' : 'small';
         return L.divIcon({
           html: '<div class="cluster-icon cluster-icon--' + s + '">' + n + '</div>',
           className: '', iconSize: [46, 46]
@@ -29,8 +30,8 @@ const MapManager = {
     });
     this.map.addLayer(this.markerCluster);
 
-    setTimeout(function() { MapManager.map.invalidateSize(); }, 200);
-    setTimeout(function() { MapManager.map.invalidateSize(); }, 500);
+    setTimeout(() => this.map.invalidateSize(), 200);
+    setTimeout(() => this.map.invalidateSize(), 500);
   },
 
   getFaForCat(cat) {
@@ -59,7 +60,7 @@ const MapManager = {
         '<div class="pop__addr">' + (r.address ? App.esc(r.address.substring(0, 50)) : 'Guadeloupe') + '</div>' +
         '<div class="pop__foot">' +
         '<span class="pop__votes"><i class="fas fa-arrow-up"></i> ' + (r.upvotes || 0) + '</span>' +
-        '<button class="pop__btn" onclick="Reports.openDetail(\'' + r.id + '\')">Détails</button>' +
+        '<button class="pop__btn" onclick="Reports.openDetail(\'' + r.id + '\')">Details</button>' +
         '</div></div>',
         { maxWidth: 280 }
       );
@@ -74,10 +75,7 @@ const MapManager = {
     }
   },
 
-  clear() {
-    this.markerCluster.clearLayers();
-    this.markers = {};
-  },
+  clear() { this.markerCluster.clearLayers(); this.markers = {}; },
 
   flyTo(lat, lng, z) {
     z = z || 16;
@@ -85,17 +83,16 @@ const MapManager = {
   },
 
   isInGuadeloupe(lat, lng) {
-    return lat >= 15.8 && lat <= 16.55 && lng >= -62.0 && lng <= -60.95;
+    return lat >= 15.8 && lat <= 16.6 && lng >= -61.9 && lng <= -60.9;
   },
 
   initMiniMap() {
-    var self = this;
     if (this.miniMap) this.miniMap.remove();
     this.miniMapMarker = null;
 
     this.miniMap = L.map('mini-map', {
       center: this.CENTER, zoom: 11, minZoom: 10, maxZoom: 18,
-      maxBounds: this.BOUNDS,
+      maxBounds: [[15.7, -62.0], [16.7, -60.8]],
       maxBoundsViscosity: 1.0
     });
 
@@ -103,40 +100,44 @@ const MapManager = {
       subdomains: 'abcd', maxZoom: 20
     }).addTo(this.miniMap);
 
-    this.miniMap.on('click', function(e) {
+    // Restrict dragging/zooming to Guadeloupe
+    this.miniMap.on('drag', () => {
+      this.miniMap.panInsideBounds(this.STRICT_BOUNDS, { animate: false });
+    });
+
+    this.miniMap.on('click', (e) => {
       var lat = e.latlng.lat;
       var lng = e.latlng.lng;
-      if (!self.isInGuadeloupe(lat, lng)) {
+      if (!this.isInGuadeloupe(lat, lng)) {
         UI.toast('Veuillez choisir un lieu en Guadeloupe', 'warning');
         return;
       }
-      self.setPin(lat, lng);
-      self.reverseGeo(lat, lng);
+      this.setPin(lat, lng);
+      this.reverseGeo(lat, lng);
     });
 
-    setTimeout(function() { self.miniMap.invalidateSize(); }, 100);
+    setTimeout(() => this.miniMap.invalidateSize(), 100);
   },
 
   setPin(lat, lng) {
-    var self = this;
     if (!this.isInGuadeloupe(lat, lng)) {
-      UI.toast('Ce lieu est en dehors de la Guadeloupe', 'warning');
+      UI.toast('Lieu hors Guadeloupe', 'warning');
       return;
     }
     if (this.miniMapMarker) {
       this.miniMapMarker.setLatLng([lat, lng]);
     } else {
       this.miniMapMarker = L.marker([lat, lng], { draggable: true }).addTo(this.miniMap);
-      this.miniMapMarker.on('dragend', function(e) {
+      this.miniMapMarker.on('dragend', (e) => {
         var p = e.target.getLatLng();
-        if (!self.isInGuadeloupe(p.lat, p.lng)) {
-          UI.toast('Ce lieu est en dehors de la Guadeloupe', 'warning');
-          self.miniMapMarker.setLatLng([lat, lng]);
+        if (!this.isInGuadeloupe(p.lat, p.lng)) {
+          UI.toast('Lieu hors Guadeloupe', 'warning');
+          this.miniMapMarker.setLatLng([lat, lng]);
           return;
         }
-        self.reverseGeo(p.lat, p.lng);
         document.getElementById('report-lat').value = p.lat;
         document.getElementById('report-lng').value = p.lng;
+        this.reverseGeo(p.lat, p.lng);
       });
     }
     this.miniMap.setView([lat, lng], 16);
@@ -170,12 +171,16 @@ const MapManager = {
   async searchAddr(q) {
     try {
       var r = await fetch(
-        'https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q + ' Guadeloupe') + '&limit=5&viewbox=-62.0,15.8,-60.95,16.55&bounded=1',
+        'https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q + ' Guadeloupe') + '&limit=5&viewbox=-61.9,15.8,-60.9,16.6&bounded=1',
         { headers: { 'Accept-Language': 'fr' } }
       );
-      return await r.json();
-    } catch (e) {
-      return [];
-    }
+      var results = await r.json();
+      // Double-filter: only results within Guadeloupe bounds
+      return results.filter(function(item) {
+        var lat = parseFloat(item.lat);
+        var lon = parseFloat(item.lon);
+        return lat >= 15.8 && lat <= 16.6 && lon >= -61.9 && lon <= -60.9;
+      });
+    } catch (e) { return []; }
   }
 };
