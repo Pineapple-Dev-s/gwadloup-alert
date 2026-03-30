@@ -1,9 +1,8 @@
-const MapManager = {
+var MapManager = {
   map: null, miniMap: null, miniMapMarker: null, markerCluster: null, markers: {},
   CENTER: [16.1745, -61.4510],
   BOUNDS: [[15.8, -61.9], [16.6, -60.9]],
   currentLayer: null,
-  layerControl: null,
 
   tileLayers: {
     'Carte': {
@@ -33,13 +32,13 @@ const MapManager = {
     }
   },
 
-  init() {
+  init: function() {
+    var self = this;
     this.map = L.map('map', {
       center: this.CENTER, zoom: 11, minZoom: 9, maxZoom: 18,
       maxBounds: this.BOUNDS, maxBoundsViscosity: 1.0, zoomControl: true
     });
 
-    // Default layer
     var defaultTile = this.tileLayers['Carte'];
     var opts = { attribution: defaultTile.attr, maxZoom: 20 };
     if (defaultTile.sub) opts.subdomains = defaultTile.sub;
@@ -54,75 +53,46 @@ const MapManager = {
       }
     });
     this.map.addLayer(this.markerCluster);
-
-    // Add layer switcher button
     this.addLayerSwitcher();
-
-    setTimeout(function() { MapManager.map.invalidateSize(); }, 200);
-    setTimeout(function() { MapManager.map.invalidateSize(); }, 500);
+    setTimeout(function() { self.map.invalidateSize(); }, 200);
+    setTimeout(function() { self.map.invalidateSize(); }, 500);
   },
 
   addLayerSwitcher: function() {
     var self = this;
-
-    // Create custom control
     var LayerControl = L.Control.extend({
       options: { position: 'bottomright' },
       onAdd: function() {
         var container = L.DomUtil.create('div', 'layer-switcher');
-        container.innerHTML =
-          '<button class="layer-switcher__btn" id="layer-switcher-btn" title="Changer de calque">' +
-          '<i class="fas fa-layer-group"></i></button>' +
+        container.innerHTML = '<button class="layer-switcher__btn" id="layer-switcher-btn" title="Changer de calque"><i class="fas fa-layer-group"></i></button>' +
           '<div class="layer-switcher__menu" id="layer-switcher-menu"></div>';
-
         L.DomEvent.disableClickPropagation(container);
         L.DomEvent.disableScrollPropagation(container);
         return container;
       }
     });
-
     this.map.addControl(new LayerControl());
 
-    // Populate menu
     var menu = document.getElementById('layer-switcher-menu');
     var layerNames = Object.keys(this.tileLayers);
+    var icons = { 'Carte': 'fa-map', 'Sombre': 'fa-moon', 'Satellite': 'fa-satellite', 'Terrain': 'fa-mountain', 'OSM': 'fa-globe' };
     var html = '';
     for (var i = 0; i < layerNames.length; i++) {
       var name = layerNames[i];
-      var icons = {
-        'Carte': 'fa-map',
-        'Sombre': 'fa-moon',
-        'Satellite': 'fa-satellite',
-        'Terrain': 'fa-mountain',
-        'OSM': 'fa-globe'
-      };
-      var icon = icons[name] || 'fa-map';
-      var activeClass = name === 'Carte' ? ' layer-switcher__item--active' : '';
-      html += '<button class="layer-switcher__item' + activeClass + '" data-layer="' + name + '">' +
-        '<i class="fas ' + icon + '"></i><span>' + name + '</span></button>';
+      html += '<button class="layer-switcher__item' + (name === 'Carte' ? ' layer-switcher__item--active' : '') + '" data-layer="' + name + '"><i class="fas ' + (icons[name] || 'fa-map') + '"></i><span>' + name + '</span></button>';
     }
     menu.innerHTML = html;
 
-    // Toggle menu
-    var btn = document.getElementById('layer-switcher-btn');
-    btn.addEventListener('click', function(e) {
+    document.getElementById('layer-switcher-btn').addEventListener('click', function(e) {
       e.stopPropagation();
       menu.classList.toggle('open');
     });
-
-    // Close on outside click
     document.addEventListener('click', function(e) {
-      if (!e.target.closest('.layer-switcher')) {
-        menu.classList.remove('open');
-      }
+      if (!e.target.closest('.layer-switcher')) menu.classList.remove('open');
     });
-
-    // Layer selection
     menu.querySelectorAll('.layer-switcher__item').forEach(function(item) {
       item.addEventListener('click', function() {
-        var layerName = item.getAttribute('data-layer');
-        self.switchLayer(layerName);
-        // Update active state
+        self.switchLayer(item.getAttribute('data-layer'));
         menu.querySelectorAll('.layer-switcher__item').forEach(function(i) { i.classList.remove('layer-switcher__item--active'); });
         item.classList.add('layer-switcher__item--active');
         menu.classList.remove('open');
@@ -131,20 +101,20 @@ const MapManager = {
   },
 
   switchLayer: function(name) {
-    var layerDef = this.tileLayers[name];
-    if (!layerDef) return;
+    var def = this.tileLayers[name];
+    if (!def) return;
     if (this.currentLayer) this.map.removeLayer(this.currentLayer);
-    var opts = { attribution: layerDef.attr, maxZoom: 20 };
-    if (layerDef.sub) opts.subdomains = layerDef.sub;
-    this.currentLayer = L.tileLayer(layerDef.url, opts).addTo(this.map);
+    var opts = { attribution: def.attr, maxZoom: 20 };
+    if (def.sub) opts.subdomains = def.sub;
+    this.currentLayer = L.tileLayer(def.url, opts).addTo(this.map);
   },
 
-  getFaForCat(cat) {
+  getFaForCat: function(cat) {
     var c = App.categories[cat] || App.categories.other;
     return (UI && UI.catIcons ? UI.catIcons : {})[c.icon] || 'fa-map-pin';
   },
 
-  mkIcon(cat) {
+  mkIcon: function(cat) {
     var fa = this.getFaForCat(cat);
     return L.divIcon({
       html: '<div class="custom-marker marker-' + cat + '"><span class="custom-marker__inner"><i class="fas ' + fa + '"></i></span></div>',
@@ -152,7 +122,7 @@ const MapManager = {
     });
   },
 
-  addReport(r) {
+  addReport: function(r) {
     if (this.markers[r.id]) return;
     var c = App.categories[r.category] || App.categories.other;
     var fa = this.getFaForCat(r.category);
@@ -169,32 +139,51 @@ const MapManager = {
     this.markerCluster.addLayer(m);
   },
 
-  removeReport(id) { if (this.markers[id]) { this.markerCluster.removeLayer(this.markers[id]); delete this.markers[id]; } },
-  clear() { this.markerCluster.clearLayers(); this.markers = {}; },
-  flyTo(lat, lng, z) { this.map.flyTo([lat, lng], z || 16, { duration: 1 }); },
-  isInGuadeloupe(lat, lng) { return lat >= 15.8 && lat <= 16.6 && lng >= -61.9 && lng <= -60.9; },
-
-  initMiniMap() {
-    if (this.miniMap) this.miniMap.remove();
-    this.miniMapMarker = null;
-    this.miniMap = L.map('mini-map', {
-      center: this.CENTER, zoom: 11, minZoom: 10, maxZoom: 18,
-      maxBounds: [[15.7, -62.0], [16.7, -60.8]], maxBoundsViscosity: 1.0
-    });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd', maxZoom: 20
-    }).addTo(this.miniMap);
-
-    this.miniMap.on('click', function(e) {
-      if (!MapManager.isInGuadeloupe(e.latlng.lat, e.latlng.lng)) { UI.toast('Choisissez un lieu en Guadeloupe', 'warning'); return; }
-      MapManager.setPin(e.latlng.lat, e.latlng.lng);
-      MapManager.reverseGeo(e.latlng.lat, e.latlng.lng);
-    });
-    setTimeout(function() { MapManager.miniMap.invalidateSize(); }, 100);
+  removeReport: function(id) {
+    if (this.markers[id]) { this.markerCluster.removeLayer(this.markers[id]); delete this.markers[id]; }
   },
 
-  setPin(lat, lng) {
+  clear: function() { this.markerCluster.clearLayers(); this.markers = {}; },
+
+  flyTo: function(lat, lng, z) { this.map.flyTo([lat, lng], z || 16, { duration: 1 }); },
+
+  isInGuadeloupe: function(lat, lng) { return lat >= 15.8 && lat <= 16.6 && lng >= -61.9 && lng <= -60.9; },
+
+  initMiniMap: function() {
+    var self = this;
+    if (this.miniMap) { this.miniMap.remove(); this.miniMap = null; }
+    this.miniMapMarker = null;
+
+    setTimeout(function() {
+      var container = document.getElementById('mini-map');
+      if (!container) return;
+      container.style.width = '100%';
+      container.style.height = '220px';
+
+      self.miniMap = L.map('mini-map', {
+        center: self.CENTER, zoom: 11, minZoom: 10, maxZoom: 18,
+        maxBounds: [[15.7, -62.0], [16.7, -60.8]], maxBoundsViscosity: 1.0
+      });
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        subdomains: 'abcd', maxZoom: 20
+      }).addTo(self.miniMap);
+
+      self.miniMap.on('click', function(e) {
+        if (!self.isInGuadeloupe(e.latlng.lat, e.latlng.lng)) { UI.toast('Choisissez un lieu en Guadeloupe', 'warning'); return; }
+        self.setPin(e.latlng.lat, e.latlng.lng);
+        self.reverseGeo(e.latlng.lat, e.latlng.lng);
+      });
+
+      setTimeout(function() { if (self.miniMap) self.miniMap.invalidateSize(); }, 100);
+      setTimeout(function() { if (self.miniMap) self.miniMap.invalidateSize(); }, 300);
+      setTimeout(function() { if (self.miniMap) self.miniMap.invalidateSize(); }, 600);
+    }, 150);
+  },
+
+  setPin: function(lat, lng) {
     if (!this.isInGuadeloupe(lat, lng)) { UI.toast('Lieu hors Guadeloupe', 'warning'); return; }
+    var self = this;
+
     if (this.miniMapMarker) {
       this.miniMapMarker.setLatLng([lat, lng]);
     } else {
@@ -205,23 +194,30 @@ const MapManager = {
       this.miniMapMarker = L.marker([lat, lng], { draggable: true, icon: pinIcon }).addTo(this.miniMap);
       this.miniMapMarker.on('dragend', function(e) {
         var p = e.target.getLatLng();
-        if (!MapManager.isInGuadeloupe(p.lat, p.lng)) {
+        if (!self.isInGuadeloupe(p.lat, p.lng)) {
           UI.toast('Lieu hors Guadeloupe', 'warning');
-          MapManager.miniMapMarker.setLatLng([lat, lng]);
+          self.miniMapMarker.setLatLng([lat, lng]);
           return;
         }
         document.getElementById('report-lat').value = p.lat;
         document.getElementById('report-lng').value = p.lng;
-        MapManager.reverseGeo(p.lat, p.lng);
+        self.reverseGeo(p.lat, p.lng);
       });
     }
-    this.miniMap.setView([lat, lng], 16);
+
     document.getElementById('report-lat').value = lat;
     document.getElementById('report-lng').value = lng;
     document.getElementById('btn-step2-next').disabled = false;
+
+    setTimeout(function() {
+      if (self.miniMap) {
+        self.miniMap.invalidateSize();
+        self.miniMap.setView([lat, lng], 16, { animate: true });
+      }
+    }, 50);
   },
 
-  async reverseGeo(lat, lng) {
+  reverseGeo: async function(lat, lng) {
     try {
       var r = await fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng + '&zoom=18&addressdetails=1', { headers: { 'Accept-Language': 'fr' } });
       var d = await r.json();
@@ -237,11 +233,14 @@ const MapManager = {
     }
   },
 
-  async searchAddr(q) {
+  searchAddr: async function(q) {
     try {
       var r = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q + ' Guadeloupe') + '&limit=5&viewbox=-61.9,15.8,-60.9,16.6&bounded=1', { headers: { 'Accept-Language': 'fr' } });
       var results = await r.json();
-      return results.filter(function(item) { var lat = parseFloat(item.lat); var lon = parseFloat(item.lon); return lat >= 15.8 && lat <= 16.6 && lon >= -61.9 && lon <= -60.9; });
+      return results.filter(function(item) {
+        var lat = parseFloat(item.lat), lon = parseFloat(item.lon);
+        return lat >= 15.8 && lat <= 16.6 && lon >= -61.9 && lon <= -60.9;
+      });
     } catch (e) { return []; }
   }
 };
