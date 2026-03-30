@@ -25,8 +25,8 @@
         <button class="hdr__tab active" data-view="map"><i class="fas fa-map-marked-alt"></i><span>Carte</span></button>
         <button class="hdr__tab" data-view="list"><i class="fas fa-list"></i><span>Liste</span></button>
         <button class="hdr__tab" data-view="stats"><i class="fas fa-chart-bar"></i><span>Stats</span></button>
+        <button class="hdr__tab" data-view="community"><i class="fas fa-users"></i><span>Communaute</span></button>
         <button class="hdr__tab" data-view="wiki"><i class="fas fa-book"></i><span>Wiki</span></button>
-        <button class="hdr__tab" data-view="community"><i class="fas fa-users"></i><span>Communauté</span></button>
       </nav>
       <div class="hdr__right">
         <button class="btn btn--accent" id="btn-new-report" style="display:none"><i class="fas fa-plus"></i><span>Signaler</span></button>
@@ -136,18 +136,10 @@
               <select class="sel" id="filter-commune">
                 <option value="">Commune</option>
                 <optgroup label="Grande-Terre">
-                  <option>Les Abymes</option><option>Anse-Bertrand</option><option>Le Gosier</option>
-                  <option>Le Moule</option><option>Morne-a-l'Eau</option><option>Petit-Canal</option>
-                  <option>Pointe-a-Pitre</option><option>Port-Louis</option><option>Saint-Francois</option>
-                  <option>Sainte-Anne</option>
+                  <option>Les Abymes</option><option>Anse-Bertrand</option><option>Le Gosier</option><option>Le Moule</option><option>Morne-a-l'Eau</option><option>Petit-Canal</option><option>Pointe-a-Pitre</option><option>Port-Louis</option><option>Saint-Francois</option><option>Sainte-Anne</option>
                 </optgroup>
                 <optgroup label="Basse-Terre">
-                  <option>Baie-Mahault</option><option>Baillif</option><option>Basse-Terre</option>
-                  <option>Bouillante</option><option>Capesterre-Belle-Eau</option><option>Deshaies</option>
-                  <option>Gourbeyre</option><option>Goyave</option><option>Lamentin</option>
-                  <option>Petit-Bourg</option><option>Pointe-Noire</option><option>Saint-Claude</option>
-                  <option>Sainte-Rose</option><option>Trois-Rivieres</option><option>Vieux-Fort</option>
-                  <option>Vieux-Habitants</option>
+                  <option>Baie-Mahault</option><option>Baillif</option><option>Basse-Terre</option><option>Bouillante</option><option>Capesterre-Belle-Eau</option><option>Deshaies</option><option>Gourbeyre</option><option>Goyave</option><option>Lamentin</option><option>Petit-Bourg</option><option>Pointe-Noire</option><option>Saint-Claude</option><option>Sainte-Rose</option><option>Trois-Rivieres</option><option>Vieux-Fort</option><option>Vieux-Habitants</option>
                 </optgroup>
                 <optgroup label="Marie-Galante">
                   <option>Capesterre-de-Marie-Galante</option><option>Grand-Bourg</option><option>Saint-Louis</option>
@@ -204,6 +196,68 @@
       </div>
     </section>
 
+    <!-- COMMUNITY -->
+    <section class="view" id="view-community">
+      <div class="container">
+        <div class="sec-head">
+          <div><h1><i class="fas fa-users"></i> Communaute</h1><p>Proposez des tags, contribuez au wiki, contactez-nous</p></div>
+        </div>
+
+        <!-- Contact -->
+        <div class="cbox">
+          <h3><i class="fas fa-envelope"></i> Contact</h3>
+          <p style="font-size:.85rem;color:var(--text2);margin-bottom:8px">Pour toute question, suggestion ou partenariat :</p>
+          <a href="#" id="contact-email-link" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--green-bg);color:var(--green);border-radius:var(--r);font-size:.85rem;font-weight:600;text-decoration:none">
+            <i class="fas fa-envelope"></i> <span id="contact-email-display">maxenceponche971@gmail.com</span>
+          </a>
+        </div>
+
+        <!-- Tag proposals -->
+        <div class="cbox">
+          <h3><i class="fas fa-tag"></i> Propositions de tags</h3>
+          <p style="font-size:.8rem;color:var(--text2);margin-bottom:12px">Proposez de nouvelles categories de signalement. Les plus votees seront ajoutees !</p>
+          <button class="btn btn--primary" id="btn-propose-tag" style="margin-bottom:12px"><i class="fas fa-plus"></i> Proposer un tag</button>
+
+          <div id="tag-proposal-form-container" style="display:none;margin-bottom:16px">
+            <form id="tag-proposal-form" style="background:var(--bg3);padding:14px;border-radius:var(--r)">
+              <div class="field">
+                <label>Nom du tag *</label>
+                <input type="text" class="inp" id="tp-name" placeholder="Ex: Graffiti" minlength="2" maxlength="30" required>
+              </div>
+              <div class="field">
+                <label>Icone Font Awesome</label>
+                <input type="text" class="inp" id="tp-icon" placeholder="fa-spray-can (optionnel)">
+                <small>Voir <a href="https://fontawesome.com/icons" target="_blank">fontawesome.com/icons</a></small>
+              </div>
+              <div class="field">
+                <label>Description *</label>
+                <textarea class="inp" id="tp-description" placeholder="Decrivez ce tag..." minlength="5" maxlength="200" rows="2" required></textarea>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button type="submit" class="btn btn--primary"><i class="fas fa-paper-plane"></i> Envoyer</button>
+                <button type="button" class="btn btn--ghost" id="tp-cancel">Annuler</button>
+              </div>
+            </form>
+          </div>
+
+          <div id="tag-proposals-list"><p style="color:var(--text3);font-size:.8rem">Chargement...</p></div>
+        </div>
+
+        <!-- Wiki contribute -->
+        <div class="cbox">
+          <h3><i class="fas fa-book-open"></i> Contribuer au Wiki</h3>
+          <p style="font-size:.8rem;color:var(--text2);margin-bottom:8px">Le wiki est ouvert a tous les utilisateurs connectes. Partagez vos connaissances sur la Guadeloupe !</p>
+          <button class="btn btn--outline" id="btn-new-wiki" style="display:none"><i class="fas fa-plus"></i> Creer un article</button>
+        </div>
+
+        <!-- Open source -->
+        <div class="cbox">
+          <h3><i class="fab fa-github"></i> Open Source</h3>
+          <p style="font-size:.85rem;color:var(--text2);line-height:1.7">Gwadloup Alert est un projet <strong style="color:var(--green)">100% open source et gratuit</strong>. Le code est disponible sur GitHub. Contribuez, signalez des bugs, proposez des ameliorations !</p>
+        </div>
+      </div>
+    </section>
+
     <!-- WIKI -->
     <section class="view" id="view-wiki">
       <div class="container">
@@ -211,91 +265,9 @@
           <aside class="wiki__side" id="wiki-sidebar">
             <h3><i class="fas fa-book"></i> Wiki</h3>
             <nav id="wiki-nav"></nav>
-            <button class="btn btn--outline btn--full" id="btn-new-wiki" style="margin-top:12px;display:none">
-              <i class="fas fa-plus"></i> Nouvel article
-            </button>
-            <button class="btn btn--ghost btn--full" id="btn-wiki-history" style="margin-top:4px">
-              <i class="fas fa-history"></i> Historique
-            </button>
+            <button class="btn btn--ghost" id="btn-wiki-history" style="margin-top:8px;width:100%;font-size:.72rem"><i class="fas fa-history"></i> Historique</button>
           </aside>
           <article class="wiki__body" id="wiki-content"><p class="wiki__load">Chargement...</p></article>
-        </div>
-      </div>
-    </section>
-
-    <!-- COMMUNITY -->
-    <section class="view" id="view-community">
-      <div class="container">
-        <div class="sec-head">
-          <div>
-            <h1><i class="fas fa-users"></i> Communauté</h1>
-            <p>Contribuez au projet, proposez des tags, contactez-nous</p>
-          </div>
-        </div>
-
-        <!-- Contact -->
-        <div class="cbox">
-          <h3><i class="fas fa-envelope"></i> Contact</h3>
-          <p style="font-size:.85rem;color:var(--text2);margin-bottom:12px">
-            Pour toute question, suggestion ou partenariat, contactez le créateur du projet :
-          </p>
-          <a href="mailto:maxenceponche971@gmail.com" class="btn btn--primary" style="margin-bottom:8px">
-            <i class="fas fa-envelope"></i> maxenceponche971@gmail.com
-          </a>
-          <p style="font-size:.75rem;color:var(--text3)">
-            Gwadloup Alèrt est un projet open-source 100% gratuit, fait par les Guadeloupéens pour les Guadeloupéens. 🇬🇵
-          </p>
-        </div>
-
-        <!-- Tag Proposals -->
-        <div class="cbox">
-          <h3><i class="fas fa-tags"></i> Proposer un nouveau tag</h3>
-          <p style="font-size:.8rem;color:var(--text2);margin-bottom:12px">
-            Une catégorie manque ? Proposez-la et la communauté votera !
-          </p>
-          <div id="tag-proposal-form-container" style="display:none">
-            <form id="tag-proposal-form">
-              <div class="field">
-                <label>Nom du tag *</label>
-                <input type="text" class="inp" id="tp-name" placeholder="Ex: Abribus cassé" minlength="2" maxlength="50" required>
-              </div>
-              <div class="field">
-                <label>Icône Font Awesome</label>
-                <input type="text" class="inp" id="tp-icon" placeholder="Ex: fa-bus (optionnel)" maxlength="30">
-              </div>
-              <div class="field">
-                <label>Description *</label>
-                <textarea class="inp" id="tp-description" placeholder="Décrivez ce que ce tag couvrirait..." minlength="10" maxlength="500" rows="3" required></textarea>
-              </div>
-              <div style="display:flex;gap:8px">
-                <button type="submit" class="btn btn--primary"><i class="fas fa-paper-plane"></i> Proposer</button>
-                <button type="button" class="btn btn--ghost" id="tp-cancel">Annuler</button>
-              </div>
-            </form>
-          </div>
-          <button class="btn btn--outline" id="btn-propose-tag" style="margin-bottom:12px">
-            <i class="fas fa-plus"></i> Proposer un tag
-          </button>
-          <div id="tag-proposals-list"></div>
-        </div>
-
-        <!-- Open Source -->
-        <div class="cbox">
-          <h3><i class="fab fa-github"></i> Open Source</h3>
-          <p style="font-size:.85rem;color:var(--text2);margin-bottom:8px">
-            Ce projet est entièrement open-source. Vous pouvez contribuer de plusieurs façons :
-          </p>
-          <ul style="font-size:.82rem;color:var(--text2);margin-left:16px;margin-bottom:12px">
-            <li>📸 Signaler les problèmes que vous constatez</li>
-            <li>👍 Soutenir les signalements existants</li>
-            <li>💬 Commenter pour apporter des précisions</li>
-            <li>📝 Créer ou éditer des articles wiki</li>
-            <li>🏷️ Proposer de nouveaux tags</li>
-            <li>📢 Partager le projet autour de vous</li>
-          </ul>
-          <p style="font-size:.75rem;color:var(--text3)">
-            Stack : Express.js + Supabase + Leaflet + ImgBB — Coût total : 0€
-          </p>
         </div>
       </div>
     </section>
@@ -324,12 +296,12 @@
         </div>
         <div class="fstep" id="step-2">
           <h3>Localisation</h3>
-          <p class="fstep__d">Cliquez sur la carte ou geolocalisez-vous (Guadeloupe uniquement)</p>
+          <p class="fstep__d">Cliquez sur la carte ou geolocalisez-vous</p>
           <div class="loc-bar">
             <button type="button" class="btn btn--outline" id="btn-geolocate"><i class="fas fa-crosshairs"></i> Localiser</button>
             <div class="loc-search">
               <i class="fas fa-search"></i>
-              <input type="text" id="address-search" placeholder="Rechercher en Guadeloupe..." autocomplete="off">
+              <input type="text" id="address-search" placeholder="Adresse en Guadeloupe..." autocomplete="off">
               <div class="loc-results" id="search-results"></div>
             </div>
           </div>
@@ -396,7 +368,7 @@
   <div class="modal" id="modal-admin">
     <div class="modal__bg" data-close></div>
     <div class="modal__box modal__box--lg">
-      <div class="modal__top"><h2><i class="fas fa-shield-alt"></i> Administration</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
+      <div class="modal__top"><h2>Administration</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
       <div id="admin-panel"><div id="admin-reports-list"></div></div>
     </div>
   </div>
@@ -426,29 +398,11 @@
           <label>Commune</label>
           <select class="inp" id="register-commune">
             <option value="">Choisir...</option>
-            <optgroup label="Grande-Terre">
-              <option>Les Abymes</option><option>Anse-Bertrand</option><option>Le Gosier</option>
-              <option>Le Moule</option><option>Morne-a-l'Eau</option><option>Petit-Canal</option>
-              <option>Pointe-a-Pitre</option><option>Port-Louis</option><option>Saint-Francois</option>
-              <option>Sainte-Anne</option>
-            </optgroup>
-            <optgroup label="Basse-Terre">
-              <option>Baie-Mahault</option><option>Baillif</option><option>Basse-Terre</option>
-              <option>Bouillante</option><option>Capesterre-Belle-Eau</option><option>Deshaies</option>
-              <option>Gourbeyre</option><option>Goyave</option><option>Lamentin</option>
-              <option>Petit-Bourg</option><option>Pointe-Noire</option><option>Saint-Claude</option>
-              <option>Sainte-Rose</option><option>Trois-Rivieres</option><option>Vieux-Fort</option>
-              <option>Vieux-Habitants</option>
-            </optgroup>
-            <optgroup label="Marie-Galante">
-              <option>Capesterre-de-Marie-Galante</option><option>Grand-Bourg</option><option>Saint-Louis</option>
-            </optgroup>
-            <optgroup label="Les Saintes">
-              <option>Terre-de-Haut</option><option>Terre-de-Bas</option>
-            </optgroup>
-            <optgroup label="La Desirade">
-              <option>La Desirade</option>
-            </optgroup>
+            <optgroup label="Grande-Terre"><option>Les Abymes</option><option>Anse-Bertrand</option><option>Le Gosier</option><option>Le Moule</option><option>Morne-a-l'Eau</option><option>Petit-Canal</option><option>Pointe-a-Pitre</option><option>Port-Louis</option><option>Saint-Francois</option><option>Sainte-Anne</option></optgroup>
+            <optgroup label="Basse-Terre"><option>Baie-Mahault</option><option>Baillif</option><option>Basse-Terre</option><option>Bouillante</option><option>Capesterre-Belle-Eau</option><option>Deshaies</option><option>Gourbeyre</option><option>Goyave</option><option>Lamentin</option><option>Petit-Bourg</option><option>Pointe-Noire</option><option>Saint-Claude</option><option>Sainte-Rose</option><option>Trois-Rivieres</option><option>Vieux-Fort</option><option>Vieux-Habitants</option></optgroup>
+            <optgroup label="Marie-Galante"><option>Capesterre-de-Marie-Galante</option><option>Grand-Bourg</option><option>Saint-Louis</option></optgroup>
+            <optgroup label="Les Saintes"><option>Terre-de-Haut</option><option>Terre-de-Bas</option></optgroup>
+            <optgroup label="La Desirade"><option>La Desirade</option></optgroup>
           </select>
         </div>
         <div class="field"><label>Mot de passe</label><input type="password" class="inp" id="register-password" placeholder="Min. 6 car." minlength="6" required></div>
@@ -479,19 +433,19 @@
   <div class="modal" id="modal-wiki-edit">
     <div class="modal__bg" data-close></div>
     <div class="modal__box modal__box--lg">
-      <div class="modal__top"><h2 id="wiki-edit-title">Nouvel article</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
+      <div class="modal__top"><h2 id="wiki-edit-title">Modifier l'article</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
       <form id="wiki-edit-form" style="padding:16px">
         <div class="field">
-          <label>Slug (URL) *</label>
-          <input type="text" class="inp" id="wiki-edit-slug" placeholder="mon-article" pattern="[a-zA-Z0-9-_]+" minlength="2" maxlength="60" required>
-          <small>Lettres, chiffres, tirets uniquement</small>
+          <label>Slug (identifiant URL)</label>
+          <input type="text" class="inp" id="wiki-edit-slug" placeholder="mon-article" pattern="[a-z0-9\-_]+" required>
+          <small>Lettres minuscules, chiffres, tirets uniquement</small>
         </div>
         <div class="field">
-          <label>Contenu Markdown *</label>
-          <textarea class="inp" id="wiki-edit-content" placeholder="# Mon article&#10;&#10;Contenu ici..." rows="15" minlength="10" maxlength="50000" required style="font-family:'JetBrains Mono',monospace;font-size:.78rem"></textarea>
-          <small>Markdown supporté. <span id="wiki-char-count">0</span>/50000</small>
+          <label>Contenu (Markdown)</label>
+          <textarea class="inp" id="wiki-edit-content" rows="15" style="min-height:300px;font-family:'JetBrains Mono',monospace;font-size:.78rem" required></textarea>
+          <small><span id="wiki-char-count">0</span> caracteres</small>
         </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end">
+        <div style="display:flex;gap:6px;justify-content:flex-end">
           <button type="button" class="btn btn--ghost" data-close>Annuler</button>
           <button type="submit" class="btn btn--primary" id="btn-wiki-save"><i class="fas fa-save"></i> Publier</button>
         </div>
@@ -502,7 +456,7 @@
   <div class="modal" id="modal-wiki-history">
     <div class="modal__bg" data-close></div>
     <div class="modal__box modal__box--lg">
-      <div class="modal__top"><h2><i class="fas fa-history"></i> Historique Wiki</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
+      <div class="modal__top"><h2>Historique Wiki</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
       <div id="wiki-history-content" style="padding:16px"></div>
     </div>
   </div>
