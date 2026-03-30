@@ -243,7 +243,11 @@ var UI = {
   },
 
   _countVotes: async function(table, fk, id) {
-    try { var r = await App.supabase.from(table).select('id', {count:'exact',head:true}).eq(fk, id); return r.count || 0; } catch(e) { return 0; }
+    try {
+      var result = await App.supabase.from(table).select('id').eq(fk, id);
+      if (result.data) return result.data.length;
+      return 0;
+    } catch (e) { return 0; }
   },
 
   openArticle: async function(id) {
