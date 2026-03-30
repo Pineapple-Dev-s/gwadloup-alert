@@ -1,442 +1,867 @@
 var UI = {
   catIcons: {
-    road:'fa-road', warning:'fa-exclamation-triangle', sign:'fa-sign',
-    marking:'fa-paint-roller', bump:'fa-wave-square', car:'fa-car',
-    boat:'fa-ship', dump:'fa-trash', beach:'fa-umbrella-beach',
-    river:'fa-water', bin:'fa-trash-alt', light:'fa-lightbulb',
-    cable:'fa-bolt', leak:'fa-tint', flood:'fa-house-flood-water',
-    sewer:'fa-faucet-drip', stagnant:'fa-droplet', plant:'fa-leaf',
-    tree:'fa-tree', invasive:'fa-seedling', building:'fa-building',
-    abandoned:'fa-building-circle-xmark', sidewalk:'fa-person-walking',
-    railing:'fa-grip-lines', danger:'fa-shield-halved',
-    crosswalk:'fa-crosshairs', school:'fa-school', noise:'fa-volume-high',
-    animals:'fa-paw', mosquito:'fa-mosquito', other:'fa-map-pin'
+    road:'fa-road', warning:'fa-exclamation-triangle', sign:'fa-sign', marking:'fa-paint-roller',
+    bump:'fa-wave-square', car:'fa-car', boat:'fa-ship', dump:'fa-trash', beach:'fa-umbrella-beach',
+    river:'fa-water', bin:'fa-trash-alt', light:'fa-lightbulb', cable:'fa-bolt', leak:'fa-tint',
+    flood:'fa-house-flood-water', sewer:'fa-faucet-drip', stagnant:'fa-droplet', plant:'fa-leaf',
+    tree:'fa-tree', invasive:'fa-seedling', building:'fa-building', abandoned:'fa-building-circle-xmark',
+    sidewalk:'fa-person-walking', railing:'fa-grip-lines', danger:'fa-shield-halved',
+    crosswalk:'fa-crosshairs', school:'fa-school', noise:'fa-volume-high', animals:'fa-paw',
+    mosquito:'fa-mosquito', other:'fa-map-pin'
   },
   wikiCatIcons: { general:'📌', guide:'📖', info:'ℹ️', discussion:'💬', proposition:'💡' },
+  searchTimeout: null,
 
   init: function() {
-    this.nav(); this.modals(); this.filters(); this.form(); this.burger();
-    this.catGrid(); this.community(); this.wikiTabs(); this.wikiWrite();
-    this.contactEmail(); this.debug();
+    this.nav();
+    this.modals();
+    this.filters();
+    this.form();
+    this.burger();
+    this.catGrid();
+    this.community();
+    this.wikiTabs();
+    this.wikiWrite();
+    this.contactEmail();
+    this.debug();
     ImageUpload.init();
   },
 
-  contactEmail: function() {
-    if (App.config && App.config.contactEmail) {
-      var link = document.getElementById('contact-email-link');
-      var display = document.getElementById('contact-email-display');
-      if (link) link.href = 'mailto:' + App.config.contactEmail;
-      if (display) display.textContent = App.config.contactEmail;
-    }
-    // Set repo URL
-    if (App.config && App.config.repoUrl) {
-      var repoLink = document.getElementById('repo-link');
-      if (repoLink) repoLink.href = App.config.repoUrl;
-    }
-  },
-
-  debug: function() {
-    window.GA = {
-      status: function() {
-        console.log('Reports:', App.reports.length, '| User:', App.currentUser ? App.currentUser.email : 'none',
-          '| Groq:', App.config ? App.config.groqAvailable : 'unknown');
-        return 'OK';
-      },
-      reload: function() { Reports.loadAll(); return 'Reloaded'; }
-    };
-  },
-
-  catGrid: function() {
-    var g = document.getElementById('category-grid'); if (!g) return;
-    var html = '', keys = Object.keys(App.categories);
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i], v = App.categories[k], fa = this.catIcons[v.icon] || 'fa-map-pin';
-      html += '<label class="catc"><input type="radio" name="category" value="' + k + '"><div class="catc__ico"><i class="fas ' + fa + '"></i></div><div class="catc__name">' + v.label + '</div></label>';
-    }
-    g.innerHTML = html;
-    g.addEventListener('change', function() { var b = document.getElementById('btn-step1-next'); if (b) b.disabled = false; });
-  },
-
+  // === NAVIGATION ===
   nav: function() {
-    var self = this, tabs = document.querySelectorAll('.hdr__tab');
+    var self = this;
+    var tabs = document.querySelectorAll('.hdr__tab');
     for (var i = 0; i < tabs.length; i++) {
-      (function(btn) {
-        btn.addEventListener('click', function(e) {
-          e.preventDefault(); var view = btn.getAttribute('data-view');
-          for (var j = 0; j < tabs.length; j++) tabs[j].classList.remove('active');
-          btn.classList.add('active');
-          var views = document.querySelectorAll('.view');
-          for (var j = 0; j < views.length; j++) views[j].classList.remove('active');
-          var target = document.getElementById('view-' + view); if (target) target.classList.add('active');
-          if (view === 'map' && MapManager.map) setTimeout(function() { MapManager.map.invalidateSize(); }, 150);
-          if (view === 'stats') Reports.updateStats();
-          if (view === 'wiki') { self.loadWikiOfficial(); self.loadCommunityArticles(); }
-          if (view === 'community') self.loadTagProposals();
-          var nav = document.getElementById('main-nav'); if (nav) nav.classList.remove('open');
-          var burger = document.getElementById('burger-menu'); if (burger) burger.classList.remove('open');
-        });
-      })(tabs[i]);
+      tabs[i].addEventListener('click', function() {
+        var view = this.getAttribute('data-view');
+        // Deactivate all
+        for (var j = 0; j < tabs.length; j++) tabs[j].classList.remove('active');
+        this.classList.add('active');
+        // Show target view
+        var views = document.querySelectorAll('.view');
+        for (var j = 0; j < views.length; j++) views[j].classList.remove('active');
+        var target = document.getElementById('view-' + view);
+        if (target) target.classList.add('active');
+        // Close mobile nav
+        var nav = document.getElementById('main-nav');
+        if (nav) nav.classList.remove('open');
+        var burger = document.getElementById('burger-menu');
+        if (burger) burger.classList.remove('open');
+        // View-specific actions
+        if (view === 'map' && MapManager.map) setTimeout(function() { MapManager.map.invalidateSize(); }, 100);
+        if (view === 'stats') Reports.updateStats();
+        if (view === 'wiki') { self.loadWikiStatic(); self.loadCommunityArticles(); }
+        if (view === 'community') self.loadTagProposals();
+      });
     }
     var logo = document.getElementById('logo-link');
     if (logo) logo.addEventListener('click', function(e) {
       e.preventDefault();
       for (var j = 0; j < tabs.length; j++) tabs[j].classList.remove('active');
-      var mt = document.querySelector('.hdr__tab[data-view="map"]'); if (mt) mt.classList.add('active');
+      var mapTab = document.querySelector('[data-view="map"]');
+      if (mapTab) mapTab.classList.add('active');
       var views = document.querySelectorAll('.view');
       for (var j = 0; j < views.length; j++) views[j].classList.remove('active');
-      var mv = document.getElementById('view-map'); if (mv) mv.classList.add('active');
-      if (MapManager.map) setTimeout(function() { MapManager.map.invalidateSize(); }, 150);
+      var mapView = document.getElementById('view-map');
+      if (mapView) mapView.classList.add('active');
+      if (MapManager.map) setTimeout(function() { MapManager.map.invalidateSize(); }, 100);
     });
   },
 
-  burger: function() { var b = document.getElementById('burger-menu'); if (b) b.addEventListener('click', function() { b.classList.toggle('open'); var n = document.getElementById('main-nav'); if (n) n.classList.toggle('open'); }); },
+  // === BURGER MENU ===
+  burger: function() {
+    var burger = document.getElementById('burger-menu');
+    var nav = document.getElementById('main-nav');
+    if (burger && nav) {
+      burger.addEventListener('click', function() {
+        burger.classList.toggle('open');
+        nav.classList.toggle('open');
+      });
+    }
+  },
 
+  // === MODALS ===
   modals: function() {
-    document.addEventListener('click', function(e) {
-      var c = e.target.hasAttribute('data-close') ? e.target : e.target.closest('[data-close]');
-      if (c) { var m = c.closest('.modal'); if (m) { m.classList.remove('open'); document.body.style.overflow = ''; } }
+    var self = this;
+    // Close buttons
+    document.querySelectorAll('[data-close]').forEach(function(el) {
+      el.addEventListener('click', function() {
+        var modal = el.closest('.modal');
+        if (modal) self.closeModal(modal.id);
+      });
     });
-    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { var o = document.querySelectorAll('.modal.open'); for (var i = 0; i < o.length; i++) o[i].classList.remove('open'); document.body.style.overflow = ''; } });
-    var rb = document.getElementById('btn-new-report');
-    if (rb) rb.addEventListener('click', function() {
-      if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); UI.openModal('modal-login'); return; }
-      var f = document.getElementById('report-form'); if (f) f.reset(); ImageUpload.reset();
-      var s = document.querySelectorAll('.fstep'); for (var i = 0; i < s.length; i++) s[i].classList.remove('active');
-      document.getElementById('step-1').classList.add('active');
-      var ind = document.querySelectorAll('.steps__i'); for (var i = 0; i < ind.length; i++) ind[i].classList.remove('active', 'done');
-      document.querySelector('.steps__i[data-step="1"]').classList.add('active');
-      var b1 = document.getElementById('btn-step1-next'); if (b1) b1.disabled = true;
-      var b2 = document.getElementById('btn-step2-next'); if (b2) b2.disabled = true;
-      var li = document.getElementById('location-info'); if (li) li.style.display = 'none';
-      var dc = document.getElementById('desc-count'); if (dc) dc.textContent = '0';
-      UI.openModal('modal-report');
-      setTimeout(function() { MapManager.initMiniMap(); }, 400);
+    // ESC key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        var modals = document.querySelectorAll('.modal.open');
+        for (var i = modals.length - 1; i >= 0; i--) { self.closeModal(modals[i].id); break; }
+      }
     });
+    // New report button
+    var newBtn = document.getElementById('btn-new-report');
+    if (newBtn) {
+      newBtn.addEventListener('click', function() {
+        if (!App.currentUser) { self.toast('Connectez-vous d\'abord', 'warning'); return; }
+        self.resetReportForm();
+        self.openModal('modal-report');
+        setTimeout(function() { MapManager.initMiniMap(); }, 200);
+      });
+    }
   },
 
-  openModal: function(id) { var m = document.getElementById(id); if (m) { m.classList.add('open'); document.body.style.overflow = 'hidden'; } },
-  closeModal: function(id) { var m = document.getElementById(id); if (m) m.classList.remove('open'); if (!document.querySelectorAll('.modal.open').length) document.body.style.overflow = ''; },
+  openModal: function(id) {
+    var modal = document.getElementById(id);
+    if (modal) { modal.classList.add('open'); document.body.style.overflow = 'hidden'; }
+  },
+  closeModal: function(id) {
+    var modal = document.getElementById(id);
+    if (modal) { modal.classList.remove('open'); }
+    // Check if any modal still open
+    if (!document.querySelector('.modal.open')) document.body.style.overflow = '';
+  },
 
+  // === FILTERS ===
   filters: function() {
-    var cf = document.getElementById('filter-category'), sf = document.getElementById('filter-status'), cmf = document.getElementById('filter-commune'), rb = document.getElementById('btn-reset-filters'), ss = document.getElementById('sort-reports');
-    if (cf) cf.addEventListener('change', function(e) { App.filters.category = e.target.value; Reports.loadAll(); });
-    if (sf) sf.addEventListener('change', function(e) { App.filters.status = e.target.value; Reports.loadAll(); });
-    if (cmf) cmf.addEventListener('change', function(e) { App.filters.commune = e.target.value; Reports.loadAll(); });
-    if (rb) rb.addEventListener('click', function() { App.filters = { category:'', status:'', commune:'' }; if (cf) cf.value=''; if (sf) sf.value=''; if (cmf) cmf.value=''; Reports.loadAll(); });
-    if (ss) ss.addEventListener('change', function(e) { var s = e.target.value; if (s==='newest') App.reports.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);}); else if (s==='oldest') App.reports.sort(function(a,b){return new Date(a.created_at)-new Date(b.created_at);}); else App.reports.sort(function(a,b){return (b.upvotes||0)-(a.upvotes||0);}); Reports.renderList(); });
+    var self = this;
+    ['filter-category', 'filter-status', 'filter-commune'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('change', function() {
+        App.filters.category = document.getElementById('filter-category').value;
+        App.filters.status = document.getElementById('filter-status').value;
+        App.filters.commune = document.getElementById('filter-commune').value;
+        Reports.loadAll();
+      });
+    });
+    var reset = document.getElementById('btn-reset-filters');
+    if (reset) reset.addEventListener('click', function() {
+      document.getElementById('filter-category').value = '';
+      document.getElementById('filter-status').value = '';
+      document.getElementById('filter-commune').value = '';
+      App.filters = { category: '', status: '', commune: '' };
+      Reports.loadAll();
+    });
+    var sort = document.getElementById('sort-reports');
+    if (sort) sort.addEventListener('change', function() {
+      var v = sort.value;
+      if (v === 'newest') App.reports.sort(function(a, b) { return new Date(b.created_at) - new Date(a.created_at); });
+      else if (v === 'oldest') App.reports.sort(function(a, b) { return new Date(a.created_at) - new Date(b.created_at); });
+      else if (v === 'most-voted') App.reports.sort(function(a, b) { return (b.upvotes || 0) - (a.upvotes || 0); });
+      Reports.renderList();
+    });
   },
 
+  // === REPORT FORM ===
   form: function() {
     var self = this;
-    var s1 = document.getElementById('btn-step1-next'); if (s1) s1.addEventListener('click', function() { self.goStep(2); });
-    var s2 = document.getElementById('btn-step2-next'); if (s2) s2.addEventListener('click', function() { self.goStep(3); });
-    var pb = document.querySelectorAll('[data-prev]'); for (var i = 0; i < pb.length; i++) (function(b) { b.addEventListener('click', function() { self.goStep(parseInt(b.getAttribute('data-prev'))); }); })(pb[i]);
-
-    var gb = document.getElementById('btn-geolocate');
-    if (gb) gb.addEventListener('click', function() {
-      if (!navigator.geolocation) { UI.toast('Non supporté', 'error'); return; }
-      gb.disabled = true; gb.textContent = 'Localisation...';
-      navigator.geolocation.getCurrentPosition(function(pos) {
-        if (!MapManager.isInGuadeloupe(pos.coords.latitude, pos.coords.longitude)) UI.toast('Pas en Guadeloupe. Placez manuellement.', 'warning');
-        else { MapManager.setPin(pos.coords.latitude, pos.coords.longitude); MapManager.reverseGeo(pos.coords.latitude, pos.coords.longitude); }
-        gb.disabled = false; gb.innerHTML = '<i class="fas fa-crosshairs"></i> Localiser';
-      }, function() { UI.toast('Impossible', 'warning'); gb.disabled = false; gb.innerHTML = '<i class="fas fa-crosshairs"></i> Localiser'; }, { enableHighAccuracy: true, timeout: 10000 });
+    // Step navigation
+    var step1Next = document.getElementById('btn-step1-next');
+    var step2Next = document.getElementById('btn-step2-next');
+    if (step1Next) step1Next.addEventListener('click', function() { self.goStep(2); });
+    if (step2Next) step2Next.addEventListener('click', function() { self.goStep(3); });
+    document.querySelectorAll('[data-prev]').forEach(function(btn) {
+      btn.addEventListener('click', function() { self.goStep(parseInt(btn.getAttribute('data-prev'))); });
     });
-
-    var timer, si = document.getElementById('address-search'), sr = document.getElementById('search-results');
-    if (si && sr) {
-      si.addEventListener('input', function() { clearTimeout(timer); var q = si.value.trim(); if (q.length < 3) { sr.classList.remove('open'); return; }
-        timer = setTimeout(function() { MapManager.searchAddr(q).then(function(data) {
-          if (data.length > 0) { var h = ''; for (var i = 0; i < data.length; i++) h += '<div class="loc-r" data-lat="' + data[i].lat + '" data-lon="' + data[i].lon + '">' + data[i].display_name + '</div>'; sr.innerHTML = h; sr.classList.add('open'); }
-          else { sr.innerHTML = '<div class="loc-r">Aucun résultat</div>'; sr.classList.add('open'); }
-        }); }, 400);
-      });
-      si.addEventListener('focus', function() { if (sr.children.length > 0 && si.value.trim().length >= 3) sr.classList.add('open'); });
-      sr.addEventListener('click', function(e) { var item = e.target.closest('.loc-r'); if (item && item.dataset.lat) {
-        var lat = parseFloat(item.dataset.lat), lon = parseFloat(item.dataset.lon);
-        if (!MapManager.isInGuadeloupe(lat, lon)) { UI.toast('Pas en Guadeloupe', 'warning'); return; }
-        MapManager.setPin(lat, lon); MapManager.reverseGeo(lat, lon); si.value = item.textContent; sr.classList.remove('open');
-      }});
-      document.addEventListener('click', function(e) { if (!e.target.closest('.loc-search')) sr.classList.remove('open'); });
-    }
-
-    var de = document.getElementById('report-description');
-    if (de) de.addEventListener('input', function() { var dc = document.getElementById('desc-count'); if (dc) dc.textContent = de.value.length; });
-    var prios = document.querySelectorAll('.prio');
-    for (var i = 0; i < prios.length; i++) (function(p) { p.addEventListener('click', function() { for (var j = 0; j < prios.length; j++) prios[j].classList.remove('active'); p.classList.add('active'); }); })(prios[i]);
+    // Description counter
+    var desc = document.getElementById('report-description');
+    if (desc) desc.addEventListener('input', function() {
+      var ct = document.getElementById('desc-count');
+      if (ct) ct.textContent = desc.value.length;
+    });
+    // Submit
     var form = document.getElementById('report-form');
     if (form) form.addEventListener('submit', function(e) { e.preventDefault(); Reports.submitReport(); });
+    // Geolocation
+    var geoBtn = document.getElementById('btn-geolocate');
+    if (geoBtn) geoBtn.addEventListener('click', function() { self.geolocate(); });
+    // Address search
+    var addrInput = document.getElementById('address-search');
+    if (addrInput) {
+      addrInput.addEventListener('input', function() {
+        clearTimeout(self.searchTimeout);
+        var q = addrInput.value.trim();
+        if (q.length < 3) { document.getElementById('search-results').classList.remove('open'); return; }
+        self.searchTimeout = setTimeout(function() { self.searchAddress(q); }, 400);
+      });
+      addrInput.addEventListener('focus', function() {
+        if (document.getElementById('search-results').children.length > 0) {
+          document.getElementById('search-results').classList.add('open');
+        }
+      });
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('.loc-search')) document.getElementById('search-results').classList.remove('open');
+      });
+    }
   },
 
   goStep: function(n) {
-    var s = document.querySelectorAll('.fstep'); for (var i = 0; i < s.length; i++) s[i].classList.remove('active');
-    var t = document.getElementById('step-' + n); if (t) t.classList.add('active');
-    var ind = document.querySelectorAll('.steps__i');
-    for (var i = 0; i < ind.length; i++) { var num = parseInt(ind[i].getAttribute('data-step')); ind[i].classList.remove('active','done'); if (num < n) ind[i].classList.add('done'); if (num === n) ind[i].classList.add('active'); }
-    if (n === 2 && MapManager.miniMap) setTimeout(function() { MapManager.miniMap.invalidateSize(); }, 150);
+    var steps = document.querySelectorAll('.fstep');
+    var indicators = document.querySelectorAll('.steps__i');
+    for (var i = 0; i < steps.length; i++) steps[i].classList.remove('active');
+    for (var i = 0; i < indicators.length; i++) {
+      var s = parseInt(indicators[i].getAttribute('data-step'));
+      indicators[i].classList.remove('active', 'done');
+      if (s < n) indicators[i].classList.add('done');
+      else if (s === n) indicators[i].classList.add('active');
+    }
+    var target = document.getElementById('step-' + n);
+    if (target) target.classList.add('active');
+  },
+
+  geolocate: function() {
+    if (!navigator.geolocation) { this.toast('Géolocalisation non supportée', 'error'); return; }
+    this.toast('Localisation en cours...', 'info');
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        var lat = pos.coords.latitude, lng = pos.coords.longitude;
+        if (!MapManager.isInGuadeloupe(lat, lng)) { UI.toast('Vous n\'êtes pas en Guadeloupe', 'warning'); return; }
+        MapManager.setPin(lat, lng);
+        MapManager.reverseGeo(lat, lng);
+        UI.toast('Position trouvée', 'success');
+      },
+      function(err) { UI.toast('Erreur de géolocalisation', 'error'); },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  },
+
+  searchAddress: async function(query) {
+    var results = await MapManager.searchAddr(query);
+    var container = document.getElementById('search-results');
+    if (!results || results.length === 0) { container.innerHTML = '<div class="loc-r" style="color:var(--text3)">Aucun résultat</div>'; container.classList.add('open'); return; }
+    var html = '';
+    for (var i = 0; i < results.length; i++) {
+      html += '<div class="loc-r" data-lat="' + results[i].lat + '" data-lon="' + results[i].lon + '" data-name="' + App.esc(results[i].display_name) + '">' + App.esc(results[i].display_name) + '</div>';
+    }
+    container.innerHTML = html;
+    container.classList.add('open');
+    container.querySelectorAll('.loc-r').forEach(function(el) {
+      el.addEventListener('click', function() {
+        var lat = parseFloat(el.getAttribute('data-lat'));
+        var lon = parseFloat(el.getAttribute('data-lon'));
+        MapManager.setPin(lat, lon);
+        document.getElementById('report-address').value = el.getAttribute('data-name');
+        document.getElementById('selected-address').textContent = el.getAttribute('data-name');
+        document.getElementById('location-info').style.display = 'flex';
+        document.getElementById('address-search').value = el.getAttribute('data-name');
+        container.classList.remove('open');
+        MapManager.reverseGeo(lat, lon);
+      });
+    });
+  },
+
+  resetReportForm: function() {
+    var form = document.getElementById('report-form');
+    if (form) form.reset();
+    this.goStep(1);
+    document.getElementById('report-lat').value = '';
+    document.getElementById('report-lng').value = '';
+    document.getElementById('report-address').value = '';
+    document.getElementById('report-commune').value = '';
+    document.getElementById('location-info').style.display = 'none';
+    document.getElementById('btn-step1-next').disabled = true;
+    document.getElementById('btn-step2-next').disabled = true;
+    var dc = document.getElementById('desc-count');
+    if (dc) dc.textContent = '0';
+    ImageUpload.reset();
+    // Reset category selection
+    var cats = document.querySelectorAll('.catc');
+    for (var i = 0; i < cats.length; i++) cats[i].classList.remove('selected');
+  },
+
+  // === CATEGORY GRID ===
+  catGrid: function() {
+    var grid = document.getElementById('category-grid');
+    if (!grid) return;
+    var html = '';
+    for (var key in App.categories) {
+      var cat = App.categories[key];
+      var fa = this.catIcons[cat.icon] || 'fa-map-pin';
+      html += '<label class="catc"><input type="radio" name="category" value="' + key + '">' +
+        '<span class="catc__ico"><i class="fas ' + fa + '"></i></span>' +
+        '<span class="catc__name">' + cat.label + '</span></label>';
+    }
+    grid.innerHTML = html;
+    // Enable next button when category selected
+    grid.querySelectorAll('input[name="category"]').forEach(function(inp) {
+      inp.addEventListener('change', function() {
+        document.getElementById('btn-step1-next').disabled = false;
+      });
+    });
   },
 
   // === WIKI TABS ===
   wikiTabs: function() {
-    var self = this, tabs = document.querySelectorAll('.wiki-tab');
-    for (var i = 0; i < tabs.length; i++) {
-      (function(tab) {
-        tab.addEventListener('click', function() {
-          for (var j = 0; j < tabs.length; j++) tabs[j].classList.remove('active');
-          tab.classList.add('active');
-          var panels = document.querySelectorAll('.wiki-panel');
-          for (var j = 0; j < panels.length; j++) panels[j].classList.remove('active');
-          var target = document.getElementById('wpanel-' + tab.getAttribute('data-wtab'));
-          if (target) target.classList.add('active');
-          if (tab.getAttribute('data-wtab') === 'community') self.loadCommunityArticles();
-        });
-      })(tabs[i]);
-    }
-    var catF = document.getElementById('wiki-cat-filter');
-    var sortF = document.getElementById('wiki-sort');
-    if (catF) catF.addEventListener('change', function() { self.loadCommunityArticles(); });
-    if (sortF) sortF.addEventListener('change', function() { self.loadCommunityArticles(); });
-  },
-
-  loadWikiOfficial: function() {
     var self = this;
-    fetch('/api/wiki-static').then(function(r) { return r.json(); }).then(function(pages) {
-      var nav = document.getElementById('wiki-nav'); if (!nav) return;
-      var html = '';
-      for (var i = 0; i < pages.length; i++) html += '<button class="wnav' + (i === 0 ? ' active' : '') + '" data-page="' + pages[i].slug + '">' + pages[i].title + '</button>';
-      nav.innerHTML = html;
-      nav.addEventListener('click', function(e) {
-        var btn = e.target.closest('.wnav'); if (!btn) return;
-        var allNav = nav.querySelectorAll('.wnav'); for (var j = 0; j < allNav.length; j++) allNav[j].classList.remove('active');
-        btn.classList.add('active'); self.loadWikiStaticPage(btn.getAttribute('data-page'));
+    document.querySelectorAll('.wiki-tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        var target = tab.getAttribute('data-wtab');
+        document.querySelectorAll('.wiki-tab').forEach(function(t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        document.querySelectorAll('.wiki-panel').forEach(function(p) { p.classList.remove('active'); });
+        var panel = document.getElementById('wpanel-' + target);
+        if (panel) panel.classList.add('active');
+        if (target === 'community') self.loadCommunityArticles();
       });
-      if (pages.length > 0) self.loadWikiStaticPage(pages[0].slug);
-      else { var c = document.getElementById('wiki-content'); if (c) c.innerHTML = '<p style="padding:24px;color:var(--text2)">Aucune page</p>'; }
-    }).catch(function() {});
+    });
   },
 
-  loadWikiStaticPage: function(slug) {
-    var el = document.getElementById('wiki-content'); if (!el) return;
-    el.innerHTML = '<p class="wiki__load">Chargement...</p>';
-    fetch('/api/wiki-static/' + slug).then(function(r) { if (!r.ok) throw new Error(); return r.text(); }).then(function(md) {
-      el.innerHTML = marked.parse(md);
-    }).catch(function() { el.innerHTML = '<p>Page introuvable</p>'; });
+  // === WIKI STATIC ===
+  loadWikiStatic: async function() {
+    try {
+      var r = await fetch('/api/wiki-static');
+      var pages = await r.json();
+      var nav = document.getElementById('wiki-nav');
+      if (!nav) return;
+      if (pages.length === 0) { nav.innerHTML = '<p style="color:var(--text3);font-size:.75rem">Pas de docs</p>'; return; }
+      var html = '';
+      for (var i = 0; i < pages.length; i++) {
+        html += '<button class="wnav' + (i === 0 ? ' active' : '') + '" data-slug="' + pages[i].slug + '">' + App.esc(pages[i].title) + '</button>';
+      }
+      nav.innerHTML = html;
+      nav.querySelectorAll('.wnav').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          nav.querySelectorAll('.wnav').forEach(function(b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          UI.loadWikiPage(btn.getAttribute('data-slug'));
+        });
+      });
+      if (pages.length > 0) this.loadWikiPage(pages[0].slug);
+    } catch (e) { console.error('Wiki load error:', e); }
   },
 
-  // === COMMUNITY ARTICLES (Supabase) ===
+  loadWikiPage: async function(slug) {
+    var content = document.getElementById('wiki-content');
+    if (!content) return;
+    content.innerHTML = '<p class="wiki__load">Chargement...</p>';
+    try {
+      var r = await fetch('/api/wiki-static/' + slug);
+      if (!r.ok) throw new Error();
+      var md = await r.text();
+      content.innerHTML = marked.parse(md);
+    } catch (e) { content.innerHTML = '<p style="color:var(--text3)">Page non trouvée</p>'; }
+  },
+
+  // === COMMUNITY ARTICLES ===
   loadCommunityArticles: async function() {
-    var container = document.getElementById('community-articles-list'); if (!container) return;
+    var container = document.getElementById('community-articles-list');
+    if (!container) return;
     container.innerHTML = '<p class="wiki__load">Chargement...</p>';
     try {
-      var catF = document.getElementById('wiki-cat-filter');
-      var sortF = document.getElementById('wiki-sort');
-      var cat = catF ? catF.value : '';
-      var sort = sortF ? sortF.value : 'newest';
+      var catFilter = document.getElementById('wiki-cat-filter');
+      var sortFilter = document.getElementById('wiki-sort');
       var query = App.supabase.from('wiki_articles').select('*');
-      if (cat) query = query.eq('category', cat);
-      if (sort === 'popular') query = query.order('upvotes', { ascending: false });
-      else query = query.order('created_at', { ascending: false });
-      query = query.limit(50);
+      if (catFilter && catFilter.value) query = query.eq('category', catFilter.value);
+      if (sortFilter && sortFilter.value === 'popular') query = query.order('upvotes', { ascending: false });
+      else query = query.order('pinned', { ascending: false }).order('created_at', { ascending: false });
       var { data, error } = await query;
       if (error) throw error;
       if (!data || data.length === 0) {
-        container.innerHTML = '<div class="empty" style="padding:40px"><span>📝</span><h3>Aucun article</h3><p style="color:var(--text2);margin-top:8px">Soyez le premier à écrire !</p></div>';
+        container.innerHTML = '<div class="empty" style="padding:40px"><i class="fas fa-pen-fancy fa-2x" style="color:var(--text3);margin-bottom:8px"></i><h3 style="font-size:.9rem">Pas encore d\'articles</h3><p style="font-size:.78rem;color:var(--text2)">Soyez le premier à écrire !</p></div>';
         return;
       }
-      var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
       var html = '';
       for (var i = 0; i < data.length; i++) {
-        var a = data[i], catIcon = this.wikiCatIcons[a.category] || '📌';
-        var preview = a.content.replace(/[#*_\[\]`>|~\-]/g, '').substring(0, 140);
-        html += '<div class="wcard" onclick="UI.openWikiArticle(\'' + a.id + '\')">' +
-          '<div class="wcard__head"><span class="wcard__cat">' + catIcon + ' ' + (a.category || 'general') + '</span>' +
-          (a.pinned ? '<span class="wcard__cat" style="background:var(--orange-bg);color:var(--orange)">📌 Épinglé</span>' : '') +
-          '<span class="wcard__date">' + App.ago(a.created_at) + '</span></div>' +
-          '<h3 class="wcard__title">' + App.esc(a.title) + '</h3>' +
-          '<p class="wcard__preview">' + App.esc(preview) + '...</p>' +
-          '<div class="wcard__foot"><span class="wcard__author"><i class="fas fa-user"></i> ' + App.esc(a.author_name) + '</span>' +
-          '<span class="wcard__votes"><i class="fas fa-arrow-up"></i> ' + (a.upvotes || 0) + '</span></div></div>';
+        var a = data[i];
+        var catIcon = this.wikiCatIcons[a.category] || '📌';
+        var catLabel = a.category || 'general';
+        var preview = (a.content || '').replace(/[#*`\[\]>|_~-]/g, '').substring(0, 150);
+        var pinnedBadge = a.pinned ? '<span style="background:var(--yellow);color:#000;padding:1px 6px;border-radius:10px;font-size:.6rem;font-weight:700;margin-left:6px"><i class="fas fa-thumbtack"></i> Épinglé</span>' : '';
+        html += '<div class="wcard" onclick="UI.openArticle(\'' + a.id + '\')">' +
+          '<div class="wcard__head"><span class="wcard__cat">' + catIcon + ' ' + catLabel + pinnedBadge + '</span><span class="wcard__date">' + App.ago(a.created_at) + '</span></div>' +
+          '<div class="wcard__title">' + App.esc(a.title) + '</div>' +
+          '<div class="wcard__preview">' + App.esc(preview) + '</div>' +
+          '<div class="wcard__foot"><span class="wcard__author"><i class="fas fa-user"></i> ' + App.esc(a.author_name || 'Anonyme') + '</span>' +
+          '<span class="wcard__votes"><i class="fas fa-arrow-up"></i> ' + (a.upvotes || 0) + ' · <i class="fas fa-eye"></i> ' + (a.views || 0) + '</span></div></div>';
       }
       container.innerHTML = html;
+
+      // Filter listeners
+      if (catFilter && !catFilter._bound) {
+        catFilter.addEventListener('change', function() { UI.loadCommunityArticles(); });
+        catFilter._bound = true;
+      }
+      if (sortFilter && !sortFilter._bound) {
+        sortFilter.addEventListener('change', function() { UI.loadCommunityArticles(); });
+        sortFilter._bound = true;
+      }
     } catch (e) {
-      console.error('Load articles:', e);
+      console.error('Community articles error:', e);
       container.innerHTML = '<p style="color:var(--red)">Erreur de chargement</p>';
     }
   },
 
-  openWikiArticle: async function(id) {
-    var container = document.getElementById('wiki-article-detail'); if (!container) return;
-    container.innerHTML = '<p class="wiki__load" style="padding:40px">Chargement...</p>';
-    UI.openModal('modal-wiki-article');
-    try {
-      var { data: article, error } = await App.supabase.from('wiki_articles').select('*').eq('id', id).single();
-      if (error || !article) throw error;
-      var catIcon = this.wikiCatIcons[article.category] || '📌';
-      var isOwner = App.currentUser && article.author_id === App.currentUser.id;
-      var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
-      var hasVoted = false;
-      if (App.currentUser) { try { var { data: vote } = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).single(); if (vote) hasVoted = true; } catch (e) {} }
+  // === OPEN ARTICLE DETAIL ===
+  openArticle: async function(id) {
+    var container = document.getElementById('wiki-article-detail');
+    if (!container) return;
+    container.innerHTML = '<p class="wiki__load">Chargement...</p>';
+    this.openModal('modal-wiki-article');
 
+    try {
       // Increment views
-      await App.supabase.from('wiki_articles').update({ views: (article.views || 0) + 1 }).eq('id', id);
+      await App.supabase.rpc('increment_wiki_views', { article_id: id }).catch(function() {
+        // If RPC doesn't exist, do manual update
+        App.supabase.from('wiki_articles').select('views').eq('id', id).single().then(function(res) {
+          if (res.data) App.supabase.from('wiki_articles').update({ views: (res.data.views || 0) + 1 }).eq('id', id);
+        });
+      });
+
+      var { data: article, error } = await App.supabase.from('wiki_articles').select('*').eq('id', id).single();
+      if (error) throw error;
+
+      var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
+      var isAuthor = App.currentUser && article.author_id === App.currentUser.id;
+      var hasVoted = false;
+      if (App.currentUser) {
+        try {
+          var { data: vote } = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).single();
+          if (vote) hasVoted = true;
+        } catch (e) {}
+      }
+
+      var catIcon = this.wikiCatIcons[article.category] || '📌';
+      var pinnedBadge = article.pinned ? ' <span style="background:var(--yellow);color:#000;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:700"><i class="fas fa-thumbtack"></i> Épinglé</span>' : '';
 
       var html = '<div style="padding:20px">' +
-        '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">' +
-        '<span class="badge badge--cat">' + catIcon + ' ' + (article.category || 'general') + '</span>' +
-        '<span class="badge" style="background:var(--bg3);color:var(--text2)"><i class="fas fa-eye"></i> ' + ((article.views || 0) + 1) + ' vues</span>' +
-        '</div>' +
-        '<h1 style="font-size:1.3rem;font-weight:700;margin-bottom:8px">' + App.esc(article.title) + '</h1>' +
-        '<div class="det__meta" style="margin-bottom:16px">' +
-        '<span><i class="fas fa-user"></i> ' + App.esc(article.author_name) + '</span>' +
-        '<span><i class="fas fa-clock"></i> ' + App.ago(article.created_at) + '</span>' +
-        (article.updated_at !== article.created_at ? '<span><i class="fas fa-edit"></i> modifié ' + App.ago(article.updated_at) + '</span>' : '') +
-        '</div>' +
-        '<div class="wiki__body" style="padding:0;border:none">' + marked.parse(article.content) + '</div>' +
-        '<div class="det__actions" style="margin-top:20px">' +
-        '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="UI.voteWikiArticle(\'' + id + '\')"><i class="fas fa-arrow-up"></i> <span id="wavote-' + id + '">' + (article.upvotes || 0) + '</span> Soutenir</button>';
-      if (isOwner) html += '<button class="btn btn--outline" onclick="UI.editWikiArticle(\'' + id + '\')"><i class="fas fa-edit"></i> Modifier</button>';
-      if (isOwner || isAdmin) html += '<button class="btn btn--danger" onclick="UI.deleteWikiArticle(\'' + id + '\')"><i class="fas fa-trash"></i> Supprimer</button>';
-      if (isAdmin) html += '<button class="btn btn--outline" onclick="UI.togglePinArticle(\'' + id + '\',' + !article.pinned + ')" style="color:var(--orange)"><i class="fas fa-thumbtack"></i> ' + (article.pinned ? 'Désépingler' : 'Épingler') + '</button>';
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
+        '<span class="wcard__cat" style="font-size:.75rem">' + catIcon + ' ' + (article.category || 'general') + pinnedBadge + '</span>' +
+        '<span style="font-size:.7rem;color:var(--text3)">' + App.ago(article.created_at) + '</span></div>' +
+        '<h1 style="font-size:1.3rem;font-weight:700;margin-bottom:12px">' + App.esc(article.title) + '</h1>' +
+        '<div style="display:flex;gap:12px;font-size:.78rem;color:var(--text2);margin-bottom:16px;flex-wrap:wrap">' +
+        '<span><i class="fas fa-user" style="color:var(--green)"></i> ' + App.esc(article.author_name || 'Anonyme') + '</span>' +
+        '<span><i class="fas fa-eye"></i> ' + (article.views || 0) + ' vues</span>' +
+        '<span><i class="fas fa-arrow-up" style="color:var(--orange)"></i> ' + (article.upvotes || 0) + ' votes</span></div>' +
+        '<div class="wiki__body" style="margin-bottom:16px">' + marked.parse(article.content || '') + '</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--border);margin-bottom:16px">' +
+        '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="UI.toggleArticleVote(\'' + id + '\')"><i class="fas fa-arrow-up"></i> <span id="article-vote-count">' + (article.upvotes || 0) + '</span> Voter</button>';
+
+      // Admin pin/unpin button
+      if (isAdmin) {
+        html += '<button class="btn btn--outline" onclick="UI.togglePinArticle(\'' + id + '\',' + !article.pinned + ')"><i class="fas fa-thumbtack"></i> ' + (article.pinned ? 'Désépingler' : 'Épingler') + '</button>';
+      }
+      // Delete button
+      if (isAdmin || isAuthor) {
+        html += '<button class="btn btn--danger" onclick="Auth.deleteWikiArticle(\'' + id + '\')"><i class="fas fa-trash"></i> Supprimer</button>';
+      }
       html += '</div>';
 
-      // Comments
-      html += '<div class="comments"><div class="comments__title"><i class="fas fa-comments"></i> Commentaires</div>';
-      if (App.currentUser) html += '<div class="cmtform"><textarea id="wcmt-input-' + id + '" placeholder="Votre commentaire..." rows="2"></textarea><button class="btn btn--primary" onclick="UI.addWikiComment(\'' + id + '\')"><i class="fas fa-paper-plane"></i></button></div>';
-      html += '<div id="wcmt-list-' + id + '"></div></div></div>';
+      // === COMMENTS / FORUM SECTION ===
+      html += '<div class="comments" style="margin-top:0">' +
+        '<div class="comments__title" style="font-size:.9rem;margin-bottom:12px"><i class="fas fa-comments"></i> Discussion</div>';
+
+      if (App.currentUser) {
+        html += '<div class="cmtform" id="wiki-comment-form-main">' +
+          '<textarea id="wiki-comment-input-' + id + '" placeholder="Votre commentaire..." rows="2" style="flex:1"></textarea>' +
+          '<button class="btn btn--primary" onclick="UI.addWikiComment(\'' + id + '\',null)"><i class="fas fa-paper-plane"></i></button></div>';
+      } else {
+        html += '<p style="font-size:.78rem;color:var(--text3);margin-bottom:12px">Connectez-vous pour commenter</p>';
+      }
+
+      html += '<div id="wiki-comments-' + id + '"><p class="wiki__load" style="font-size:.78rem">Chargement des commentaires...</p></div>';
+      html += '</div></div>';
+
       container.innerHTML = html;
       this.loadWikiComments(id);
-    } catch (e) { container.innerHTML = '<p style="padding:40px;color:var(--red)">Article introuvable</p>'; }
+    } catch (e) {
+      console.error('Open article error:', e);
+      container.innerHTML = '<p style="color:var(--red);padding:20px">Erreur de chargement</p>';
+    }
   },
 
-  editWikiArticle: async function(id) {
-    try {
-      var { data: article } = await App.supabase.from('wiki_articles').select('*').eq('id', id).single();
-      if (!article) return;
-      document.getElementById('wiki-write-title').textContent = 'Modifier l\'article';
-      document.getElementById('wa-title').value = article.title;
-      document.getElementById('wa-category').value = article.category || 'general';
-      document.getElementById('wa-content').value = article.content;
-      document.getElementById('wa-char-count').textContent = article.content.length;
-      // Store edit ID
-      document.getElementById('wiki-write-form').dataset.editId = id;
-      UI.closeModal('modal-wiki-article');
-      UI.openModal('modal-wiki-write');
-    } catch (e) { UI.toast('Erreur', 'error'); }
-  },
-
+  // === TOGGLE PIN ARTICLE ===
   togglePinArticle: async function(id, pin) {
+    if (!App.currentProfile || App.currentProfile.role !== 'admin') { this.toast('Accès refusé', 'error'); return; }
     try {
-      await App.supabase.from('wiki_articles').update({ pinned: pin }).eq('id', id);
-      UI.toast(pin ? 'Article épinglé' : 'Article désépinglé', 'success');
-      this.openWikiArticle(id);
-    } catch (e) { UI.toast('Erreur', 'error'); }
-  },
-
-  loadWikiComments: async function(articleId) {
-    var el = document.getElementById('wcmt-list-' + articleId); if (!el) return;
-    try {
-      var { data: comments } = await App.supabase.from('wiki_comments').select('*, profiles(username)').eq('article_id', articleId).order('created_at', { ascending: true });
-      if (!comments || comments.length === 0) { el.innerHTML = '<p style="color:var(--text3);font-size:.78rem;padding:8px">Aucun commentaire</p>'; return; }
-      var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
-      var html = '';
-      for (var i = 0; i < comments.length; i++) {
-        var c = comments[i], name = (c.profiles && c.profiles.username) || 'Anonyme';
-        var canDelete = isAdmin || (App.currentUser && c.user_id === App.currentUser.id);
-        html += '<div class="cmt"><div class="cmt__av">' + name.charAt(0).toUpperCase() + '</div><div class="cmt__body"><div class="cmt__head"><span class="cmt__author">' + App.esc(name) + '</span><span class="cmt__date">' + App.ago(c.created_at);
-        if (canDelete) html += ' <button onclick="UI.deleteWikiComment(\'' + c.id + '\',\'' + articleId + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.6rem"><i class="fas fa-trash"></i></button>';
-        html += '</span></div><div class="cmt__text">' + App.esc(c.content) + '</div></div></div>';
-      }
-      el.innerHTML = html;
-    } catch (e) { el.innerHTML = '<p style="color:var(--text3)">Erreur</p>'; }
-  },
-
-  deleteWikiComment: async function(commentId, articleId) {
-    if (!confirm('Supprimer ce commentaire ?')) return;
-    try {
-      await App.supabase.from('wiki_comments').delete().eq('id', commentId);
-      UI.toast('Commentaire supprimé', 'success');
-      this.loadWikiComments(articleId);
-    } catch (e) { UI.toast('Erreur', 'error'); }
-  },
-
-  addWikiComment: async function(articleId) {
-    if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
-    var input = document.getElementById('wcmt-input-' + articleId); if (!input) return;
-    var content = input.value.trim();
-    if (!content || content.length < 2) { UI.toast('Trop court', 'warning'); return; }
-    try {
-      // Moderate comment
-      var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: '', description: content }) });
-      var modData = await modResp.json();
-      if (modData.flagged && modData.reformulated && modData.cleaned) { content = modData.cleaned.description; }
-      var { error } = await App.supabase.from('wiki_comments').insert({ article_id: articleId, user_id: App.currentUser.id, content: content });
+      var { error } = await App.supabase.from('wiki_articles').update({ pinned: pin, updated_at: new Date().toISOString() }).eq('id', id);
       if (error) throw error;
-      input.value = ''; UI.toast('Commentaire ajouté', 'success'); this.loadWikiComments(articleId);
-    } catch (e) { UI.toast('Erreur', 'error'); }
+      this.toast(pin ? 'Article épinglé' : 'Article désépinglé', 'success');
+      this.openArticle(id); // Refresh
+      this.loadCommunityArticles(); // Refresh list
+    } catch (e) {
+      console.error('Pin error:', e);
+      this.toast('Erreur', 'error');
+    }
   },
 
-  voteWikiArticle: async function(id) {
-    if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
+  // === ARTICLE VOTE ===
+  toggleArticleVote: async function(id) {
+    if (!App.currentUser) { this.toast('Connectez-vous', 'warning'); return; }
     try {
       var { data: existing } = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).single();
       var { data: article } = await App.supabase.from('wiki_articles').select('upvotes').eq('id', id).single();
-      var current = article ? (article.upvotes || 0) : 0;
-      if (existing) { await App.supabase.from('wiki_votes').delete().eq('id', existing.id); await App.supabase.from('wiki_articles').update({ upvotes: Math.max(0, current - 1) }).eq('id', id); UI.toast('Vote retiré', 'info'); }
-      else { await App.supabase.from('wiki_votes').insert({ article_id: id, user_id: App.currentUser.id }); await App.supabase.from('wiki_articles').update({ upvotes: current + 1 }).eq('id', id); UI.toast('Merci !', 'success'); }
-      this.openWikiArticle(id);
-    } catch (e) { UI.toast('Erreur', 'error'); }
+      var currentVotes = (article && article.upvotes) || 0;
+
+      if (existing) {
+        await App.supabase.from('wiki_votes').delete().eq('id', existing.id);
+        await App.supabase.from('wiki_articles').update({ upvotes: Math.max(0, currentVotes - 1) }).eq('id', id);
+        this.toast('Vote retiré', 'info');
+      } else {
+        await App.supabase.from('wiki_votes').insert({ article_id: id, user_id: App.currentUser.id });
+        await App.supabase.from('wiki_articles').update({ upvotes: currentVotes + 1 }).eq('id', id);
+        this.toast('Merci pour votre vote !', 'success');
+      }
+      this.openArticle(id);
+    } catch (e) {
+      console.error('Vote error:', e);
+      this.toast('Erreur', 'error');
+    }
   },
 
-  deleteWikiArticle: async function(id) {
-    if (!confirm('Supprimer cet article et tous ses commentaires ?')) return;
+  // === WIKI COMMENTS WITH REPLIES (THREADED) ===
+  loadWikiComments: async function(articleId) {
+    var container = document.getElementById('wiki-comments-' + articleId);
+    if (!container) return;
     try {
-      var { error } = await App.supabase.from('wiki_articles').delete().eq('id', id);
+      var { data: comments, error } = await App.supabase.from('wiki_comments')
+        .select('*, profiles(username)')
+        .eq('article_id', articleId)
+        .order('created_at', { ascending: true });
       if (error) throw error;
-      UI.toast('Article supprimé', 'success');
-      UI.closeModal('modal-wiki-article');
-      this.loadCommunityArticles();
-    } catch (e) { UI.toast('Erreur: ' + (e.message || ''), 'error'); }
+      if (!comments || comments.length === 0) {
+        container.innerHTML = '<p style="color:var(--text3);font-size:.78rem;padding:8px">Aucun commentaire — soyez le premier !</p>';
+        return;
+      }
+
+      // Build threaded structure
+      var rootComments = [];
+      var childMap = {};
+      for (var i = 0; i < comments.length; i++) {
+        var c = comments[i];
+        if (!c.reply_to) {
+          rootComments.push(c);
+        } else {
+          if (!childMap[c.reply_to]) childMap[c.reply_to] = [];
+          childMap[c.reply_to].push(c);
+        }
+      }
+
+      var html = this._renderCommentsTree(rootComments, childMap, articleId, 0);
+      container.innerHTML = html;
+    } catch (e) {
+      console.error('Wiki comments error:', e);
+      container.innerHTML = '<p style="color:var(--red);font-size:.78rem">Erreur</p>';
+    }
   },
 
-  // === WIKI WRITE ===
+  _renderCommentsTree: function(comments, childMap, articleId, depth) {
+    var html = '';
+    var maxDepth = 4; // Max nesting
+    var indent = Math.min(depth, maxDepth) * 20;
+    var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
+
+    for (var i = 0; i < comments.length; i++) {
+      var c = comments[i];
+      var name = (c.profiles && c.profiles.username) || 'Anonyme';
+      var initial = name.charAt(0).toUpperCase();
+      var isOwner = App.currentUser && c.user_id === App.currentUser.id;
+
+      html += '<div class="cmt" style="margin-left:' + indent + 'px;' + (depth > 0 ? 'border-left:2px solid var(--border);padding-left:8px;' : '') + '">' +
+        '<div class="cmt__av">' + initial + '</div>' +
+        '<div class="cmt__body" style="flex:1">' +
+        '<div class="cmt__head">' +
+        '<span class="cmt__author">' + App.esc(name) + '</span>' +
+        '<span class="cmt__date">' + App.ago(c.created_at) + '</span></div>' +
+        '<div class="cmt__text">' + App.esc(c.content) + '</div>' +
+        '<div style="display:flex;gap:8px;margin-top:4px">';
+
+      // Reply button
+      if (App.currentUser && depth < maxDepth) {
+        html += '<button class="btn btn--ghost" style="font-size:.65rem;padding:2px 6px" onclick="UI.showReplyForm(\'' + articleId + '\',\'' + c.id + '\',this)"><i class="fas fa-reply"></i> Répondre</button>';
+      }
+      // Delete button
+      if (isOwner || isAdmin) {
+        html += '<button class="btn btn--ghost" style="font-size:.65rem;padding:2px 6px;color:var(--red)" onclick="UI.deleteWikiComment(\'' + articleId + '\',\'' + c.id + '\')"><i class="fas fa-trash"></i></button>';
+      }
+
+      html += '</div>' +
+        '<div id="reply-form-' + c.id + '"></div>' + // Reply form placeholder
+        '</div></div>';
+
+      // Render children recursively
+      if (childMap[c.id] && childMap[c.id].length > 0) {
+        html += this._renderCommentsTree(childMap[c.id], childMap, articleId, depth + 1);
+      }
+    }
+    return html;
+  },
+
+  showReplyForm: function(articleId, parentId, btn) {
+    // Toggle reply form
+    var container = document.getElementById('reply-form-' + parentId);
+    if (!container) return;
+    if (container.innerHTML.trim()) { container.innerHTML = ''; return; }
+    container.innerHTML = '<div class="cmtform" style="margin-top:6px">' +
+      '<textarea id="reply-input-' + parentId + '" placeholder="Votre réponse..." rows="2" style="flex:1;font-size:.78rem"></textarea>' +
+      '<button class="btn btn--primary" style="font-size:.72rem" onclick="UI.addWikiComment(\'' + articleId + '\',\'' + parentId + '\')"><i class="fas fa-paper-plane"></i></button>' +
+      '<button class="btn btn--ghost" style="font-size:.72rem" onclick="document.getElementById(\'reply-form-' + parentId + '\').innerHTML=\'\'">Annuler</button></div>';
+    var textarea = document.getElementById('reply-input-' + parentId);
+    if (textarea) textarea.focus();
+  },
+
+  addWikiComment: async function(articleId, parentId) {
+    if (!App.currentUser) { this.toast('Connectez-vous', 'warning'); return; }
+    var inputId = parentId ? 'reply-input-' + parentId : 'wiki-comment-input-' + articleId;
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    var content = input.value.trim();
+    if (!content || content.length < 2) { this.toast('Commentaire trop court', 'warning'); return; }
+    if (content.length > 2000) { this.toast('Commentaire trop long (max 2000)', 'warning'); return; }
+
+    try {
+      // Moderate
+      var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: '', description: content }) });
+      var modData = await modResp.json();
+      if (modData.flagged && modData.reformulated && modData.cleaned) {
+        content = modData.cleaned.description;
+        this.toast('Commentaire reformulé automatiquement', 'info');
+      }
+
+      var insertData = {
+        article_id: articleId,
+        user_id: App.currentUser.id,
+        content: content
+      };
+      if (parentId) insertData.reply_to = parentId;
+
+      var { error } = await App.supabase.from('wiki_comments').insert(insertData);
+      if (error) throw error;
+      input.value = '';
+      this.toast('Commentaire ajouté', 'success');
+      this.loadWikiComments(articleId);
+    } catch (e) {
+      console.error('Add comment error:', e);
+      this.toast('Erreur', 'error');
+    }
+  },
+
+  deleteWikiComment: async function(articleId, commentId) {
+    if (!confirm('Supprimer ce commentaire ?')) return;
+    try {
+      // Delete child replies first
+      await App.supabase.from('wiki_comments').delete().eq('reply_to', commentId);
+      var { error } = await App.supabase.from('wiki_comments').delete().eq('id', commentId);
+      if (error) throw error;
+      this.toast('Commentaire supprimé', 'success');
+      this.loadWikiComments(articleId);
+    } catch (e) {
+      console.error('Delete comment error:', e);
+      this.toast('Erreur', 'error');
+    }
+  },
+
+  // === WIKI WRITE WITH MARKDOWN TOOLBAR ===
   wikiWrite: function() {
     var self = this;
     var newBtn = document.getElementById('btn-new-article');
-    if (newBtn) newBtn.addEventListener('click', function() {
-      if (!App.currentUser) { UI.toast('Connectez-vous pour écrire', 'warning'); UI.openModal('modal-login'); return; }
-      document.getElementById('wiki-write-title').textContent = 'Écrire un article';
-      var f = document.getElementById('wiki-write-form'); if (f) { f.reset(); delete f.dataset.editId; }
-      document.getElementById('wa-char-count').textContent = '0';
-      var preview = document.getElementById('wa-preview'); if (preview) preview.innerHTML = '';
-      UI.openModal('modal-wiki-write');
-    });
-
-    var contentInput = document.getElementById('wa-content');
-    if (contentInput) {
-      contentInput.addEventListener('input', function() {
-        var c = document.getElementById('wa-char-count'); if (c) c.textContent = contentInput.value.length;
-        // Live preview
+    if (newBtn) {
+      newBtn.addEventListener('click', function() {
+        if (!App.currentUser) { self.toast('Connectez-vous', 'warning'); return; }
+        document.getElementById('wiki-write-title').textContent = 'Écrire un article';
+        document.getElementById('wa-title').value = '';
+        document.getElementById('wa-category').value = 'general';
+        document.getElementById('wa-content').value = '';
+        document.getElementById('wa-char-count').textContent = '0';
         var preview = document.getElementById('wa-preview');
-        if (preview && contentInput.value.length > 0) {
-          preview.innerHTML = marked.parse(contentInput.value);
-          preview.style.display = 'block';
-        } else if (preview) { preview.style.display = 'none'; }
+        if (preview) preview.style.display = 'none';
+        self.openModal('modal-wiki-write');
+        self.initMarkdownToolbar();
       });
     }
 
+    // Character count
+    var waContent = document.getElementById('wa-content');
+    if (waContent) {
+      waContent.addEventListener('input', function() {
+        document.getElementById('wa-char-count').textContent = waContent.value.length;
+        self.updateMarkdownPreview();
+      });
+    }
+
+    // Submit
     var form = document.getElementById('wiki-write-form');
-    if (form) form.addEventListener('submit', function(e) { e.preventDefault(); self.publishWikiArticle(); });
+    if (form) form.addEventListener('submit', function(e) { e.preventDefault(); self.publishArticle(); });
   },
 
-  publishWikiArticle: async function() {
-    if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
+  initMarkdownToolbar: function() {
+    var contentArea = document.getElementById('wa-content');
+    if (!contentArea) return;
+    // Check if toolbar already exists
+    var existingToolbar = document.getElementById('md-toolbar');
+    if (existingToolbar) existingToolbar.remove();
+
+    var toolbar = document.createElement('div');
+    toolbar.id = 'md-toolbar';
+    toolbar.style.cssText = 'display:flex;gap:2px;flex-wrap:wrap;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-bottom:none;border-radius:var(--r) var(--r) 0 0;margin-top:4px';
+
+    var buttons = [
+      { icon: 'fa-bold', title: 'Gras', action: 'bold' },
+      { icon: 'fa-italic', title: 'Italique', action: 'italic' },
+      { icon: 'fa-strikethrough', title: 'Barré', action: 'strike' },
+      { sep: true },
+      { icon: 'fa-heading', title: 'Titre 1', action: 'h1' },
+      { icon: 'fa-heading', title: 'Titre 2', action: 'h2', small: true },
+      { icon: 'fa-heading', title: 'Titre 3', action: 'h3', smaller: true },
+      { sep: true },
+      { icon: 'fa-list-ul', title: 'Liste', action: 'ul' },
+      { icon: 'fa-list-ol', title: 'Liste numérotée', action: 'ol' },
+      { icon: 'fa-check-square', title: 'Checklist', action: 'checklist' },
+      { sep: true },
+      { icon: 'fa-quote-left', title: 'Citation', action: 'quote' },
+      { icon: 'fa-code', title: 'Code', action: 'code' },
+      { icon: 'fa-file-code', title: 'Bloc de code', action: 'codeblock' },
+      { sep: true },
+      { icon: 'fa-link', title: 'Lien', action: 'link' },
+      { icon: 'fa-image', title: 'Image', action: 'image' },
+      { icon: 'fa-table', title: 'Tableau', action: 'table' },
+      { icon: 'fa-minus', title: 'Séparateur', action: 'hr' },
+      { sep: true },
+      { icon: 'fa-eye', title: 'Aperçu', action: 'preview', special: true }
+    ];
+
+    for (var i = 0; i < buttons.length; i++) {
+      var b = buttons[i];
+      if (b.sep) {
+        var sep = document.createElement('div');
+        sep.style.cssText = 'width:1px;height:20px;background:var(--border);margin:0 2px;align-self:center';
+        toolbar.appendChild(sep);
+        continue;
+      }
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.title = b.title;
+      btn.setAttribute('data-action', b.action);
+      btn.style.cssText = 'width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:' +
+        (b.special ? 'var(--green2)' : 'var(--bg)') + ';border:1px solid var(--border);border-radius:3px;cursor:pointer;color:' +
+        (b.special ? '#fff' : 'var(--text2)') + ';font-size:.7rem;transition:all .1s';
+      var iconHtml = '<i class="fas ' + b.icon + '"' + (b.small ? ' style="font-size:.6rem"' : '') + (b.smaller ? ' style="font-size:.5rem"' : '') + '></i>';
+      btn.innerHTML = iconHtml;
+      btn.addEventListener('click', (function(action) {
+        return function() { UI.applyMarkdown(action); };
+      })(b.action));
+      // Hover effect
+      btn.addEventListener('mouseenter', function() { this.style.borderColor = 'var(--green)'; this.style.color = 'var(--text)'; });
+      btn.addEventListener('mouseleave', function() { if (!this.getAttribute('data-action').includes('preview')) { this.style.borderColor = 'var(--border)'; this.style.color = 'var(--text2)'; } });
+      toolbar.appendChild(btn);
+    }
+
+    contentArea.parentNode.insertBefore(toolbar, contentArea);
+    contentArea.style.borderRadius = '0 0 var(--r) var(--r)';
+  },
+
+  applyMarkdown: function(action) {
+    var textarea = document.getElementById('wa-content');
+    if (!textarea) return;
+
+    if (action === 'preview') { this.toggleMarkdownPreview(); return; }
+
+    var start = textarea.selectionStart;
+    var end = textarea.selectionEnd;
+    var text = textarea.value;
+    var selected = text.substring(start, end);
+    var before = text.substring(0, start);
+    var after = text.substring(end);
+    var insert = '';
+    var cursorOffset = 0;
+
+    switch (action) {
+      case 'bold':
+        insert = '**' + (selected || 'texte en gras') + '**';
+        cursorOffset = selected ? 0 : -2;
+        break;
+      case 'italic':
+        insert = '*' + (selected || 'texte en italique') + '*';
+        cursorOffset = selected ? 0 : -1;
+        break;
+      case 'strike':
+        insert = '~~' + (selected || 'texte barré') + '~~';
+        cursorOffset = selected ? 0 : -2;
+        break;
+      case 'h1':
+        insert = '\n# ' + (selected || 'Titre principal') + '\n';
+        break;
+      case 'h2':
+        insert = '\n## ' + (selected || 'Sous-titre') + '\n';
+        break;
+      case 'h3':
+        insert = '\n### ' + (selected || 'Section') + '\n';
+        break;
+      case 'ul':
+        if (selected) {
+          insert = selected.split('\n').map(function(l) { return '- ' + l; }).join('\n');
+        } else { insert = '\n- Élément 1\n- Élément 2\n- Élément 3\n'; }
+        break;
+      case 'ol':
+        if (selected) {
+          insert = selected.split('\n').map(function(l, i) { return (i + 1) + '. ' + l; }).join('\n');
+        } else { insert = '\n1. Élément 1\n2. Élément 2\n3. Élément 3\n'; }
+        break;
+      case 'checklist':
+        insert = '\n- [ ] Tâche 1\n- [ ] Tâche 2\n- [x] Tâche terminée\n';
+        break;
+      case 'quote':
+        if (selected) {
+          insert = selected.split('\n').map(function(l) { return '> ' + l; }).join('\n');
+        } else { insert = '\n> Citation ici\n'; }
+        break;
+      case 'code':
+        insert = '`' + (selected || 'code') + '`';
+        cursorOffset = selected ? 0 : -1;
+        break;
+      case 'codeblock':
+        insert = '\n```\n' + (selected || '// Votre code ici') + '\n```\n';
+        break;
+      case 'link':
+        if (selected) { insert = '[' + selected + '](https://)'; }
+        else { insert = '[texte du lien](https://example.com)'; }
+        break;
+      case 'image':
+        insert = '![description](https://url-de-image.jpg)';
+        break;
+      case 'table':
+        insert = '\n| Colonne 1 | Colonne 2 | Colonne 3 |\n|-----------|-----------|----------|\n| Cellule   | Cellule   | Cellule  |\n| Cellule   | Cellule   | Cellule  |\n';
+        break;
+      case 'hr':
+        insert = '\n---\n';
+        break;
+      default:
+        return;
+    }
+
+    textarea.value = before + insert + after;
+    textarea.focus();
+    var newPos = start + insert.length + cursorOffset;
+    textarea.setSelectionRange(newPos, newPos);
+    // Trigger input event for char count
+    textarea.dispatchEvent(new Event('input'));
+  },
+
+  toggleMarkdownPreview: function() {
+    var preview = document.getElementById('wa-preview');
+    var textarea = document.getElementById('wa-content');
+    if (!preview || !textarea) return;
+    if (preview.style.display === 'none') {
+      preview.style.display = 'block';
+      preview.innerHTML = marked.parse(textarea.value || '*Rien à afficher*');
+    } else {
+      preview.style.display = 'none';
+    }
+  },
+
+  updateMarkdownPreview: function() {
+    var preview = document.getElementById('wa-preview');
+    var textarea = document.getElementById('wa-content');
+    if (preview && preview.style.display !== 'none' && textarea) {
+      preview.innerHTML = marked.parse(textarea.value || '*Rien à afficher*');
+    }
+  },
+
+  publishArticle: async function() {
+    if (!App.currentUser) { this.toast('Connectez-vous', 'warning'); return; }
     var title = document.getElementById('wa-title').value.trim();
     var category = document.getElementById('wa-category').value;
     var content = document.getElementById('wa-content').value.trim();
-    var editId = document.getElementById('wiki-write-form').dataset.editId;
 
-    if (!title || title.length < 3) { UI.toast('Titre trop court (min 3)', 'warning'); return; }
-    if (!content || content.length < 10) { UI.toast('Contenu trop court (min 10)', 'warning'); return; }
+    if (!title || title.length < 3) { this.toast('Titre trop court (min 3)', 'warning'); return; }
+    if (!content || content.length < 10) { this.toast('Contenu trop court (min 10)', 'warning'); return; }
 
     var btn = document.getElementById('btn-wiki-publish');
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Publication...';
@@ -446,44 +871,35 @@ var UI = {
       var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title, description: content }) });
       var modData = await modResp.json();
       if (modData.flagged && modData.reformulated && modData.cleaned) {
-        title = modData.cleaned.title; content = modData.cleaned.description;
-        UI.toast('Contenu reformulé automatiquement', 'info');
+        title = modData.cleaned.title;
+        content = modData.cleaned.description;
+        this.toast('Contenu reformulé automatiquement', 'info');
       }
 
-      var authorName = (App.currentProfile && App.currentProfile.username) || 'Anonyme';
+      var slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 80) + '-' + Date.now().toString(36);
+      var authorName = (App.currentProfile && App.currentProfile.username) || App.currentUser.email.split('@')[0];
 
-      if (editId) {
-        // Update existing
-        var { error } = await App.supabase.from('wiki_articles').update({
-          title: title, content: content, category: category, updated_at: new Date().toISOString()
-        }).eq('id', editId);
-        if (error) throw error;
-        UI.toast('Article mis à jour !', 'success');
-      } else {
-        // Create new
-        var slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 80) + '-' + Date.now().toString(36);
-        var { error } = await App.supabase.from('wiki_articles').insert({
-          slug: slug, title: title, content: content, category: category,
-          author_id: App.currentUser.id, author_name: authorName
-        });
-        if (error) throw error;
-        UI.toast('Article publié !', 'success');
+      var { error } = await App.supabase.from('wiki_articles').insert({
+        slug: slug, title: title, content: content, category: category,
+        author_id: App.currentUser.id, author_name: authorName,
+        upvotes: 0, views: 0, pinned: false
+      });
+      if (error) throw error;
 
-        // Give reputation for article
-        if (App.currentProfile) {
-          await App.supabase.from('profiles').update({ reputation: (App.currentProfile.reputation || 0) + 5 }).eq('id', App.currentUser.id);
-          App.currentProfile.reputation = (App.currentProfile.reputation || 0) + 5;
-        }
+      // Reputation +5
+      if (App.currentProfile) {
+        await App.supabase.from('profiles').update({
+          reputation: (App.currentProfile.reputation || 0) + 5
+        }).eq('id', App.currentUser.id);
+        App.currentProfile.reputation = (App.currentProfile.reputation || 0) + 5;
       }
 
-      UI.closeModal('modal-wiki-write');
-      delete document.getElementById('wiki-write-form').dataset.editId;
-      // Switch to community tab
-      var ct = document.querySelector('.wiki-tab[data-wtab="community"]');
-      if (ct) ct.click(); else this.loadCommunityArticles();
+      this.closeModal('modal-wiki-write');
+      this.toast('Article publié ! +5 pts', 'success');
+      this.loadCommunityArticles();
     } catch (e) {
       console.error('Publish error:', e);
-      UI.toast('Erreur: ' + (e.message || 'Échec'), 'error');
+      this.toast('Erreur: ' + (e.message || 'Échec'), 'error');
     }
     btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Publier';
   },
@@ -491,73 +907,148 @@ var UI = {
   // === COMMUNITY / TAG PROPOSALS ===
   community: function() {
     var self = this;
-    var pb = document.getElementById('btn-propose-tag'), fc = document.getElementById('tag-proposal-form-container'), cb = document.getElementById('tp-cancel'), f = document.getElementById('tag-proposal-form');
-    if (pb) pb.addEventListener('click', function() { if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; } pb.style.display = 'none'; fc.style.display = 'block'; });
-    if (cb) cb.addEventListener('click', function() { fc.style.display = 'none'; pb.style.display = 'inline-flex'; f.reset(); });
-    if (f) f.addEventListener('submit', function(e) { e.preventDefault(); self.submitTagProposal(); });
+    var proposeBtn = document.getElementById('btn-propose-tag');
+    var formContainer = document.getElementById('tag-proposal-form-container');
+    var cancelBtn = document.getElementById('tp-cancel');
+    var form = document.getElementById('tag-proposal-form');
+
+    if (proposeBtn) proposeBtn.addEventListener('click', function() {
+      if (!App.currentUser) { self.toast('Connectez-vous', 'warning'); return; }
+      formContainer.style.display = formContainer.style.display === 'none' ? 'block' : 'none';
+    });
+    if (cancelBtn) cancelBtn.addEventListener('click', function() { formContainer.style.display = 'none'; });
+    if (form) form.addEventListener('submit', function(e) { e.preventDefault(); self.submitTagProposal(); });
+    this.loadTagProposals();
   },
 
   submitTagProposal: async function() {
-    var name = document.getElementById('tp-name').value.trim(), icon = document.getElementById('tp-icon').value.trim(), desc = document.getElementById('tp-description').value.trim();
-    var author = App.currentProfile ? App.currentProfile.username : 'Anonyme';
+    if (!App.currentUser) return;
+    var name = document.getElementById('tp-name').value.trim();
+    var icon = document.getElementById('tp-icon').value.trim() || 'fa-tag';
+    var description = document.getElementById('tp-description').value.trim();
+    if (!name || name.length < 2) { this.toast('Nom trop court', 'warning'); return; }
+    if (!description || description.length < 5) { this.toast('Description trop courte', 'warning'); return; }
     try {
-      var resp = await fetch('/api/tag-proposals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, icon: icon, description: desc, author: author }) });
-      var data = await resp.json();
-      if (!resp.ok) UI.toast(data.error || 'Erreur', 'error');
-      else { UI.toast('Tag proposé !', 'success'); document.getElementById('tag-proposal-form').reset(); document.getElementById('tag-proposal-form-container').style.display = 'none'; document.getElementById('btn-propose-tag').style.display = 'inline-flex'; this.loadTagProposals(); }
-    } catch (e) { UI.toast('Erreur réseau', 'error'); }
+      var authorName = (App.currentProfile && App.currentProfile.username) || 'Anonyme';
+      var { error } = await App.supabase.from('tag_proposals').insert({
+        name: name, icon: icon, description: description,
+        author_id: App.currentUser.id, author_name: authorName, upvotes: 0
+      });
+      if (error) throw error;
+      this.toast('Proposition envoyée !', 'success');
+      document.getElementById('tag-proposal-form').reset();
+      document.getElementById('tag-proposal-form-container').style.display = 'none';
+      this.loadTagProposals();
+    } catch (e) {
+      this.toast('Erreur: ' + (e.message || 'Échec'), 'error');
+    }
   },
 
   loadTagProposals: async function() {
-    var c = document.getElementById('tag-proposals-list'); if (!c) return;
+    var container = document.getElementById('tag-proposals-list');
+    if (!container) return;
     try {
-      var resp = await fetch('/api/tag-proposals'); var proposals = await resp.json();
-      if (proposals.length === 0) { c.innerHTML = '<p style="color:var(--text3);font-size:.8rem">Aucune proposition</p>'; return; }
-      proposals.sort(function(a, b) { return (b.votes || 0) - (a.votes || 0); });
-      var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
+      var { data, error } = await App.supabase.from('tag_proposals').select('*').order('upvotes', { ascending: false });
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        container.innerHTML = '<p style="color:var(--text3);font-size:.8rem;text-align:center;padding:16px">Aucune proposition pour le moment</p>';
+        return;
+      }
       var html = '';
-      for (var i = 0; i < proposals.length; i++) {
-        var p = proposals[i], hv = App.currentUser && p.voters && p.voters.includes(App.currentUser.id);
-        html += '<div class="adm" style="cursor:default">' +
-          '<div style="font-size:1.2rem;margin-right:6px"><i class="fas ' + (p.icon || 'fa-tag') + '"></i></div>' +
-          '<div class="adm__info"><div class="adm__title">' + App.esc(p.name) + '</div>' +
-          '<div class="adm__meta">' + App.esc(p.description) + '</div>' +
-          '<div class="adm__meta">Par ' + App.esc(p.author) + ' • ' + App.ago(p.created_at) + '</div></div>' +
-          '<button class="vote-btn' + (hv ? ' voted' : '') + '" onclick="UI.voteTagProposal(\'' + p.id + '\')"><i class="fas fa-arrow-up"></i> ' + (p.votes || 0) + '</button>';
-        if (isAdmin) html += '<button class="btn btn--danger" onclick="UI.deleteTagProposal(\'' + p.id + '\')" style="margin-left:4px" title="Supprimer"><i class="fas fa-trash"></i></button>';
+      for (var i = 0; i < data.length; i++) {
+        var t = data[i];
+        var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
+        html += '<div class="adm" style="align-items:flex-start">' +
+          '<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">' +
+          '<i class="fas ' + App.esc(t.icon) + '" style="color:var(--green)"></i>' +
+          '<strong style="font-size:.82rem">' + App.esc(t.name) + '</strong></div>' +
+          '<p style="font-size:.72rem;color:var(--text2);margin-bottom:4px">' + App.esc(t.description) + '</p>' +
+          '<span style="font-size:.65rem;color:var(--text3)">Par ' + App.esc(t.author_name) + ' • ' + App.ago(t.created_at) + '</span></div>' +
+          '<button class="vote-btn" onclick="UI.voteTagProposal(\'' + t.id + '\')"><i class="fas fa-arrow-up"></i> ' + (t.upvotes || 0) + '</button>';
+        if (isAdmin) html += '<button class="btn btn--danger" onclick="UI.deleteTagProposal(\'' + t.id + '\')" title="Supprimer"><i class="fas fa-trash"></i></button>';
         html += '</div>';
       }
-      c.innerHTML = html;
-    } catch (e) { c.innerHTML = '<p style="color:var(--text3)">Erreur</p>'; }
+      container.innerHTML = html;
+    } catch (e) {
+      container.innerHTML = '<p style="color:var(--red);font-size:.78rem">Erreur</p>';
+    }
   },
 
   voteTagProposal: async function(id) {
-    if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
+    if (!App.currentUser) { this.toast('Connectez-vous', 'warning'); return; }
     try {
-      var resp = await fetch('/api/tag-proposals/' + id + '/vote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ voter: App.currentUser.id }) });
-      if (resp.ok) this.loadTagProposals(); else { var d = await resp.json(); UI.toast(d.error || 'Erreur', 'error'); }
-    } catch (e) { UI.toast('Erreur', 'error'); }
+      // Check if already voted
+      var { data: existing } = await App.supabase.from('tag_votes').select('id').eq('proposal_id', id).eq('user_id', App.currentUser.id).single();
+      var { data: proposal } = await App.supabase.from('tag_proposals').select('upvotes').eq('id', id).single();
+      var currentVotes = (proposal && proposal.upvotes) || 0;
+
+      if (existing) {
+        await App.supabase.from('tag_votes').delete().eq('id', existing.id);
+        await App.supabase.from('tag_proposals').update({ upvotes: Math.max(0, currentVotes - 1) }).eq('id', id);
+        this.toast('Vote retiré', 'info');
+      } else {
+        await App.supabase.from('tag_votes').insert({ proposal_id: id, user_id: App.currentUser.id });
+        await App.supabase.from('tag_proposals').update({ upvotes: currentVotes + 1 }).eq('id', id);
+        this.toast('Vote ajouté !', 'success');
+      }
+      this.loadTagProposals();
+    } catch (e) { this.toast('Erreur', 'error'); }
   },
 
   deleteTagProposal: async function(id) {
     if (!confirm('Supprimer cette proposition ?')) return;
     try {
-      var resp = await fetch('/api/tag-proposals/' + id, { method: 'DELETE' });
-      if (resp.ok) { UI.toast('Supprimé', 'success'); this.loadTagProposals(); }
-      else UI.toast('Erreur', 'error');
-    } catch (e) { UI.toast('Erreur', 'error'); }
+      await App.supabase.from('tag_votes').delete().eq('proposal_id', id);
+      var { error } = await App.supabase.from('tag_proposals').delete().eq('id', id);
+      if (error) throw error;
+      this.toast('Supprimé', 'success');
+      this.loadTagProposals();
+    } catch (e) { this.toast('Erreur', 'error'); }
   },
 
+  // === CONTACT EMAIL ===
+  contactEmail: function() {
+    var emailLink = document.getElementById('contact-email-link');
+    var emailDisplay = document.getElementById('contact-email-display');
+    if (App.config && App.config.contactEmail) {
+      if (emailLink) emailLink.href = 'mailto:' + App.config.contactEmail;
+      if (emailDisplay) emailDisplay.textContent = App.config.contactEmail;
+    }
+    var repoLink = document.getElementById('repo-link');
+    if (repoLink && App.config && App.config.repoUrl) repoLink.href = App.config.repoUrl;
+  },
+
+  // === TOASTS ===
   toast: function(msg, type) {
     type = type || 'info';
-    var icons = { success:'fa-check-circle', error:'fa-exclamation-circle', warning:'fa-exclamation-triangle', info:'fa-info-circle' };
-    var c = document.getElementById('toast-container'); if (!c) return;
-    var t = document.createElement('div'); t.className = 'toast toast--' + type;
-    t.innerHTML = '<i class="toast__ico fas ' + icons[type] + '"></i><span class="toast__msg">' + msg + '</span><button class="toast__x" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>';
-    c.appendChild(t);
-    setTimeout(function() { if (t.parentElement) { t.style.opacity = '0'; t.style.transform = 'translateX(60px)'; t.style.transition = '.2s'; setTimeout(function() { if (t.parentElement) t.remove(); }, 200); } }, 4000);
+    var icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+    var container = document.getElementById('toast-container');
+    if (!container) return;
+    var toast = document.createElement('div');
+    toast.className = 'toast toast--' + type;
+    toast.innerHTML = '<i class="toast__ico fas ' + (icons[type] || icons.info) + '"></i><span class="toast__msg">' + App.esc(msg) + '</span><button class="toast__x" onclick="this.parentNode.remove()"><i class="fas fa-times"></i></button>';
+    container.appendChild(toast);
+    setTimeout(function() {
+      toast.style.transition = 'all .3s ease';
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(60px)';
+      setTimeout(function() { toast.remove(); }, 300);
+    }, 4000);
   },
 
-  showLoading: function() { var e = document.getElementById('loading-overlay'); if (e) e.classList.add('active'); },
-  hideLoading: function() { var e = document.getElementById('loading-overlay'); if (e) e.classList.remove('active'); }
+  // === LOADING ===
+  showLoading: function() {
+    var el = document.getElementById('loading-overlay');
+    if (el) el.classList.add('active');
+  },
+  hideLoading: function() {
+    var el = document.getElementById('loading-overlay');
+    if (el) el.classList.remove('active');
+  },
+
+  // === DEBUG ===
+  debug: function() {
+    console.log('UI initialized — categories:', Object.keys(App.categories).length);
+    if (App.config && App.config.groqAvailable) console.log('Groq moderation: available');
+  }
 };
