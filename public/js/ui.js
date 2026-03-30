@@ -11,6 +11,7 @@ var UI = {
   },
   wikiCatIcons: { general:'📌', guide:'📖', info:'ℹ️', discussion:'💬', proposition:'💡' },
   searchTimeout: null,
+  _viewedArticles: {}, // Track which articles user already viewed this session
 
   init: function() {
     this.nav();
@@ -27,10 +28,8 @@ var UI = {
     this.networkStatus();
     ImageUpload.init();
     console.log('UI initialized — categories:', Object.keys(App.categories).length);
-    if (App.config && App.config.groqAvailable) console.log('Groq moderation: available');
   },
 
-  // === NAVIGATION ===
   nav: function() {
     var self = this;
     var tabs = document.querySelectorAll('.hdr__tab');
@@ -67,7 +66,6 @@ var UI = {
     });
   },
 
-  // === BURGER ===
   burger: function() {
     var burger = document.getElementById('burger-menu');
     var nav = document.getElementById('main-nav');
@@ -79,7 +77,6 @@ var UI = {
     }
   },
 
-  // === MODALS ===
   modals: function() {
     var self = this;
     document.querySelectorAll('[data-close]').forEach(function(el) {
@@ -115,7 +112,6 @@ var UI = {
     if (!document.querySelector('.modal.open')) document.body.style.overflow = '';
   },
 
-  // === FILTERS ===
   filters: function() {
     var ids = ['filter-category', 'filter-status', 'filter-commune'];
     for (var i = 0; i < ids.length; i++) {
@@ -145,7 +141,6 @@ var UI = {
     });
   },
 
-  // === REPORT FORM ===
   form: function() {
     var self = this;
     var step1Next = document.getElementById('btn-step1-next');
@@ -260,7 +255,6 @@ var UI = {
     ImageUpload.reset();
   },
 
-  // === CATEGORY GRID ===
   catGrid: function() {
     var grid = document.getElementById('category-grid');
     if (!grid) return;
@@ -296,17 +290,13 @@ var UI = {
     });
   },
 
-  // === WIKI STATIC ===
   loadWikiStatic: async function() {
     try {
       var r = await fetch('/api/wiki-static');
       var pages = await r.json();
       var nav = document.getElementById('wiki-nav');
       if (!nav) return;
-      if (pages.length === 0) {
-        nav.innerHTML = '<p style="color:var(--text3);font-size:.75rem">Pas de docs</p>';
-        return;
-      }
+      if (pages.length === 0) { nav.innerHTML = '<p style="color:var(--text3);font-size:.75rem">Pas de docs</p>'; return; }
       var html = '';
       for (var i = 0; i < pages.length; i++) {
         html += '<button class="wnav' + (i === 0 ? ' active' : '') + '" data-slug="' + pages[i].slug + '">' + App.esc(pages[i].title) + '</button>';
@@ -372,7 +362,6 @@ var UI = {
       }
       container.innerHTML = html;
 
-      // Bind filter listeners once
       if (catFilter && !catFilter._bound) {
         catFilter.addEventListener('change', function() { UI.loadCommunityArticles(); });
         catFilter._bound = true;
@@ -387,7 +376,7 @@ var UI = {
     }
   },
 
-  // === OPEN ARTICLE DETAIL ===
+  // === OPEN ARTICLE — FIXED VIEWS (only once per session per article) ===
   openArticle: async function(id) {
     var container = document.getElementById('wiki-article-detail');
     if (!container) return;
@@ -395,10 +384,13 @@ var UI = {
     this.openModal('modal-wiki-article');
 
     try {
-      // Increment views safely (no RPC needed)
-      var viewResult = await App.supabase.from('wiki_articles').select('views').eq('id', id).single();
-      if (viewResult.data) {
-        await App.supabase.from('wiki_articles').update({ views: (viewResult.data.views || 0) + 1 }).eq('id', id);
+      // Increment views ONLY once per session per article
+      if (!this._viewedArticles[id]) {
+        this._viewedArticles[id] = true;
+        var viewResult = await App.supabase.from('wiki_articles').select('views').eq('id', id).single();
+        if (viewResult.data) {
+          await App.supabase.from('wiki_articles').update({ views: (viewResult.data.views || 0) + 1 }).eq('id', id);
+        }
       }
 
       var result = await App.supabase.from('wiki_articles').select('*').eq('id', id).single();
@@ -409,10 +401,8 @@ var UI = {
       var isAuthor = App.currentUser && article.author_id === App.currentUser.id;
       var hasVoted = false;
       if (App.currentUser) {
-        try {
-          var voteResult = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).maybeSingle();
-          if (voteResult.data) hasVoted = true;
-        } catch (e) {}
+        var voteResult = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).maybeSingle();
+        if (voteResult.data) hasVoted = true;
       }
 
       var catIcon = this.wikiCatIcons[article.category] || '📌';
@@ -439,10 +429,9 @@ var UI = {
       }
       html += '</div>';
 
-      // === THREADED COMMENTS ===
+      // Comments
       html += '<div class="comments" style="margin-top:0">' +
         '<div class="comments__title" style="font-size:.9rem;margin-bottom:12px"><i class="fas fa-comments"></i> Discussion</div>';
-
       if (App.currentUser) {
         html += '<div class="cmtform" id="wiki-comment-form-main">' +
           '<textarea id="wiki-comment-input-' + id + '" placeholder="Votre commentaire..." rows="2" style="flex:1"></textarea>' +
@@ -450,7 +439,6 @@ var UI = {
       } else {
         html += '<p style="font-size:.78rem;color:var(--text3);margin-bottom:12px">Connectez-vous pour commenter</p>';
       }
-
       html += '<div id="wiki-comments-' + id + '"><p class="wiki__load" style="font-size:.78rem">Chargement...</p></div>';
       html += '</div></div>';
 
@@ -462,35 +450,23 @@ var UI = {
     }
   },
 
-  // === PIN/UNPIN ARTICLE ===
   togglePinArticle: async function(id, pin) {
-    if (!App.currentProfile || App.currentProfile.role !== 'admin') {
-      this.toast('Accès refusé', 'error');
-      return;
-    }
+    if (!App.currentProfile || App.currentProfile.role !== 'admin') { this.toast('Accès refusé', 'error'); return; }
     try {
-      var result = await App.supabase.from('wiki_articles').update({
-        pinned: pin,
-        updated_at: new Date().toISOString()
-      }).eq('id', id);
+      var result = await App.supabase.from('wiki_articles').update({ pinned: pin, updated_at: new Date().toISOString() }).eq('id', id);
       if (result.error) throw result.error;
       this.toast(pin ? 'Article épinglé !' : 'Article désépinglé', 'success');
       this.openArticle(id);
       this.loadCommunityArticles();
-    } catch (e) {
-      console.error('Pin error:', e);
-      this.toast('Erreur: ' + (e.message || 'Échec'), 'error');
-    }
+    } catch (e) { this.toast('Erreur', 'error'); }
   },
 
-  // === ARTICLE VOTE ===
   toggleArticleVote: async function(id) {
     if (!App.currentUser) { this.toast('Connectez-vous', 'warning'); return; }
     try {
       var existResult = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).maybeSingle();
       var artResult = await App.supabase.from('wiki_articles').select('upvotes').eq('id', id).single();
       var currentVotes = (artResult.data && artResult.data.upvotes) || 0;
-
       if (existResult.data) {
         await App.supabase.from('wiki_votes').delete().eq('id', existResult.data.id);
         await App.supabase.from('wiki_articles').update({ upvotes: Math.max(0, currentVotes - 1) }).eq('id', id);
@@ -501,46 +477,29 @@ var UI = {
         this.toast('Merci pour votre vote !', 'success');
       }
       this.openArticle(id);
-    } catch (e) {
-      console.error('Vote error:', e);
-      this.toast('Erreur', 'error');
-    }
+    } catch (e) { this.toast('Erreur', 'error'); }
   },
 
-  // === THREADED WIKI COMMENTS ===
+  // === THREADED COMMENTS ===
   loadWikiComments: async function(articleId) {
     var container = document.getElementById('wiki-comments-' + articleId);
     if (!container) return;
     try {
-      var result = await App.supabase.from('wiki_comments')
-        .select('*, profiles(username)')
-        .eq('article_id', articleId)
-        .order('created_at', { ascending: true });
+      var result = await App.supabase.from('wiki_comments').select('*, profiles(username)').eq('article_id', articleId).order('created_at', { ascending: true });
       if (result.error) throw result.error;
       var comments = result.data;
       if (!comments || comments.length === 0) {
         container.innerHTML = '<p style="color:var(--text3);font-size:.78rem;padding:8px">Aucun commentaire — soyez le premier !</p>';
         return;
       }
-
-      // Build threaded structure
       var rootComments = [];
       var childMap = {};
       for (var i = 0; i < comments.length; i++) {
-        var c = comments[i];
-        if (!c.reply_to) {
-          rootComments.push(c);
-        } else {
-          if (!childMap[c.reply_to]) childMap[c.reply_to] = [];
-          childMap[c.reply_to].push(c);
-        }
+        if (!comments[i].reply_to) rootComments.push(comments[i]);
+        else { if (!childMap[comments[i].reply_to]) childMap[comments[i].reply_to] = []; childMap[comments[i].reply_to].push(comments[i]); }
       }
-
       container.innerHTML = this._renderCommentsTree(rootComments, childMap, articleId, 0);
-    } catch (e) {
-      console.error('Wiki comments error:', e);
-      container.innerHTML = '<p style="color:var(--red);font-size:.78rem">Erreur de chargement</p>';
-    }
+    } catch (e) { container.innerHTML = '<p style="color:var(--red);font-size:.78rem">Erreur</p>'; }
   },
 
   _renderCommentsTree: function(comments, childMap, articleId, depth) {
@@ -548,35 +507,24 @@ var UI = {
     var maxDepth = 4;
     var indent = Math.min(depth, maxDepth) * 20;
     var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
-
     for (var i = 0; i < comments.length; i++) {
       var c = comments[i];
       var name = (c.profiles && c.profiles.username) || 'Anonyme';
       var initial = name.charAt(0).toUpperCase();
       var isOwner = App.currentUser && c.user_id === App.currentUser.id;
-      var borderStyle = depth > 0 ? 'border-left:2px solid var(--border);padding-left:8px;' : '';
-
+      var borderStyle = depth > 0 ? 'border-left:2px solid var(--green);padding-left:8px;background:rgba(63,185,80,.02);' : '';
       html += '<div class="cmt" style="margin-left:' + indent + 'px;' + borderStyle + 'margin-bottom:6px">' +
-        '<div class="cmt__av">' + initial + '</div>' +
-        '<div class="cmt__body" style="flex:1">' +
-        '<div class="cmt__head">' +
-        '<span class="cmt__author">' + App.esc(name) + '</span>' +
-        '<span class="cmt__date">' + App.ago(c.created_at) + '</span></div>' +
+        '<div class="cmt__av">' + initial + '</div><div class="cmt__body" style="flex:1">' +
+        '<div class="cmt__head"><span class="cmt__author">' + App.esc(name) + '</span><span class="cmt__date">' + App.ago(c.created_at) + '</span></div>' +
         '<div class="cmt__text">' + App.esc(c.content) + '</div>' +
         '<div style="display:flex;gap:8px;margin-top:4px">';
-
       if (App.currentUser && depth < maxDepth) {
         html += '<button class="btn btn--ghost" style="font-size:.65rem;padding:2px 6px" onclick="UI.showReplyForm(\'' + articleId + '\',\'' + c.id + '\')"><i class="fas fa-reply"></i> Répondre</button>';
       }
       if (isOwner || isAdmin) {
         html += '<button class="btn btn--ghost" style="font-size:.65rem;padding:2px 6px;color:var(--red)" onclick="UI.deleteWikiComment(\'' + articleId + '\',\'' + c.id + '\')"><i class="fas fa-trash"></i></button>';
       }
-
-      html += '</div>' +
-        '<div id="reply-form-' + c.id + '"></div>' +
-        '</div></div>';
-
-      // Render children
+      html += '</div><div id="reply-form-' + c.id + '"></div></div></div>';
       if (childMap[c.id] && childMap[c.id].length > 0) {
         html += this._renderCommentsTree(childMap[c.id], childMap, articleId, depth + 1);
       }
@@ -602,60 +550,35 @@ var UI = {
     var input = document.getElementById(inputId);
     if (!input) return;
     var content = input.value.trim();
-    if (!content || content.length < 2) { this.toast('Commentaire trop court', 'warning'); return; }
+    if (!content || content.length < 2) { this.toast('Trop court', 'warning'); return; }
     if (content.length > 2000) { this.toast('Max 2000 caractères', 'warning'); return; }
-
     try {
-      // Moderate
-      var modResp = await fetch('/api/moderate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: '', description: content })
-      });
+      var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: '', description: content, context: 'wiki' }) });
       var modData = await modResp.json();
-      if (modData.flagged && modData.reformulated && modData.cleaned) {
-        content = modData.cleaned.description;
-        this.toast('Commentaire reformulé automatiquement', 'info');
-      }
-
-      var insertData = {
-        article_id: articleId,
-        user_id: App.currentUser.id,
-        content: content
-      };
+      if (modData.flagged && modData.reformulated && modData.cleaned) { content = modData.cleaned.description; this.toast('Commentaire reformulé', 'info'); }
+      var insertData = { article_id: articleId, user_id: App.currentUser.id, content: content };
       if (parentId) insertData.reply_to = parentId;
-
       var result = await App.supabase.from('wiki_comments').insert(insertData);
       if (result.error) throw result.error;
       input.value = '';
-      if (parentId) {
-        var replyContainer = document.getElementById('reply-form-' + parentId);
-        if (replyContainer) replyContainer.innerHTML = '';
-      }
+      if (parentId) { var rc = document.getElementById('reply-form-' + parentId); if (rc) rc.innerHTML = ''; }
       this.toast('Commentaire ajouté', 'success');
       this.loadWikiComments(articleId);
-    } catch (e) {
-      console.error('Add wiki comment error:', e);
-      this.toast('Erreur: ' + (e.message || 'Échec'), 'error');
-    }
+    } catch (e) { this.toast('Erreur', 'error'); }
   },
 
   deleteWikiComment: async function(articleId, commentId) {
     if (!confirm('Supprimer ce commentaire ?')) return;
     try {
-      // Delete child replies first (cascade)
       await App.supabase.from('wiki_comments').delete().eq('reply_to', commentId);
       var result = await App.supabase.from('wiki_comments').delete().eq('id', commentId);
       if (result.error) throw result.error;
-      this.toast('Commentaire supprimé', 'success');
+      this.toast('Supprimé', 'success');
       this.loadWikiComments(articleId);
-    } catch (e) {
-      console.error('Delete wiki comment error:', e);
-      this.toast('Erreur', 'error');
-    }
+    } catch (e) { this.toast('Erreur', 'error'); }
   },
 
-  // === WIKI WRITE WITH MARKDOWN TOOLBAR ===
+  // === WIKI WRITE WITH MARKDOWN TOOLBAR — FIXED PREVIEW ===
   wikiWrite: function() {
     var self = this;
     var newBtn = document.getElementById('btn-new-article');
@@ -668,9 +591,12 @@ var UI = {
         document.getElementById('wa-content').value = '';
         document.getElementById('wa-char-count').textContent = '0';
         var preview = document.getElementById('wa-preview');
-        if (preview) preview.style.display = 'none';
+        if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
+        // Remove old toolbar
+        var oldTb = document.getElementById('md-toolbar');
+        if (oldTb) oldTb.remove();
         self.openModal('modal-wiki-write');
-        setTimeout(function() { self.initMarkdownToolbar(); }, 100);
+        setTimeout(function() { self.initMarkdownToolbar(); }, 150);
       });
     }
 
@@ -698,13 +624,13 @@ var UI = {
     toolbar.style.cssText = 'display:flex;gap:2px;flex-wrap:wrap;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-bottom:none;border-radius:var(--r) var(--r) 0 0;margin-top:4px';
 
     var buttons = [
-      { icon: 'fa-bold', title: 'Gras', action: 'bold' },
-      { icon: 'fa-italic', title: 'Italique', action: 'italic' },
+      { icon: 'fa-bold', title: 'Gras (Ctrl+B)', action: 'bold' },
+      { icon: 'fa-italic', title: 'Italique (Ctrl+I)', action: 'italic' },
       { icon: 'fa-strikethrough', title: 'Barré', action: 'strike' },
       { sep: true },
-      { icon: 'fa-heading', title: 'Titre 1', action: 'h1' },
-      { icon: 'fa-heading', title: 'Titre 2', action: 'h2', small: true },
-      { icon: 'fa-heading', title: 'Titre 3', action: 'h3', smaller: true },
+      { icon: 'fa-heading', title: 'Titre 1', action: 'h1', label: 'H1' },
+      { icon: 'fa-heading', title: 'Titre 2', action: 'h2', label: 'H2', small: true },
+      { icon: 'fa-heading', title: 'Titre 3', action: 'h3', label: 'H3', smaller: true },
       { sep: true },
       { icon: 'fa-list-ul', title: 'Liste', action: 'ul' },
       { icon: 'fa-list-ol', title: 'Liste numérotée', action: 'ol' },
@@ -724,35 +650,29 @@ var UI = {
 
     for (var i = 0; i < buttons.length; i++) {
       var b = buttons[i];
-      if (b.sep) {
-        var sep = document.createElement('div');
-        sep.style.cssText = 'width:1px;height:20px;background:var(--border);margin:0 2px;align-self:center';
-        toolbar.appendChild(sep);
-        continue;
-      }
+      if (b.sep) { var sep = document.createElement('div'); sep.style.cssText = 'width:1px;height:20px;background:var(--border);margin:0 2px;align-self:center'; toolbar.appendChild(sep); continue; }
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.title = b.title;
       btn.setAttribute('data-md-action', b.action);
-      var bgColor = b.special ? 'var(--green2)' : 'var(--bg)';
-      var txtColor = b.special ? '#fff' : 'var(--text2)';
-      btn.style.cssText = 'width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:' + bgColor + ';border:1px solid var(--border);border-radius:3px;cursor:pointer;color:' + txtColor + ';font-size:.7rem;transition:all .1s';
+      btn.style.cssText = 'width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:' + (b.special ? 'var(--green2)' : 'var(--bg)') + ';border:1px solid var(--border);border-radius:3px;cursor:pointer;color:' + (b.special ? '#fff' : 'var(--text2)') + ';font-size:.7rem;transition:all .1s';
       var fontSize = b.smaller ? ' style="font-size:.5rem"' : (b.small ? ' style="font-size:.6rem"' : '');
       btn.innerHTML = '<i class="fas ' + b.icon + '"' + fontSize + '></i>';
-      (function(action) {
-        btn.addEventListener('click', function() { UI.applyMarkdown(action); });
-      })(b.action);
+      (function(action) { btn.addEventListener('click', function() { UI.applyMarkdown(action); }); })(b.action);
       btn.addEventListener('mouseenter', function() { this.style.borderColor = 'var(--green)'; this.style.color = 'var(--text)'; });
-      btn.addEventListener('mouseleave', function() {
-        if (this.getAttribute('data-md-action') !== 'preview') {
-          this.style.borderColor = 'var(--border)'; this.style.color = 'var(--text2)';
-        }
-      });
+      btn.addEventListener('mouseleave', function() { if (this.getAttribute('data-md-action') !== 'preview') { this.style.borderColor = 'var(--border)'; this.style.color = 'var(--text2)'; } });
       toolbar.appendChild(btn);
     }
 
-    contentArea.parentNode.insertBefore(toolbar, contentArea);
+    // Insert toolbar BEFORE the textarea
+    var fieldDiv = contentArea.closest('.field');
+    if (fieldDiv) {
+      fieldDiv.insertBefore(toolbar, contentArea);
+    } else {
+      contentArea.parentNode.insertBefore(toolbar, contentArea);
+    }
     contentArea.style.borderRadius = '0 0 var(--r) var(--r)';
+    contentArea.style.borderTop = 'none';
   },
 
   applyMarkdown: function(action) {
@@ -770,64 +690,22 @@ var UI = {
     var cursorOffset = 0;
 
     switch (action) {
-      case 'bold':
-        insert = '**' + (selected || 'texte en gras') + '**';
-        cursorOffset = selected ? 0 : -2;
-        break;
-      case 'italic':
-        insert = '*' + (selected || 'texte en italique') + '*';
-        cursorOffset = selected ? 0 : -1;
-        break;
-      case 'strike':
-        insert = '~~' + (selected || 'texte barré') + '~~';
-        cursorOffset = selected ? 0 : -2;
-        break;
-      case 'h1':
-        insert = '\n# ' + (selected || 'Titre principal') + '\n';
-        break;
-      case 'h2':
-        insert = '\n## ' + (selected || 'Sous-titre') + '\n';
-        break;
-      case 'h3':
-        insert = '\n### ' + (selected || 'Section') + '\n';
-        break;
-      case 'ul':
-        if (selected) {
-          insert = selected.split('\n').map(function(l) { return '- ' + l; }).join('\n');
-        } else { insert = '\n- Élément 1\n- Élément 2\n- Élément 3\n'; }
-        break;
-      case 'ol':
-        if (selected) {
-          insert = selected.split('\n').map(function(l, idx) { return (idx + 1) + '. ' + l; }).join('\n');
-        } else { insert = '\n1. Élément 1\n2. Élément 2\n3. Élément 3\n'; }
-        break;
-      case 'checklist':
-        insert = '\n- [ ] Tâche 1\n- [ ] Tâche 2\n- [x] Tâche terminée\n';
-        break;
-      case 'quote':
-        if (selected) {
-          insert = selected.split('\n').map(function(l) { return '> ' + l; }).join('\n');
-        } else { insert = '\n> Citation ici\n'; }
-        break;
-      case 'code':
-        insert = '`' + (selected || 'code') + '`';
-        cursorOffset = selected ? 0 : -1;
-        break;
-      case 'codeblock':
-        insert = '\n```\n' + (selected || '// Votre code ici') + '\n```\n';
-        break;
-      case 'link':
-        insert = selected ? '[' + selected + '](https://)' : '[texte du lien](https://example.com)';
-        break;
-      case 'image':
-        insert = '![description](https://url-de-image.jpg)';
-        break;
-      case 'table':
-        insert = '\n| Colonne 1 | Colonne 2 | Colonne 3 |\n|-----------|-----------|----------|\n| Cellule   | Cellule   | Cellule  |\n| Cellule   | Cellule   | Cellule  |\n';
-        break;
-      case 'hr':
-        insert = '\n---\n';
-        break;
+      case 'bold': insert = '**' + (selected || 'texte en gras') + '**'; cursorOffset = selected ? 0 : -2; break;
+      case 'italic': insert = '*' + (selected || 'texte en italique') + '*'; cursorOffset = selected ? 0 : -1; break;
+      case 'strike': insert = '~~' + (selected || 'texte barré') + '~~'; cursorOffset = selected ? 0 : -2; break;
+      case 'h1': insert = '\n# ' + (selected || 'Titre principal') + '\n'; break;
+      case 'h2': insert = '\n## ' + (selected || 'Sous-titre') + '\n'; break;
+      case 'h3': insert = '\n### ' + (selected || 'Section') + '\n'; break;
+      case 'ul': insert = selected ? selected.split('\n').map(function(l) { return '- ' + l; }).join('\n') : '\n- Élément 1\n- Élément 2\n- Élément 3\n'; break;
+      case 'ol': insert = selected ? selected.split('\n').map(function(l, idx) { return (idx + 1) + '. ' + l; }).join('\n') : '\n1. Élément 1\n2. Élément 2\n3. Élément 3\n'; break;
+      case 'checklist': insert = '\n- [ ] Tâche 1\n- [ ] Tâche 2\n- [x] Tâche terminée\n'; break;
+      case 'quote': insert = selected ? selected.split('\n').map(function(l) { return '> ' + l; }).join('\n') : '\n> Citation ici\n'; break;
+      case 'code': insert = '`' + (selected || 'code') + '`'; cursorOffset = selected ? 0 : -1; break;
+      case 'codeblock': insert = '\n```\n' + (selected || '// Votre code ici') + '\n```\n'; break;
+      case 'link': insert = selected ? '[' + selected + '](https://)' : '[texte du lien](https://example.com)'; break;
+      case 'image': insert = '![description](https://url-de-image.jpg)'; break;
+      case 'table': insert = '\n| Colonne 1 | Colonne 2 | Colonne 3 |\n|-----------|-----------|----------|\n| Cellule   | Cellule   | Cellule  |\n| Cellule   | Cellule   | Cellule  |\n'; break;
+      case 'hr': insert = '\n---\n'; break;
       default: return;
     }
 
@@ -842,9 +720,10 @@ var UI = {
     var preview = document.getElementById('wa-preview');
     var textarea = document.getElementById('wa-content');
     if (!preview || !textarea) return;
-    if (preview.style.display === 'none' || !preview.style.display) {
+    var isHidden = preview.style.display === 'none' || preview.style.display === '' || !preview.offsetParent;
+    if (isHidden) {
       preview.style.display = 'block';
-      preview.innerHTML = marked.parse(textarea.value || '*Rien à afficher*');
+      preview.innerHTML = marked.parse(textarea.value || '*Rien à afficher — commencez à écrire !*');
     } else {
       preview.style.display = 'none';
     }
@@ -853,73 +732,49 @@ var UI = {
   updateMarkdownPreview: function() {
     var preview = document.getElementById('wa-preview');
     var textarea = document.getElementById('wa-content');
-    if (preview && preview.style.display !== 'none' && preview.style.display && textarea) {
+    if (!preview || !textarea) return;
+    // Only update if preview is visible
+    if (preview.offsetParent !== null && preview.style.display !== 'none') {
       preview.innerHTML = marked.parse(textarea.value || '*Rien à afficher*');
     }
   },
 
+  // === PUBLISH ARTICLE — sends context: 'wiki' for markdown-aware moderation ===
   publishArticle: async function() {
     if (!App.currentUser) { this.toast('Connectez-vous', 'warning'); return; }
     var title = document.getElementById('wa-title').value.trim();
     var category = document.getElementById('wa-category').value;
     var content = document.getElementById('wa-content').value.trim();
-
     if (!title || title.length < 3) { this.toast('Titre trop court (min 3)', 'warning'); return; }
     if (!content || content.length < 10) { this.toast('Contenu trop court (min 10)', 'warning'); return; }
-
     var btn = document.getElementById('btn-wiki-publish');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Publication...';
-
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Publication...';
     try {
-      var modResp = await fetch('/api/moderate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title, description: content })
-      });
+      var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title, description: content, context: 'wiki' }) });
       var modData = await modResp.json();
-      if (modData.flagged && modData.reformulated && modData.cleaned) {
-        title = modData.cleaned.title;
-        content = modData.cleaned.description;
-        this.toast('Contenu reformulé automatiquement', 'info');
-      }
-
+      if (modData.flagged && modData.reformulated && modData.cleaned) { title = modData.cleaned.title; content = modData.cleaned.description; this.toast('Contenu reformulé', 'info'); }
       var slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 80) + '-' + Date.now().toString(36);
       var authorName = (App.currentProfile && App.currentProfile.username) || App.currentUser.email.split('@')[0];
-
-      var result = await App.supabase.from('wiki_articles').insert({
-        slug: slug, title: title, content: content, category: category,
-        author_id: App.currentUser.id, author_name: authorName,
-        upvotes: 0, views: 0, pinned: false
-      });
+      var result = await App.supabase.from('wiki_articles').insert({ slug: slug, title: title, content: content, category: category, author_id: App.currentUser.id, author_name: authorName, upvotes: 0, views: 0, pinned: false });
       if (result.error) throw result.error;
-
       if (App.currentProfile) {
-        await App.supabase.from('profiles').update({
-          reputation: (App.currentProfile.reputation || 0) + 5
-        }).eq('id', App.currentUser.id);
+        await App.supabase.from('profiles').update({ reputation: (App.currentProfile.reputation || 0) + 5 }).eq('id', App.currentUser.id);
         App.currentProfile.reputation = (App.currentProfile.reputation || 0) + 5;
       }
-
       this.closeModal('modal-wiki-write');
       this.toast('Article publié ! +5 pts', 'success');
       this.loadCommunityArticles();
-    } catch (e) {
-      console.error('Publish error:', e);
-      this.toast('Erreur: ' + (e.message || 'Échec'), 'error');
-    }
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Publier';
+    } catch (e) { this.toast('Erreur: ' + (e.message || 'Échec'), 'error'); }
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Publier';
   },
 
-  // === COMMUNITY / TAG PROPOSALS — FIXED VOTES + ADMIN VALIDATION ===
+  // === TAG PROPOSALS — FIXED VOTE COUNT + ADMIN APPROVE/REJECT ===
   community: function() {
     var self = this;
     var proposeBtn = document.getElementById('btn-propose-tag');
     var formContainer = document.getElementById('tag-proposal-form-container');
     var cancelBtn = document.getElementById('tp-cancel');
     var form = document.getElementById('tag-proposal-form');
-
     if (proposeBtn) proposeBtn.addEventListener('click', function() {
       if (!App.currentUser) { self.toast('Connectez-vous', 'warning'); return; }
       formContainer.style.display = formContainer.style.display === 'none' ? 'block' : 'none';
@@ -935,21 +790,15 @@ var UI = {
     var description = document.getElementById('tp-description').value.trim();
     if (!name || name.length < 2) { this.toast('Nom trop court', 'warning'); return; }
     if (!description || description.length < 5) { this.toast('Description trop courte', 'warning'); return; }
-
     try {
       var authorName = (App.currentProfile && App.currentProfile.username) || 'Anonyme';
-      var result = await App.supabase.from('tag_proposals').insert({
-        name: name, icon: icon, description: description,
-        author_id: App.currentUser.id, author_name: authorName, upvotes: 0
-      });
+      var result = await App.supabase.from('tag_proposals').insert({ name: name, icon: icon, description: description, author_id: App.currentUser.id, author_name: authorName, upvotes: 0 });
       if (result.error) throw result.error;
       this.toast('Proposition envoyée !', 'success');
       document.getElementById('tag-proposal-form').reset();
       document.getElementById('tag-proposal-form-container').style.display = 'none';
       this.loadTagProposals();
-    } catch (e) {
-      this.toast('Erreur: ' + (e.message || 'Échec'), 'error');
-    }
+    } catch (e) { this.toast('Erreur: ' + (e.message || 'Échec'), 'error'); }
   },
 
   loadTagProposals: async function() {
@@ -960,21 +809,17 @@ var UI = {
       if (result.error) throw result.error;
       var data = result.data;
       if (!data || data.length === 0) {
-        container.innerHTML = '<p style="color:var(--text3);font-size:.8rem;text-align:center;padding:16px">Aucune proposition pour le moment</p>';
+        container.innerHTML = '<p style="color:var(--text3);font-size:.8rem;text-align:center;padding:16px">Aucune proposition</p>';
         return;
       }
 
-      // Load user's votes to show which ones they voted on
+      // Get user's votes
       var userVotes = {};
       if (App.currentUser) {
-        try {
-          var voteResult = await App.supabase.from('tag_votes').select('proposal_id').eq('user_id', App.currentUser.id);
-          if (voteResult.data) {
-            for (var v = 0; v < voteResult.data.length; v++) {
-              userVotes[voteResult.data[v].proposal_id] = true;
-            }
-          }
-        } catch (e) {}
+        var voteResult = await App.supabase.from('tag_votes').select('proposal_id').eq('user_id', App.currentUser.id);
+        if (voteResult.data) {
+          for (var v = 0; v < voteResult.data.length; v++) userVotes[voteResult.data[v].proposal_id] = true;
+        }
       }
 
       var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
@@ -983,11 +828,8 @@ var UI = {
         var t = data[i];
         var hasVoted = userVotes[t.id] || false;
         var statusBadge = '';
-        if (t.status === 'approved') {
-          statusBadge = '<span style="background:var(--green-bg);color:var(--green);padding:2px 6px;border-radius:10px;font-size:.6rem;font-weight:700;margin-left:6px"><i class="fas fa-check"></i> Validé</span>';
-        } else if (t.status === 'rejected') {
-          statusBadge = '<span style="background:var(--red-bg);color:var(--red);padding:2px 6px;border-radius:10px;font-size:.6rem;font-weight:700;margin-left:6px"><i class="fas fa-times"></i> Refusé</span>';
-        }
+        if (t.status === 'approved') statusBadge = '<span style="background:var(--green-bg);color:var(--green);padding:2px 6px;border-radius:10px;font-size:.6rem;font-weight:700;margin-left:6px"><i class="fas fa-check"></i> Validé</span>';
+        else if (t.status === 'rejected') statusBadge = '<span style="background:var(--red-bg);color:var(--red);padding:2px 6px;border-radius:10px;font-size:.6rem;font-weight:700;margin-left:6px"><i class="fas fa-times"></i> Refusé</span>';
 
         html += '<div class="adm" style="align-items:flex-start">' +
           '<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap">' +
@@ -995,71 +837,69 @@ var UI = {
           '<strong style="font-size:.82rem">' + App.esc(t.name) + '</strong>' + statusBadge + '</div>' +
           '<p style="font-size:.72rem;color:var(--text2);margin-bottom:4px">' + App.esc(t.description) + '</p>' +
           '<span style="font-size:.65rem;color:var(--text3)">Par ' + App.esc(t.author_name) + ' • ' + App.ago(t.created_at) + '</span></div>' +
-          '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="UI.voteTagProposal(\'' + t.id + '\')" title="' + (hasVoted ? 'Retirer mon vote' : 'Voter pour') + '"><i class="fas fa-arrow-up"></i> ' + (t.upvotes || 0) + '</button>';
+          '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="UI.voteTagProposal(\'' + t.id + '\')" id="tag-vote-btn-' + t.id + '"><i class="fas fa-arrow-up"></i> <span id="tag-vote-count-' + t.id + '">' + (t.upvotes || 0) + '</span></button>';
 
-        // Admin controls: approve / reject / delete
         if (isAdmin) {
           html += '<div style="display:flex;gap:4px;flex-wrap:wrap">';
-          if (t.status !== 'approved') {
-            html += '<button class="btn btn--primary" style="font-size:.65rem;padding:3px 8px" onclick="UI.setTagStatus(\'' + t.id + '\',\'approved\')" title="Valider"><i class="fas fa-check"></i></button>';
-          }
-          if (t.status !== 'rejected') {
-            html += '<button class="btn btn--outline" style="font-size:.65rem;padding:3px 8px;color:var(--orange)" onclick="UI.setTagStatus(\'' + t.id + '\',\'rejected\')" title="Refuser"><i class="fas fa-ban"></i></button>';
-          }
-          html += '<button class="btn btn--danger" style="font-size:.65rem;padding:3px 8px" onclick="UI.deleteTagProposal(\'' + t.id + '\')" title="Supprimer"><i class="fas fa-trash"></i></button>';
-          html += '</div>';
+          if (t.status !== 'approved') html += '<button class="btn btn--primary" style="font-size:.65rem;padding:3px 8px" onclick="UI.setTagStatus(\'' + t.id + '\',\'approved\')" title="Valider"><i class="fas fa-check"></i></button>';
+          if (t.status !== 'rejected') html += '<button class="btn btn--outline" style="font-size:.65rem;padding:3px 8px;color:var(--orange)" onclick="UI.setTagStatus(\'' + t.id + '\',\'rejected\')" title="Refuser"><i class="fas fa-ban"></i></button>';
+          html += '<button class="btn btn--danger" style="font-size:.65rem;padding:3px 8px" onclick="UI.deleteTagProposal(\'' + t.id + '\')" title="Supprimer"><i class="fas fa-trash"></i></button></div>';
         }
         html += '</div>';
       }
       container.innerHTML = html;
-    } catch (e) {
-      console.error('Tag proposals error:', e);
-      container.innerHTML = '<p style="color:var(--red);font-size:.78rem">Erreur de chargement</p>';
-    }
+    } catch (e) { container.innerHTML = '<p style="color:var(--red);font-size:.78rem">Erreur</p>'; }
   },
 
   voteTagProposal: async function(id) {
     if (!App.currentUser) { this.toast('Connectez-vous', 'warning'); return; }
     try {
-      // Check if already voted using maybeSingle (no error if not found)
       var existResult = await App.supabase.from('tag_votes').select('id').eq('proposal_id', id).eq('user_id', App.currentUser.id).maybeSingle();
       var propResult = await App.supabase.from('tag_proposals').select('upvotes').eq('id', id).single();
-      var currentVotes = (propResult.data && propResult.data.upvotes) || 0;
+      if (propResult.error) throw propResult.error;
+      var currentVotes = propResult.data.upvotes || 0;
 
       if (existResult.data) {
-        // Already voted → remove vote
-        await App.supabase.from('tag_votes').delete().eq('id', existResult.data.id);
-        await App.supabase.from('tag_proposals').update({ upvotes: Math.max(0, currentVotes - 1) }).eq('id', id);
+        var delResult = await App.supabase.from('tag_votes').delete().eq('id', existResult.data.id);
+        if (delResult.error) throw delResult.error;
+        var newCount = Math.max(0, currentVotes - 1);
+        var upResult = await App.supabase.from('tag_proposals').update({ upvotes: newCount }).eq('id', id);
+        if (upResult.error) throw upResult.error;
+        // Update UI immediately
+        var countEl = document.getElementById('tag-vote-count-' + id);
+        var btnEl = document.getElementById('tag-vote-btn-' + id);
+        if (countEl) countEl.textContent = newCount;
+        if (btnEl) btnEl.classList.remove('voted');
         this.toast('Vote retiré', 'info');
       } else {
-        // Not voted → add vote
-        var insertResult = await App.supabase.from('tag_votes').insert({ proposal_id: id, user_id: App.currentUser.id });
-        if (insertResult.error) throw insertResult.error;
-        await App.supabase.from('tag_proposals').update({ upvotes: currentVotes + 1 }).eq('id', id);
+        var insResult = await App.supabase.from('tag_votes').insert({ proposal_id: id, user_id: App.currentUser.id });
+        if (insResult.error) throw insResult.error;
+        var newCount2 = currentVotes + 1;
+        var upResult2 = await App.supabase.from('tag_proposals').update({ upvotes: newCount2 }).eq('id', id);
+        if (upResult2.error) throw upResult2.error;
+        // Update UI immediately
+        var countEl2 = document.getElementById('tag-vote-count-' + id);
+        var btnEl2 = document.getElementById('tag-vote-btn-' + id);
+        if (countEl2) countEl2.textContent = newCount2;
+        if (btnEl2) btnEl2.classList.add('voted');
         this.toast('Vote ajouté !', 'success');
       }
-      this.loadTagProposals();
     } catch (e) {
       console.error('Tag vote error:', e);
       this.toast('Erreur: ' + (e.message || 'Échec'), 'error');
+      // Reload to sync
+      this.loadTagProposals();
     }
   },
 
   setTagStatus: async function(id, status) {
-    if (!App.currentProfile || App.currentProfile.role !== 'admin') {
-      this.toast('Accès refusé', 'error');
-      return;
-    }
+    if (!App.currentProfile || App.currentProfile.role !== 'admin') { this.toast('Accès refusé', 'error'); return; }
     try {
       var result = await App.supabase.from('tag_proposals').update({ status: status }).eq('id', id);
       if (result.error) throw result.error;
-      var label = status === 'approved' ? 'Proposition validée !' : 'Proposition refusée';
-      this.toast(label, status === 'approved' ? 'success' : 'info');
+      this.toast(status === 'approved' ? 'Proposition validée !' : 'Proposition refusée', status === 'approved' ? 'success' : 'info');
       this.loadTagProposals();
-    } catch (e) {
-      console.error('Set tag status error:', e);
-      this.toast('Erreur', 'error');
-    }
+    } catch (e) { this.toast('Erreur', 'error'); }
   },
 
   deleteTagProposal: async function(id) {
@@ -1070,13 +910,9 @@ var UI = {
       if (result.error) throw result.error;
       this.toast('Supprimé', 'success');
       this.loadTagProposals();
-    } catch (e) {
-      console.error('Delete tag error:', e);
-      this.toast('Erreur', 'error');
-    }
+    } catch (e) { this.toast('Erreur', 'error'); }
   },
 
-  // === CONTACT EMAIL ===
   contactEmail: function() {
     var emailLink = document.getElementById('contact-email-link');
     var emailDisplay = document.getElementById('contact-email-display');
@@ -1088,25 +924,24 @@ var UI = {
     if (repoLink && App.config && App.config.repoUrl) repoLink.href = App.config.repoUrl;
   },
 
-  // === KEYBOARD SHORTCUTS ===
   keyboardShortcuts: function() {
     document.addEventListener('keydown', function(e) {
-      // Ctrl+Shift+N = new report
-      if (e.ctrlKey && e.shiftKey && e.key === 'N') {
-        e.preventDefault();
-        var btn = document.getElementById('btn-new-report');
-        if (btn) btn.click();
+      if (e.ctrlKey && e.shiftKey && e.key === 'N') { e.preventDefault(); var btn = document.getElementById('btn-new-report'); if (btn) btn.click(); }
+      // Markdown shortcuts in wiki editor
+      var wa = document.getElementById('wa-content');
+      if (wa && document.activeElement === wa) {
+        if (e.ctrlKey && e.key === 'b') { e.preventDefault(); UI.applyMarkdown('bold'); }
+        if (e.ctrlKey && e.key === 'i') { e.preventDefault(); UI.applyMarkdown('italic'); }
+        if (e.ctrlKey && e.key === 'k') { e.preventDefault(); UI.applyMarkdown('link'); }
       }
     });
   },
 
-  // === NETWORK STATUS ===
   networkStatus: function() {
     window.addEventListener('offline', function() { UI.toast('Connexion perdue', 'warning'); });
     window.addEventListener('online', function() { UI.toast('Connexion rétablie', 'success'); });
   },
 
-  // === TOASTS ===
   toast: function(msg, type) {
     type = type || 'info';
     var icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
@@ -1124,13 +959,6 @@ var UI = {
     }, 4000);
   },
 
-  // === LOADING ===
-  showLoading: function() {
-    var el = document.getElementById('loading-overlay');
-    if (el) el.classList.add('active');
-  },
-  hideLoading: function() {
-    var el = document.getElementById('loading-overlay');
-    if (el) el.classList.remove('active');
-  }
+  showLoading: function() { var el = document.getElementById('loading-overlay'); if (el) el.classList.add('active'); },
+  hideLoading: function() { var el = document.getElementById('loading-overlay'); if (el) el.classList.remove('active'); }
 };
