@@ -23,8 +23,11 @@ var UI = {
     this.wikiTabs();
     this.wikiWrite();
     this.contactEmail();
-    this.debug();
+    this.keyboardShortcuts();
+    this.networkStatus();
     ImageUpload.init();
+    console.log('UI initialized — categories:', Object.keys(App.categories).length);
+    if (App.config && App.config.groqAvailable) console.log('Groq moderation: available');
   },
 
   // === NAVIGATION ===
@@ -34,20 +37,16 @@ var UI = {
     for (var i = 0; i < tabs.length; i++) {
       tabs[i].addEventListener('click', function() {
         var view = this.getAttribute('data-view');
-        // Deactivate all
         for (var j = 0; j < tabs.length; j++) tabs[j].classList.remove('active');
         this.classList.add('active');
-        // Show target view
         var views = document.querySelectorAll('.view');
         for (var j = 0; j < views.length; j++) views[j].classList.remove('active');
         var target = document.getElementById('view-' + view);
         if (target) target.classList.add('active');
-        // Close mobile nav
         var nav = document.getElementById('main-nav');
         if (nav) nav.classList.remove('open');
         var burger = document.getElementById('burger-menu');
         if (burger) burger.classList.remove('open');
-        // View-specific actions
         if (view === 'map' && MapManager.map) setTimeout(function() { MapManager.map.invalidateSize(); }, 100);
         if (view === 'stats') Reports.updateStats();
         if (view === 'wiki') { self.loadWikiStatic(); self.loadCommunityArticles(); }
@@ -68,7 +67,7 @@ var UI = {
     });
   },
 
-  // === BURGER MENU ===
+  // === BURGER ===
   burger: function() {
     var burger = document.getElementById('burger-menu');
     var nav = document.getElementById('main-nav');
@@ -83,21 +82,18 @@ var UI = {
   // === MODALS ===
   modals: function() {
     var self = this;
-    // Close buttons
     document.querySelectorAll('[data-close]').forEach(function(el) {
       el.addEventListener('click', function() {
         var modal = el.closest('.modal');
         if (modal) self.closeModal(modal.id);
       });
     });
-    // ESC key
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {
         var modals = document.querySelectorAll('.modal.open');
         for (var i = modals.length - 1; i >= 0; i--) { self.closeModal(modals[i].id); break; }
       }
     });
-    // New report button
     var newBtn = document.getElementById('btn-new-report');
     if (newBtn) {
       newBtn.addEventListener('click', function() {
@@ -115,23 +111,22 @@ var UI = {
   },
   closeModal: function(id) {
     var modal = document.getElementById(id);
-    if (modal) { modal.classList.remove('open'); }
-    // Check if any modal still open
+    if (modal) modal.classList.remove('open');
     if (!document.querySelector('.modal.open')) document.body.style.overflow = '';
   },
 
   // === FILTERS ===
   filters: function() {
-    var self = this;
-    ['filter-category', 'filter-status', 'filter-commune'].forEach(function(id) {
-      var el = document.getElementById(id);
+    var ids = ['filter-category', 'filter-status', 'filter-commune'];
+    for (var i = 0; i < ids.length; i++) {
+      var el = document.getElementById(ids[i]);
       if (el) el.addEventListener('change', function() {
         App.filters.category = document.getElementById('filter-category').value;
         App.filters.status = document.getElementById('filter-status').value;
         App.filters.commune = document.getElementById('filter-commune').value;
         Reports.loadAll();
       });
-    });
+    }
     var reset = document.getElementById('btn-reset-filters');
     if (reset) reset.addEventListener('click', function() {
       document.getElementById('filter-category').value = '';
@@ -153,7 +148,6 @@ var UI = {
   // === REPORT FORM ===
   form: function() {
     var self = this;
-    // Step navigation
     var step1Next = document.getElementById('btn-step1-next');
     var step2Next = document.getElementById('btn-step2-next');
     if (step1Next) step1Next.addEventListener('click', function() { self.goStep(2); });
@@ -161,19 +155,15 @@ var UI = {
     document.querySelectorAll('[data-prev]').forEach(function(btn) {
       btn.addEventListener('click', function() { self.goStep(parseInt(btn.getAttribute('data-prev'))); });
     });
-    // Description counter
     var desc = document.getElementById('report-description');
     if (desc) desc.addEventListener('input', function() {
       var ct = document.getElementById('desc-count');
       if (ct) ct.textContent = desc.value.length;
     });
-    // Submit
     var form = document.getElementById('report-form');
     if (form) form.addEventListener('submit', function(e) { e.preventDefault(); Reports.submitReport(); });
-    // Geolocation
     var geoBtn = document.getElementById('btn-geolocate');
     if (geoBtn) geoBtn.addEventListener('click', function() { self.geolocate(); });
-    // Address search
     var addrInput = document.getElementById('address-search');
     if (addrInput) {
       addrInput.addEventListener('input', function() {
@@ -183,12 +173,14 @@ var UI = {
         self.searchTimeout = setTimeout(function() { self.searchAddress(q); }, 400);
       });
       addrInput.addEventListener('focus', function() {
-        if (document.getElementById('search-results').children.length > 0) {
-          document.getElementById('search-results').classList.add('open');
-        }
+        var sr = document.getElementById('search-results');
+        if (sr && sr.children.length > 0) sr.classList.add('open');
       });
       document.addEventListener('click', function(e) {
-        if (!e.target.closest('.loc-search')) document.getElementById('search-results').classList.remove('open');
+        if (!e.target.closest('.loc-search')) {
+          var sr = document.getElementById('search-results');
+          if (sr) sr.classList.remove('open');
+        }
       });
     }
   },
@@ -218,7 +210,7 @@ var UI = {
         MapManager.reverseGeo(lat, lng);
         UI.toast('Position trouvée', 'success');
       },
-      function(err) { UI.toast('Erreur de géolocalisation', 'error'); },
+      function() { UI.toast('Erreur de géolocalisation', 'error'); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   },
@@ -226,7 +218,11 @@ var UI = {
   searchAddress: async function(query) {
     var results = await MapManager.searchAddr(query);
     var container = document.getElementById('search-results');
-    if (!results || results.length === 0) { container.innerHTML = '<div class="loc-r" style="color:var(--text3)">Aucun résultat</div>'; container.classList.add('open'); return; }
+    if (!results || results.length === 0) {
+      container.innerHTML = '<div class="loc-r" style="color:var(--text3)">Aucun résultat</div>';
+      container.classList.add('open');
+      return;
+    }
     var html = '';
     for (var i = 0; i < results.length; i++) {
       html += '<div class="loc-r" data-lat="' + results[i].lat + '" data-lon="' + results[i].lon + '" data-name="' + App.esc(results[i].display_name) + '">' + App.esc(results[i].display_name) + '</div>';
@@ -262,9 +258,6 @@ var UI = {
     var dc = document.getElementById('desc-count');
     if (dc) dc.textContent = '0';
     ImageUpload.reset();
-    // Reset category selection
-    var cats = document.querySelectorAll('.catc');
-    for (var i = 0; i < cats.length; i++) cats[i].classList.remove('selected');
   },
 
   // === CATEGORY GRID ===
@@ -280,7 +273,6 @@ var UI = {
         '<span class="catc__name">' + cat.label + '</span></label>';
     }
     grid.innerHTML = html;
-    // Enable next button when category selected
     grid.querySelectorAll('input[name="category"]').forEach(function(inp) {
       inp.addEventListener('change', function() {
         document.getElementById('btn-step1-next').disabled = false;
@@ -311,7 +303,10 @@ var UI = {
       var pages = await r.json();
       var nav = document.getElementById('wiki-nav');
       if (!nav) return;
-      if (pages.length === 0) { nav.innerHTML = '<p style="color:var(--text3);font-size:.75rem">Pas de docs</p>'; return; }
+      if (pages.length === 0) {
+        nav.innerHTML = '<p style="color:var(--text3);font-size:.75rem">Pas de docs</p>';
+        return;
+      }
       var html = '';
       for (var i = 0; i < pages.length; i++) {
         html += '<button class="wnav' + (i === 0 ? ' active' : '') + '" data-slug="' + pages[i].slug + '">' + App.esc(pages[i].title) + '</button>';
@@ -350,10 +345,14 @@ var UI = {
       var sortFilter = document.getElementById('wiki-sort');
       var query = App.supabase.from('wiki_articles').select('*');
       if (catFilter && catFilter.value) query = query.eq('category', catFilter.value);
-      if (sortFilter && sortFilter.value === 'popular') query = query.order('upvotes', { ascending: false });
-      else query = query.order('pinned', { ascending: false }).order('created_at', { ascending: false });
-      var { data, error } = await query;
-      if (error) throw error;
+      if (sortFilter && sortFilter.value === 'popular') {
+        query = query.order('upvotes', { ascending: false });
+      } else {
+        query = query.order('pinned', { ascending: false }).order('created_at', { ascending: false });
+      }
+      var result = await query;
+      if (result.error) throw result.error;
+      var data = result.data;
       if (!data || data.length === 0) {
         container.innerHTML = '<div class="empty" style="padding:40px"><i class="fas fa-pen-fancy fa-2x" style="color:var(--text3);margin-bottom:8px"></i><h3 style="font-size:.9rem">Pas encore d\'articles</h3><p style="font-size:.78rem;color:var(--text2)">Soyez le premier à écrire !</p></div>';
         return;
@@ -362,11 +361,10 @@ var UI = {
       for (var i = 0; i < data.length; i++) {
         var a = data[i];
         var catIcon = this.wikiCatIcons[a.category] || '📌';
-        var catLabel = a.category || 'general';
-        var preview = (a.content || '').replace(/[#*`\[\]>|_~-]/g, '').substring(0, 150);
+        var preview = (a.content || '').replace(/[#*`\[\]>|_~\-]/g, '').substring(0, 150);
         var pinnedBadge = a.pinned ? '<span style="background:var(--yellow);color:#000;padding:1px 6px;border-radius:10px;font-size:.6rem;font-weight:700;margin-left:6px"><i class="fas fa-thumbtack"></i> Épinglé</span>' : '';
         html += '<div class="wcard" onclick="UI.openArticle(\'' + a.id + '\')">' +
-          '<div class="wcard__head"><span class="wcard__cat">' + catIcon + ' ' + catLabel + pinnedBadge + '</span><span class="wcard__date">' + App.ago(a.created_at) + '</span></div>' +
+          '<div class="wcard__head"><span class="wcard__cat">' + catIcon + ' ' + (a.category || 'general') + pinnedBadge + '</span><span class="wcard__date">' + App.ago(a.created_at) + '</span></div>' +
           '<div class="wcard__title">' + App.esc(a.title) + '</div>' +
           '<div class="wcard__preview">' + App.esc(preview) + '</div>' +
           '<div class="wcard__foot"><span class="wcard__author"><i class="fas fa-user"></i> ' + App.esc(a.author_name || 'Anonyme') + '</span>' +
@@ -374,7 +372,7 @@ var UI = {
       }
       container.innerHTML = html;
 
-      // Filter listeners
+      // Bind filter listeners once
       if (catFilter && !catFilter._bound) {
         catFilter.addEventListener('change', function() { UI.loadCommunityArticles(); });
         catFilter._bound = true;
@@ -397,24 +395,23 @@ var UI = {
     this.openModal('modal-wiki-article');
 
     try {
-      // Increment views
-      await App.supabase.rpc('increment_wiki_views', { article_id: id }).catch(function() {
-        // If RPC doesn't exist, do manual update
-        App.supabase.from('wiki_articles').select('views').eq('id', id).single().then(function(res) {
-          if (res.data) App.supabase.from('wiki_articles').update({ views: (res.data.views || 0) + 1 }).eq('id', id);
-        });
-      });
+      // Increment views safely (no RPC needed)
+      var viewResult = await App.supabase.from('wiki_articles').select('views').eq('id', id).single();
+      if (viewResult.data) {
+        await App.supabase.from('wiki_articles').update({ views: (viewResult.data.views || 0) + 1 }).eq('id', id);
+      }
 
-      var { data: article, error } = await App.supabase.from('wiki_articles').select('*').eq('id', id).single();
-      if (error) throw error;
+      var result = await App.supabase.from('wiki_articles').select('*').eq('id', id).single();
+      if (result.error) throw result.error;
+      var article = result.data;
 
       var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
       var isAuthor = App.currentUser && article.author_id === App.currentUser.id;
       var hasVoted = false;
       if (App.currentUser) {
         try {
-          var { data: vote } = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).single();
-          if (vote) hasVoted = true;
+          var voteResult = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).maybeSingle();
+          if (voteResult.data) hasVoted = true;
         } catch (e) {}
       }
 
@@ -434,17 +431,15 @@ var UI = {
         '<div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--border);margin-bottom:16px">' +
         '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="UI.toggleArticleVote(\'' + id + '\')"><i class="fas fa-arrow-up"></i> <span id="article-vote-count">' + (article.upvotes || 0) + '</span> Voter</button>';
 
-      // Admin pin/unpin button
       if (isAdmin) {
         html += '<button class="btn btn--outline" onclick="UI.togglePinArticle(\'' + id + '\',' + !article.pinned + ')"><i class="fas fa-thumbtack"></i> ' + (article.pinned ? 'Désépingler' : 'Épingler') + '</button>';
       }
-      // Delete button
       if (isAdmin || isAuthor) {
         html += '<button class="btn btn--danger" onclick="Auth.deleteWikiArticle(\'' + id + '\')"><i class="fas fa-trash"></i> Supprimer</button>';
       }
       html += '</div>';
 
-      // === COMMENTS / FORUM SECTION ===
+      // === THREADED COMMENTS ===
       html += '<div class="comments" style="margin-top:0">' +
         '<div class="comments__title" style="font-size:.9rem;margin-bottom:12px"><i class="fas fa-comments"></i> Discussion</div>';
 
@@ -456,7 +451,7 @@ var UI = {
         html += '<p style="font-size:.78rem;color:var(--text3);margin-bottom:12px">Connectez-vous pour commenter</p>';
       }
 
-      html += '<div id="wiki-comments-' + id + '"><p class="wiki__load" style="font-size:.78rem">Chargement des commentaires...</p></div>';
+      html += '<div id="wiki-comments-' + id + '"><p class="wiki__load" style="font-size:.78rem">Chargement...</p></div>';
       html += '</div></div>';
 
       container.innerHTML = html;
@@ -467,18 +462,24 @@ var UI = {
     }
   },
 
-  // === TOGGLE PIN ARTICLE ===
+  // === PIN/UNPIN ARTICLE ===
   togglePinArticle: async function(id, pin) {
-    if (!App.currentProfile || App.currentProfile.role !== 'admin') { this.toast('Accès refusé', 'error'); return; }
+    if (!App.currentProfile || App.currentProfile.role !== 'admin') {
+      this.toast('Accès refusé', 'error');
+      return;
+    }
     try {
-      var { error } = await App.supabase.from('wiki_articles').update({ pinned: pin, updated_at: new Date().toISOString() }).eq('id', id);
-      if (error) throw error;
-      this.toast(pin ? 'Article épinglé' : 'Article désépinglé', 'success');
-      this.openArticle(id); // Refresh
-      this.loadCommunityArticles(); // Refresh list
+      var result = await App.supabase.from('wiki_articles').update({
+        pinned: pin,
+        updated_at: new Date().toISOString()
+      }).eq('id', id);
+      if (result.error) throw result.error;
+      this.toast(pin ? 'Article épinglé !' : 'Article désépinglé', 'success');
+      this.openArticle(id);
+      this.loadCommunityArticles();
     } catch (e) {
       console.error('Pin error:', e);
-      this.toast('Erreur', 'error');
+      this.toast('Erreur: ' + (e.message || 'Échec'), 'error');
     }
   },
 
@@ -486,12 +487,12 @@ var UI = {
   toggleArticleVote: async function(id) {
     if (!App.currentUser) { this.toast('Connectez-vous', 'warning'); return; }
     try {
-      var { data: existing } = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).single();
-      var { data: article } = await App.supabase.from('wiki_articles').select('upvotes').eq('id', id).single();
-      var currentVotes = (article && article.upvotes) || 0;
+      var existResult = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).maybeSingle();
+      var artResult = await App.supabase.from('wiki_articles').select('upvotes').eq('id', id).single();
+      var currentVotes = (artResult.data && artResult.data.upvotes) || 0;
 
-      if (existing) {
-        await App.supabase.from('wiki_votes').delete().eq('id', existing.id);
+      if (existResult.data) {
+        await App.supabase.from('wiki_votes').delete().eq('id', existResult.data.id);
         await App.supabase.from('wiki_articles').update({ upvotes: Math.max(0, currentVotes - 1) }).eq('id', id);
         this.toast('Vote retiré', 'info');
       } else {
@@ -506,16 +507,17 @@ var UI = {
     }
   },
 
-  // === WIKI COMMENTS WITH REPLIES (THREADED) ===
+  // === THREADED WIKI COMMENTS ===
   loadWikiComments: async function(articleId) {
     var container = document.getElementById('wiki-comments-' + articleId);
     if (!container) return;
     try {
-      var { data: comments, error } = await App.supabase.from('wiki_comments')
+      var result = await App.supabase.from('wiki_comments')
         .select('*, profiles(username)')
         .eq('article_id', articleId)
         .order('created_at', { ascending: true });
-      if (error) throw error;
+      if (result.error) throw result.error;
+      var comments = result.data;
       if (!comments || comments.length === 0) {
         container.innerHTML = '<p style="color:var(--text3);font-size:.78rem;padding:8px">Aucun commentaire — soyez le premier !</p>';
         return;
@@ -534,17 +536,16 @@ var UI = {
         }
       }
 
-      var html = this._renderCommentsTree(rootComments, childMap, articleId, 0);
-      container.innerHTML = html;
+      container.innerHTML = this._renderCommentsTree(rootComments, childMap, articleId, 0);
     } catch (e) {
       console.error('Wiki comments error:', e);
-      container.innerHTML = '<p style="color:var(--red);font-size:.78rem">Erreur</p>';
+      container.innerHTML = '<p style="color:var(--red);font-size:.78rem">Erreur de chargement</p>';
     }
   },
 
   _renderCommentsTree: function(comments, childMap, articleId, depth) {
     var html = '';
-    var maxDepth = 4; // Max nesting
+    var maxDepth = 4;
     var indent = Math.min(depth, maxDepth) * 20;
     var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
 
@@ -553,8 +554,9 @@ var UI = {
       var name = (c.profiles && c.profiles.username) || 'Anonyme';
       var initial = name.charAt(0).toUpperCase();
       var isOwner = App.currentUser && c.user_id === App.currentUser.id;
+      var borderStyle = depth > 0 ? 'border-left:2px solid var(--border);padding-left:8px;' : '';
 
-      html += '<div class="cmt" style="margin-left:' + indent + 'px;' + (depth > 0 ? 'border-left:2px solid var(--border);padding-left:8px;' : '') + '">' +
+      html += '<div class="cmt" style="margin-left:' + indent + 'px;' + borderStyle + 'margin-bottom:6px">' +
         '<div class="cmt__av">' + initial + '</div>' +
         '<div class="cmt__body" style="flex:1">' +
         '<div class="cmt__head">' +
@@ -563,20 +565,18 @@ var UI = {
         '<div class="cmt__text">' + App.esc(c.content) + '</div>' +
         '<div style="display:flex;gap:8px;margin-top:4px">';
 
-      // Reply button
       if (App.currentUser && depth < maxDepth) {
-        html += '<button class="btn btn--ghost" style="font-size:.65rem;padding:2px 6px" onclick="UI.showReplyForm(\'' + articleId + '\',\'' + c.id + '\',this)"><i class="fas fa-reply"></i> Répondre</button>';
+        html += '<button class="btn btn--ghost" style="font-size:.65rem;padding:2px 6px" onclick="UI.showReplyForm(\'' + articleId + '\',\'' + c.id + '\')"><i class="fas fa-reply"></i> Répondre</button>';
       }
-      // Delete button
       if (isOwner || isAdmin) {
         html += '<button class="btn btn--ghost" style="font-size:.65rem;padding:2px 6px;color:var(--red)" onclick="UI.deleteWikiComment(\'' + articleId + '\',\'' + c.id + '\')"><i class="fas fa-trash"></i></button>';
       }
 
       html += '</div>' +
-        '<div id="reply-form-' + c.id + '"></div>' + // Reply form placeholder
+        '<div id="reply-form-' + c.id + '"></div>' +
         '</div></div>';
 
-      // Render children recursively
+      // Render children
       if (childMap[c.id] && childMap[c.id].length > 0) {
         html += this._renderCommentsTree(childMap[c.id], childMap, articleId, depth + 1);
       }
@@ -584,8 +584,7 @@ var UI = {
     return html;
   },
 
-  showReplyForm: function(articleId, parentId, btn) {
-    // Toggle reply form
+  showReplyForm: function(articleId, parentId) {
     var container = document.getElementById('reply-form-' + parentId);
     if (!container) return;
     if (container.innerHTML.trim()) { container.innerHTML = ''; return; }
@@ -604,11 +603,15 @@ var UI = {
     if (!input) return;
     var content = input.value.trim();
     if (!content || content.length < 2) { this.toast('Commentaire trop court', 'warning'); return; }
-    if (content.length > 2000) { this.toast('Commentaire trop long (max 2000)', 'warning'); return; }
+    if (content.length > 2000) { this.toast('Max 2000 caractères', 'warning'); return; }
 
     try {
       // Moderate
-      var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: '', description: content }) });
+      var modResp = await fetch('/api/moderate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '', description: content })
+      });
       var modData = await modResp.json();
       if (modData.flagged && modData.reformulated && modData.cleaned) {
         content = modData.cleaned.description;
@@ -622,28 +625,32 @@ var UI = {
       };
       if (parentId) insertData.reply_to = parentId;
 
-      var { error } = await App.supabase.from('wiki_comments').insert(insertData);
-      if (error) throw error;
+      var result = await App.supabase.from('wiki_comments').insert(insertData);
+      if (result.error) throw result.error;
       input.value = '';
+      if (parentId) {
+        var replyContainer = document.getElementById('reply-form-' + parentId);
+        if (replyContainer) replyContainer.innerHTML = '';
+      }
       this.toast('Commentaire ajouté', 'success');
       this.loadWikiComments(articleId);
     } catch (e) {
-      console.error('Add comment error:', e);
-      this.toast('Erreur', 'error');
+      console.error('Add wiki comment error:', e);
+      this.toast('Erreur: ' + (e.message || 'Échec'), 'error');
     }
   },
 
   deleteWikiComment: async function(articleId, commentId) {
     if (!confirm('Supprimer ce commentaire ?')) return;
     try {
-      // Delete child replies first
+      // Delete child replies first (cascade)
       await App.supabase.from('wiki_comments').delete().eq('reply_to', commentId);
-      var { error } = await App.supabase.from('wiki_comments').delete().eq('id', commentId);
-      if (error) throw error;
+      var result = await App.supabase.from('wiki_comments').delete().eq('id', commentId);
+      if (result.error) throw result.error;
       this.toast('Commentaire supprimé', 'success');
       this.loadWikiComments(articleId);
     } catch (e) {
-      console.error('Delete comment error:', e);
+      console.error('Delete wiki comment error:', e);
       this.toast('Erreur', 'error');
     }
   },
@@ -663,20 +670,19 @@ var UI = {
         var preview = document.getElementById('wa-preview');
         if (preview) preview.style.display = 'none';
         self.openModal('modal-wiki-write');
-        self.initMarkdownToolbar();
+        setTimeout(function() { self.initMarkdownToolbar(); }, 100);
       });
     }
 
-    // Character count
     var waContent = document.getElementById('wa-content');
     if (waContent) {
       waContent.addEventListener('input', function() {
-        document.getElementById('wa-char-count').textContent = waContent.value.length;
+        var ct = document.getElementById('wa-char-count');
+        if (ct) ct.textContent = waContent.value.length;
         self.updateMarkdownPreview();
       });
     }
 
-    // Submit
     var form = document.getElementById('wiki-write-form');
     if (form) form.addEventListener('submit', function(e) { e.preventDefault(); self.publishArticle(); });
   },
@@ -684,7 +690,6 @@ var UI = {
   initMarkdownToolbar: function() {
     var contentArea = document.getElementById('wa-content');
     if (!contentArea) return;
-    // Check if toolbar already exists
     var existingToolbar = document.getElementById('md-toolbar');
     if (existingToolbar) existingToolbar.remove();
 
@@ -706,7 +711,7 @@ var UI = {
       { icon: 'fa-check-square', title: 'Checklist', action: 'checklist' },
       { sep: true },
       { icon: 'fa-quote-left', title: 'Citation', action: 'quote' },
-      { icon: 'fa-code', title: 'Code', action: 'code' },
+      { icon: 'fa-code', title: 'Code inline', action: 'code' },
       { icon: 'fa-file-code', title: 'Bloc de code', action: 'codeblock' },
       { sep: true },
       { icon: 'fa-link', title: 'Lien', action: 'link' },
@@ -728,18 +733,21 @@ var UI = {
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.title = b.title;
-      btn.setAttribute('data-action', b.action);
-      btn.style.cssText = 'width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:' +
-        (b.special ? 'var(--green2)' : 'var(--bg)') + ';border:1px solid var(--border);border-radius:3px;cursor:pointer;color:' +
-        (b.special ? '#fff' : 'var(--text2)') + ';font-size:.7rem;transition:all .1s';
-      var iconHtml = '<i class="fas ' + b.icon + '"' + (b.small ? ' style="font-size:.6rem"' : '') + (b.smaller ? ' style="font-size:.5rem"' : '') + '></i>';
-      btn.innerHTML = iconHtml;
-      btn.addEventListener('click', (function(action) {
-        return function() { UI.applyMarkdown(action); };
-      })(b.action));
-      // Hover effect
+      btn.setAttribute('data-md-action', b.action);
+      var bgColor = b.special ? 'var(--green2)' : 'var(--bg)';
+      var txtColor = b.special ? '#fff' : 'var(--text2)';
+      btn.style.cssText = 'width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:' + bgColor + ';border:1px solid var(--border);border-radius:3px;cursor:pointer;color:' + txtColor + ';font-size:.7rem;transition:all .1s';
+      var fontSize = b.smaller ? ' style="font-size:.5rem"' : (b.small ? ' style="font-size:.6rem"' : '');
+      btn.innerHTML = '<i class="fas ' + b.icon + '"' + fontSize + '></i>';
+      (function(action) {
+        btn.addEventListener('click', function() { UI.applyMarkdown(action); });
+      })(b.action);
       btn.addEventListener('mouseenter', function() { this.style.borderColor = 'var(--green)'; this.style.color = 'var(--text)'; });
-      btn.addEventListener('mouseleave', function() { if (!this.getAttribute('data-action').includes('preview')) { this.style.borderColor = 'var(--border)'; this.style.color = 'var(--text2)'; } });
+      btn.addEventListener('mouseleave', function() {
+        if (this.getAttribute('data-md-action') !== 'preview') {
+          this.style.borderColor = 'var(--border)'; this.style.color = 'var(--text2)';
+        }
+      });
       toolbar.appendChild(btn);
     }
 
@@ -750,7 +758,6 @@ var UI = {
   applyMarkdown: function(action) {
     var textarea = document.getElementById('wa-content');
     if (!textarea) return;
-
     if (action === 'preview') { this.toggleMarkdownPreview(); return; }
 
     var start = textarea.selectionStart;
@@ -791,7 +798,7 @@ var UI = {
         break;
       case 'ol':
         if (selected) {
-          insert = selected.split('\n').map(function(l, i) { return (i + 1) + '. ' + l; }).join('\n');
+          insert = selected.split('\n').map(function(l, idx) { return (idx + 1) + '. ' + l; }).join('\n');
         } else { insert = '\n1. Élément 1\n2. Élément 2\n3. Élément 3\n'; }
         break;
       case 'checklist':
@@ -810,8 +817,7 @@ var UI = {
         insert = '\n```\n' + (selected || '// Votre code ici') + '\n```\n';
         break;
       case 'link':
-        if (selected) { insert = '[' + selected + '](https://)'; }
-        else { insert = '[texte du lien](https://example.com)'; }
+        insert = selected ? '[' + selected + '](https://)' : '[texte du lien](https://example.com)';
         break;
       case 'image':
         insert = '![description](https://url-de-image.jpg)';
@@ -822,15 +828,13 @@ var UI = {
       case 'hr':
         insert = '\n---\n';
         break;
-      default:
-        return;
+      default: return;
     }
 
     textarea.value = before + insert + after;
     textarea.focus();
     var newPos = start + insert.length + cursorOffset;
     textarea.setSelectionRange(newPos, newPos);
-    // Trigger input event for char count
     textarea.dispatchEvent(new Event('input'));
   },
 
@@ -838,7 +842,7 @@ var UI = {
     var preview = document.getElementById('wa-preview');
     var textarea = document.getElementById('wa-content');
     if (!preview || !textarea) return;
-    if (preview.style.display === 'none') {
+    if (preview.style.display === 'none' || !preview.style.display) {
       preview.style.display = 'block';
       preview.innerHTML = marked.parse(textarea.value || '*Rien à afficher*');
     } else {
@@ -849,7 +853,7 @@ var UI = {
   updateMarkdownPreview: function() {
     var preview = document.getElementById('wa-preview');
     var textarea = document.getElementById('wa-content');
-    if (preview && preview.style.display !== 'none' && textarea) {
+    if (preview && preview.style.display !== 'none' && preview.style.display && textarea) {
       preview.innerHTML = marked.parse(textarea.value || '*Rien à afficher*');
     }
   },
@@ -864,11 +868,15 @@ var UI = {
     if (!content || content.length < 10) { this.toast('Contenu trop court (min 10)', 'warning'); return; }
 
     var btn = document.getElementById('btn-wiki-publish');
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Publication...';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Publication...';
 
     try {
-      // Moderate
-      var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title, description: content }) });
+      var modResp = await fetch('/api/moderate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title, description: content })
+      });
       var modData = await modResp.json();
       if (modData.flagged && modData.reformulated && modData.cleaned) {
         title = modData.cleaned.title;
@@ -879,14 +887,13 @@ var UI = {
       var slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 80) + '-' + Date.now().toString(36);
       var authorName = (App.currentProfile && App.currentProfile.username) || App.currentUser.email.split('@')[0];
 
-      var { error } = await App.supabase.from('wiki_articles').insert({
+      var result = await App.supabase.from('wiki_articles').insert({
         slug: slug, title: title, content: content, category: category,
         author_id: App.currentUser.id, author_name: authorName,
         upvotes: 0, views: 0, pinned: false
       });
-      if (error) throw error;
+      if (result.error) throw result.error;
 
-      // Reputation +5
       if (App.currentProfile) {
         await App.supabase.from('profiles').update({
           reputation: (App.currentProfile.reputation || 0) + 5
@@ -901,10 +908,11 @@ var UI = {
       console.error('Publish error:', e);
       this.toast('Erreur: ' + (e.message || 'Échec'), 'error');
     }
-    btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Publier';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Publier';
   },
 
-  // === COMMUNITY / TAG PROPOSALS ===
+  // === COMMUNITY / TAG PROPOSALS — FIXED VOTES + ADMIN VALIDATION ===
   community: function() {
     var self = this;
     var proposeBtn = document.getElementById('btn-propose-tag');
@@ -918,7 +926,6 @@ var UI = {
     });
     if (cancelBtn) cancelBtn.addEventListener('click', function() { formContainer.style.display = 'none'; });
     if (form) form.addEventListener('submit', function(e) { e.preventDefault(); self.submitTagProposal(); });
-    this.loadTagProposals();
   },
 
   submitTagProposal: async function() {
@@ -928,13 +935,14 @@ var UI = {
     var description = document.getElementById('tp-description').value.trim();
     if (!name || name.length < 2) { this.toast('Nom trop court', 'warning'); return; }
     if (!description || description.length < 5) { this.toast('Description trop courte', 'warning'); return; }
+
     try {
       var authorName = (App.currentProfile && App.currentProfile.username) || 'Anonyme';
-      var { error } = await App.supabase.from('tag_proposals').insert({
+      var result = await App.supabase.from('tag_proposals').insert({
         name: name, icon: icon, description: description,
         author_id: App.currentUser.id, author_name: authorName, upvotes: 0
       });
-      if (error) throw error;
+      if (result.error) throw result.error;
       this.toast('Proposition envoyée !', 'success');
       document.getElementById('tag-proposal-form').reset();
       document.getElementById('tag-proposal-form-container').style.display = 'none';
@@ -948,62 +956,124 @@ var UI = {
     var container = document.getElementById('tag-proposals-list');
     if (!container) return;
     try {
-      var { data, error } = await App.supabase.from('tag_proposals').select('*').order('upvotes', { ascending: false });
-      if (error) throw error;
+      var result = await App.supabase.from('tag_proposals').select('*').order('upvotes', { ascending: false });
+      if (result.error) throw result.error;
+      var data = result.data;
       if (!data || data.length === 0) {
         container.innerHTML = '<p style="color:var(--text3);font-size:.8rem;text-align:center;padding:16px">Aucune proposition pour le moment</p>';
         return;
       }
+
+      // Load user's votes to show which ones they voted on
+      var userVotes = {};
+      if (App.currentUser) {
+        try {
+          var voteResult = await App.supabase.from('tag_votes').select('proposal_id').eq('user_id', App.currentUser.id);
+          if (voteResult.data) {
+            for (var v = 0; v < voteResult.data.length; v++) {
+              userVotes[voteResult.data[v].proposal_id] = true;
+            }
+          }
+        } catch (e) {}
+      }
+
+      var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
       var html = '';
       for (var i = 0; i < data.length; i++) {
         var t = data[i];
-        var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
+        var hasVoted = userVotes[t.id] || false;
+        var statusBadge = '';
+        if (t.status === 'approved') {
+          statusBadge = '<span style="background:var(--green-bg);color:var(--green);padding:2px 6px;border-radius:10px;font-size:.6rem;font-weight:700;margin-left:6px"><i class="fas fa-check"></i> Validé</span>';
+        } else if (t.status === 'rejected') {
+          statusBadge = '<span style="background:var(--red-bg);color:var(--red);padding:2px 6px;border-radius:10px;font-size:.6rem;font-weight:700;margin-left:6px"><i class="fas fa-times"></i> Refusé</span>';
+        }
+
         html += '<div class="adm" style="align-items:flex-start">' +
-          '<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">' +
+          '<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap">' +
           '<i class="fas ' + App.esc(t.icon) + '" style="color:var(--green)"></i>' +
-          '<strong style="font-size:.82rem">' + App.esc(t.name) + '</strong></div>' +
+          '<strong style="font-size:.82rem">' + App.esc(t.name) + '</strong>' + statusBadge + '</div>' +
           '<p style="font-size:.72rem;color:var(--text2);margin-bottom:4px">' + App.esc(t.description) + '</p>' +
           '<span style="font-size:.65rem;color:var(--text3)">Par ' + App.esc(t.author_name) + ' • ' + App.ago(t.created_at) + '</span></div>' +
-          '<button class="vote-btn" onclick="UI.voteTagProposal(\'' + t.id + '\')"><i class="fas fa-arrow-up"></i> ' + (t.upvotes || 0) + '</button>';
-        if (isAdmin) html += '<button class="btn btn--danger" onclick="UI.deleteTagProposal(\'' + t.id + '\')" title="Supprimer"><i class="fas fa-trash"></i></button>';
+          '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="UI.voteTagProposal(\'' + t.id + '\')" title="' + (hasVoted ? 'Retirer mon vote' : 'Voter pour') + '"><i class="fas fa-arrow-up"></i> ' + (t.upvotes || 0) + '</button>';
+
+        // Admin controls: approve / reject / delete
+        if (isAdmin) {
+          html += '<div style="display:flex;gap:4px;flex-wrap:wrap">';
+          if (t.status !== 'approved') {
+            html += '<button class="btn btn--primary" style="font-size:.65rem;padding:3px 8px" onclick="UI.setTagStatus(\'' + t.id + '\',\'approved\')" title="Valider"><i class="fas fa-check"></i></button>';
+          }
+          if (t.status !== 'rejected') {
+            html += '<button class="btn btn--outline" style="font-size:.65rem;padding:3px 8px;color:var(--orange)" onclick="UI.setTagStatus(\'' + t.id + '\',\'rejected\')" title="Refuser"><i class="fas fa-ban"></i></button>';
+          }
+          html += '<button class="btn btn--danger" style="font-size:.65rem;padding:3px 8px" onclick="UI.deleteTagProposal(\'' + t.id + '\')" title="Supprimer"><i class="fas fa-trash"></i></button>';
+          html += '</div>';
+        }
         html += '</div>';
       }
       container.innerHTML = html;
     } catch (e) {
-      container.innerHTML = '<p style="color:var(--red);font-size:.78rem">Erreur</p>';
+      console.error('Tag proposals error:', e);
+      container.innerHTML = '<p style="color:var(--red);font-size:.78rem">Erreur de chargement</p>';
     }
   },
 
   voteTagProposal: async function(id) {
     if (!App.currentUser) { this.toast('Connectez-vous', 'warning'); return; }
     try {
-      // Check if already voted
-      var { data: existing } = await App.supabase.from('tag_votes').select('id').eq('proposal_id', id).eq('user_id', App.currentUser.id).single();
-      var { data: proposal } = await App.supabase.from('tag_proposals').select('upvotes').eq('id', id).single();
-      var currentVotes = (proposal && proposal.upvotes) || 0;
+      // Check if already voted using maybeSingle (no error if not found)
+      var existResult = await App.supabase.from('tag_votes').select('id').eq('proposal_id', id).eq('user_id', App.currentUser.id).maybeSingle();
+      var propResult = await App.supabase.from('tag_proposals').select('upvotes').eq('id', id).single();
+      var currentVotes = (propResult.data && propResult.data.upvotes) || 0;
 
-      if (existing) {
-        await App.supabase.from('tag_votes').delete().eq('id', existing.id);
+      if (existResult.data) {
+        // Already voted → remove vote
+        await App.supabase.from('tag_votes').delete().eq('id', existResult.data.id);
         await App.supabase.from('tag_proposals').update({ upvotes: Math.max(0, currentVotes - 1) }).eq('id', id);
         this.toast('Vote retiré', 'info');
       } else {
-        await App.supabase.from('tag_votes').insert({ proposal_id: id, user_id: App.currentUser.id });
+        // Not voted → add vote
+        var insertResult = await App.supabase.from('tag_votes').insert({ proposal_id: id, user_id: App.currentUser.id });
+        if (insertResult.error) throw insertResult.error;
         await App.supabase.from('tag_proposals').update({ upvotes: currentVotes + 1 }).eq('id', id);
         this.toast('Vote ajouté !', 'success');
       }
       this.loadTagProposals();
-    } catch (e) { this.toast('Erreur', 'error'); }
+    } catch (e) {
+      console.error('Tag vote error:', e);
+      this.toast('Erreur: ' + (e.message || 'Échec'), 'error');
+    }
+  },
+
+  setTagStatus: async function(id, status) {
+    if (!App.currentProfile || App.currentProfile.role !== 'admin') {
+      this.toast('Accès refusé', 'error');
+      return;
+    }
+    try {
+      var result = await App.supabase.from('tag_proposals').update({ status: status }).eq('id', id);
+      if (result.error) throw result.error;
+      var label = status === 'approved' ? 'Proposition validée !' : 'Proposition refusée';
+      this.toast(label, status === 'approved' ? 'success' : 'info');
+      this.loadTagProposals();
+    } catch (e) {
+      console.error('Set tag status error:', e);
+      this.toast('Erreur', 'error');
+    }
   },
 
   deleteTagProposal: async function(id) {
     if (!confirm('Supprimer cette proposition ?')) return;
     try {
       await App.supabase.from('tag_votes').delete().eq('proposal_id', id);
-      var { error } = await App.supabase.from('tag_proposals').delete().eq('id', id);
-      if (error) throw error;
+      var result = await App.supabase.from('tag_proposals').delete().eq('id', id);
+      if (result.error) throw result.error;
       this.toast('Supprimé', 'success');
       this.loadTagProposals();
-    } catch (e) { this.toast('Erreur', 'error'); }
+    } catch (e) {
+      console.error('Delete tag error:', e);
+      this.toast('Erreur', 'error');
+    }
   },
 
   // === CONTACT EMAIL ===
@@ -1016,6 +1086,24 @@ var UI = {
     }
     var repoLink = document.getElementById('repo-link');
     if (repoLink && App.config && App.config.repoUrl) repoLink.href = App.config.repoUrl;
+  },
+
+  // === KEYBOARD SHORTCUTS ===
+  keyboardShortcuts: function() {
+    document.addEventListener('keydown', function(e) {
+      // Ctrl+Shift+N = new report
+      if (e.ctrlKey && e.shiftKey && e.key === 'N') {
+        e.preventDefault();
+        var btn = document.getElementById('btn-new-report');
+        if (btn) btn.click();
+      }
+    });
+  },
+
+  // === NETWORK STATUS ===
+  networkStatus: function() {
+    window.addEventListener('offline', function() { UI.toast('Connexion perdue', 'warning'); });
+    window.addEventListener('online', function() { UI.toast('Connexion rétablie', 'success'); });
   },
 
   // === TOASTS ===
@@ -1032,7 +1120,7 @@ var UI = {
       toast.style.transition = 'all .3s ease';
       toast.style.opacity = '0';
       toast.style.transform = 'translateX(60px)';
-      setTimeout(function() { toast.remove(); }, 300);
+      setTimeout(function() { if (toast.parentNode) toast.remove(); }, 300);
     }, 4000);
   },
 
@@ -1044,11 +1132,5 @@ var UI = {
   hideLoading: function() {
     var el = document.getElementById('loading-overlay');
     if (el) el.classList.remove('active');
-  },
-
-  // === DEBUG ===
-  debug: function() {
-    console.log('UI initialized — categories:', Object.keys(App.categories).length);
-    if (App.config && App.config.groqAvailable) console.log('Groq moderation: available');
   }
 };
