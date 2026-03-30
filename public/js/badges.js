@@ -1,170 +1,211 @@
 var Badges = {
   list: [
-    // SIGNALEMENTS (15)
-    {id:'first_report',name:'Premier pas',icon:'fa-flag',desc:'Créer son premier signalement',color:'#3fb950',check:function(p,s){return p.reports_count>=1;}},
-    {id:'reporter_5',name:'Citoyen actif',icon:'fa-flag-checkered',desc:'5 signalements créés',color:'#3fb950',check:function(p,s){return p.reports_count>=5;}},
-    {id:'reporter_10',name:'Sentinelle',icon:'fa-binoculars',desc:'10 signalements',color:'#58a6ff',check:function(p,s){return p.reports_count>=10;}},
-    {id:'reporter_25',name:'Vigile',icon:'fa-eye',desc:'25 signalements',color:'#58a6ff',check:function(p,s){return p.reports_count>=25;}},
-    {id:'reporter_50',name:'Gardien',icon:'fa-shield-alt',desc:'50 signalements',color:'#bc8cff',check:function(p,s){return p.reports_count>=50;}},
-    {id:'reporter_100',name:'Légende',icon:'fa-crown',desc:'100 signalements',color:'#e3b341',check:function(p,s){return p.reports_count>=100;}},
-    {id:'reporter_250',name:'Titan',icon:'fa-gem',desc:'250 signalements',color:'#f85149',check:function(p,s){return p.reports_count>=250;}},
-    {id:'pothole_hunter',name:'Chasseur de nids',icon:'fa-road',desc:'10 nids de poule signalés',color:'#d29922',check:function(p,s){return(s.cats.pothole||0)>=10;}},
-    {id:'eco_warrior',name:'Éco-guerrier',icon:'fa-leaf',desc:'10 signalements nature',color:'#3fb950',check:function(p,s){return((s.cats.vegetation||0)+(s.cats.fallen_tree||0)+(s.cats.invasive_species||0))>=10;}},
-    {id:'beach_guard',name:'Gardien des plages',icon:'fa-umbrella-beach',desc:'5 pollutions plage',color:'#58a6ff',check:function(p,s){return(s.cats.beach_pollution||0)>=5;}},
-    {id:'night_watch',name:'Veilleur de nuit',icon:'fa-lightbulb',desc:'5 éclairages signalés',color:'#e3b341',check:function(p,s){return(s.cats.broken_light||0)>=5;}},
-    {id:'water_det',name:'Détective des eaux',icon:'fa-tint',desc:'5 problèmes d\'eau',color:'#58a6ff',check:function(p,s){return((s.cats.water_leak||0)+(s.cats.flooding||0)+(s.cats.stagnant_water||0))>=5;}},
-    {id:'safety',name:'Sécurité d\'abord',icon:'fa-hard-hat',desc:'5 zones dangereuses',color:'#f85149',check:function(p,s){return((s.cats.dangerous_area||0)+(s.cats.dangerous_road||0))>=5;}},
-    {id:'clean',name:'Rues propres',icon:'fa-broom',desc:'10 dépôts sauvages',color:'#bc8cff',check:function(p,s){return(s.cats.illegal_dump||0)>=10;}},
-    {id:'multi',name:'Polyvalent',icon:'fa-th',desc:'Signaler dans 10 catégories',color:'#d29922',check:function(p,s){var n=0;for(var k in s.cats)n++;return n>=10;}},
+    // Signalements
+    { id: 'first_report', name: 'Premier pas', icon: 'fa-flag', color: '#3fb950', desc: '1er signalement', check: function(p) { return (p.reports_count || 0) >= 1; } },
+    { id: 'reporter_5', name: 'Observateur', icon: 'fa-binoculars', color: '#58a6ff', desc: '5 signalements', check: function(p) { return (p.reports_count || 0) >= 5; } },
+    { id: 'reporter_10', name: 'Vigilant', icon: 'fa-eye', color: '#bc8cff', desc: '10 signalements', check: function(p) { return (p.reports_count || 0) >= 10; } },
+    { id: 'reporter_25', name: 'Sentinelle', icon: 'fa-shield-alt', color: '#f85149', desc: '25 signalements', check: function(p) { return (p.reports_count || 0) >= 25; } },
+    { id: 'reporter_50', name: 'Gardien', icon: 'fa-crown', color: '#d29922', desc: '50 signalements', check: function(p) { return (p.reports_count || 0) >= 50; } },
+    { id: 'reporter_100', name: 'Héros citoyen', icon: 'fa-gem', color: '#e3b341', desc: '100 signalements', check: function(p) { return (p.reports_count || 0) >= 100; } },
 
-    // REPUTATION (10)
-    {id:'rep_10',name:'Débutant',icon:'fa-seedling',desc:'10 points de réputation',color:'#3fb950',check:function(p){return p.reputation>=10;}},
-    {id:'rep_50',name:'Reconnu',icon:'fa-star',desc:'50 points',color:'#3fb950',check:function(p){return p.reputation>=50;}},
-    {id:'rep_100',name:'Respecté',icon:'fa-medal',desc:'100 points',color:'#58a6ff',check:function(p){return p.reputation>=100;}},
-    {id:'rep_250',name:'Influent',icon:'fa-fire',desc:'250 points',color:'#d29922',check:function(p){return p.reputation>=250;}},
-    {id:'rep_500',name:'Pilier',icon:'fa-monument',desc:'500 points',color:'#bc8cff',check:function(p){return p.reputation>=500;}},
-    {id:'rep_1000',name:'Légende vivante',icon:'fa-trophy',desc:'1000 points',color:'#e3b341',check:function(p){return p.reputation>=1000;}},
-    {id:'rep_2500',name:'Mythe',icon:'fa-dragon',desc:'2500 points',color:'#f85149',check:function(p){return p.reputation>=2500;}},
-    {id:'rep_5000',name:'Divinité',icon:'fa-sun',desc:'5000 points',color:'#f85149',check:function(p){return p.reputation>=5000;}},
-    {id:'top_3',name:'Podium',icon:'fa-award',desc:'Top 3 du classement',color:'#e3b341',check:function(p,s){return s.rank<=3;}},
-    {id:'top_1',name:'Champion',icon:'fa-chess-king',desc:'N°1 du classement',color:'#e3b341',check:function(p,s){return s.rank===1;}},
+    // Catégories
+    { id: 'road_expert', name: 'Expert routes', icon: 'fa-road', color: '#f85149', desc: '5 signalements routes', check: function(p, s) { return (s.catCounts.pothole || 0) + (s.catCounts.dangerous_road || 0) >= 5; } },
+    { id: 'eco_warrior', name: 'Éco-guerrier', icon: 'fa-leaf', color: '#3fb950', desc: '5 signalements nature', check: function(p, s) { return (s.catCounts.illegal_dump || 0) + (s.catCounts.beach_pollution || 0) + (s.catCounts.river_pollution || 0) >= 5; } },
+    { id: 'beach_guardian', name: 'Gardien plages', icon: 'fa-umbrella-beach', color: '#58a6ff', desc: '3 pollutions plage', check: function(p, s) { return (s.catCounts.beach_pollution || 0) >= 3; } },
+    { id: 'light_hunter', name: 'Chasseur ombre', icon: 'fa-lightbulb', color: '#e3b341', desc: '3 éclairages', check: function(p, s) { return (s.catCounts.broken_light || 0) >= 3; } },
+    { id: 'water_guardian', name: 'Gardien eau', icon: 'fa-tint', color: '#58a6ff', desc: '3 problèmes eau', check: function(p, s) { return (s.catCounts.water_leak || 0) + (s.catCounts.flooding || 0) >= 3; } },
+    { id: 'safety_first', name: 'Sécurité', icon: 'fa-hard-hat', color: '#d29922', desc: '3 signalements sécurité', check: function(p, s) { return (s.catCounts.dangerous_area || 0) + (s.catCounts.missing_crosswalk || 0) + (s.catCounts.school_zone_issue || 0) >= 3; } },
+    { id: 'clean_streets', name: 'Rues propres', icon: 'fa-broom', color: '#bc8cff', desc: '5 dépôts sauvages', check: function(p, s) { return (s.catCounts.illegal_dump || 0) >= 5; } },
 
-    // VOTES (8)
-    {id:'first_vote',name:'Supporteur',icon:'fa-thumbs-up',desc:'Premier vote donné',color:'#d29922',check:function(p,s){return s.votes_given>=1;}},
-    {id:'voter_10',name:'Encourageant',icon:'fa-hands-clapping',desc:'10 votes donnés',color:'#d29922',check:function(p,s){return s.votes_given>=10;}},
-    {id:'voter_50',name:'Motivateur',icon:'fa-hand-holding-heart',desc:'50 votes donnés',color:'#bc8cff',check:function(p,s){return s.votes_given>=50;}},
-    {id:'popular_5',name:'Populaire',icon:'fa-heart',desc:'5 votes reçus sur un signalement',color:'#f85149',check:function(p,s){return s.max_upvotes>=5;}},
-    {id:'popular_10',name:'Star locale',icon:'fa-star-half-alt',desc:'10 votes sur un signalement',color:'#e3b341',check:function(p,s){return s.max_upvotes>=10;}},
-    {id:'popular_25',name:'Viral',icon:'fa-bolt',desc:'25 votes sur un signalement',color:'#f85149',check:function(p,s){return s.max_upvotes>=25;}},
-    {id:'total_50',name:'Apprécié',icon:'fa-gift',desc:'50 votes reçus au total',color:'#bc8cff',check:function(p,s){return s.total_upvotes>=50;}},
-    {id:'total_100',name:'Icône',icon:'fa-gem',desc:'100 votes reçus',color:'#e3b341',check:function(p,s){return s.total_upvotes>=100;}},
+    // Réputation
+    { id: 'rep_50', name: 'Étoile montante', icon: 'fa-star', color: '#e3b341', desc: '50 pts réputation', check: function(p) { return (p.reputation || 0) >= 50; } },
+    { id: 'rep_200', name: 'Médaillé', icon: 'fa-medal', color: '#d29922', desc: '200 pts', check: function(p) { return (p.reputation || 0) >= 200; } },
+    { id: 'rep_500', name: 'Flamme', icon: 'fa-fire', color: '#f85149', desc: '500 pts', check: function(p) { return (p.reputation || 0) >= 500; } },
+    { id: 'rep_1000', name: 'Monument', icon: 'fa-monument', color: '#bc8cff', desc: '1000 pts', check: function(p) { return (p.reputation || 0) >= 1000; } },
+    { id: 'rep_2000', name: 'Trophée', icon: 'fa-trophy', color: '#e3b341', desc: '2000 pts', check: function(p) { return (p.reputation || 0) >= 2000; } },
+    { id: 'rep_3000', name: 'Dragon', icon: 'fa-dragon', color: '#f85149', desc: '3000 pts', check: function(p) { return (p.reputation || 0) >= 3000; } },
+    { id: 'rep_5000', name: 'Soleil', icon: 'fa-sun', color: '#e3b341', desc: '5000 pts', check: function(p) { return (p.reputation || 0) >= 5000; } },
 
-    // WIKI (7)
-    {id:'first_art',name:'Rédacteur',icon:'fa-pen-fancy',desc:'Premier article wiki',color:'#58a6ff',check:function(p,s){return s.articles>=1;}},
-    {id:'writer_5',name:'Auteur',icon:'fa-book',desc:'5 articles',color:'#58a6ff',check:function(p,s){return s.articles>=5;}},
-    {id:'writer_20',name:'Encyclopédiste',icon:'fa-atlas',desc:'20 articles',color:'#bc8cff',check:function(p,s){return s.articles>=20;}},
-    {id:'first_cmt',name:'Bavard',icon:'fa-comment',desc:'Premier commentaire',color:'#3fb950',check:function(p,s){return s.comments>=1;}},
-    {id:'cmt_25',name:'Débatteur',icon:'fa-comments',desc:'25 commentaires',color:'#58a6ff',check:function(p,s){return s.comments>=25;}},
-    {id:'cmt_100',name:'Orateur',icon:'fa-bullhorn',desc:'100 commentaires',color:'#bc8cff',check:function(p,s){return s.comments>=100;}},
-    {id:'helpful',name:'Utile',icon:'fa-hands-helping',desc:'Article avec 10+ votes',color:'#e3b341',check:function(p,s){return s.max_art_votes>=10;}},
+    // Votes
+    { id: 'first_vote', name: 'Supporter', icon: 'fa-thumbs-up', color: '#d29922', desc: '1er vote', check: function(p, s) { return s.votesGiven >= 1; } },
+    { id: 'voter_10', name: 'Encourageur', icon: 'fa-hands-clapping', color: '#58a6ff', desc: '10 votes', check: function(p, s) { return s.votesGiven >= 10; } },
+    { id: 'voter_50', name: 'Mécène', icon: 'fa-hand-holding-heart', color: '#bc8cff', desc: '50 votes', check: function(p, s) { return s.votesGiven >= 50; } },
+    { id: 'popular_5', name: 'Populaire', icon: 'fa-heart', color: '#f85149', desc: '5 votes reçus', check: function(p, s) { return s.votesReceived >= 5; } },
+    { id: 'popular_25', name: 'Star', icon: 'fa-star-half-alt', color: '#e3b341', desc: '25 votes reçus', check: function(p, s) { return s.votesReceived >= 25; } },
+    { id: 'viral', name: 'Viral', icon: 'fa-bolt', color: '#d29922', desc: '50 votes reçus', check: function(p, s) { return s.votesReceived >= 50; } },
 
-    // COMMUNES (5)
-    {id:'local',name:'Héros local',icon:'fa-home',desc:'10 signalements dans sa commune',color:'#3fb950',check:function(p,s){return s.home_reports>=10;}},
-    {id:'explorer_3',name:'Explorateur',icon:'fa-compass',desc:'3 communes différentes',color:'#58a6ff',check:function(p,s){return s.commune_count>=3;}},
-    {id:'explorer_10',name:'Globe-trotter',icon:'fa-globe-americas',desc:'10 communes',color:'#bc8cff',check:function(p,s){return s.commune_count>=10;}},
-    {id:'island',name:'Maître de l\'île',icon:'fa-map-marked-alt',desc:'20 communes couvertes',color:'#e3b341',check:function(p,s){return s.commune_count>=20;}},
-    {id:'mg',name:'Aventurier',icon:'fa-ship',desc:'Signalement à Marie-Galante',color:'#d29922',check:function(p,s){return s.has_mg;}},
+    // Wiki
+    { id: 'first_article', name: 'Auteur', icon: 'fa-pen-fancy', color: '#58a6ff', desc: '1er article wiki', check: function(p, s) { return s.wikiArticles >= 1; } },
+    { id: 'writer_5', name: 'Écrivain', icon: 'fa-book', color: '#bc8cff', desc: '5 articles', check: function(p, s) { return s.wikiArticles >= 5; } },
+    { id: 'writer_10', name: 'Encyclopédiste', icon: 'fa-atlas', color: '#e3b341', desc: '10 articles', check: function(p, s) { return s.wikiArticles >= 10; } },
+    { id: 'first_comment', name: 'Commentateur', icon: 'fa-comment', color: '#3fb950', desc: '1er commentaire', check: function(p, s) { return s.commentsCount >= 1; } },
+    { id: 'commenter_10', name: 'Bavard', icon: 'fa-comments', color: '#58a6ff', desc: '10 commentaires', check: function(p, s) { return s.commentsCount >= 10; } },
+    { id: 'community_voice', name: 'Porte-voix', icon: 'fa-bullhorn', color: '#d29922', desc: '25 commentaires', check: function(p, s) { return s.commentsCount >= 25; } },
+    { id: 'helper', name: 'Entraideur', icon: 'fa-hands-helping', color: '#3fb950', desc: '3 articles + 10 commentaires', check: function(p, s) { return s.wikiArticles >= 3 && s.commentsCount >= 10; } },
 
-    // SPECIAL (5)
-    {id:'pioneer',name:'Pionnier',icon:'fa-rocket',desc:'Parmi les 50 premiers inscrits',color:'#f85149',check:function(p,s){return s.user_num<=50;}},
-    {id:'owl',name:'Oiseau de nuit',icon:'fa-moon',desc:'Signalement entre 00h et 5h',color:'#bc8cff',check:function(p,s){return s.night_report;}},
-    {id:'streak',name:'Assidu',icon:'fa-calendar-check',desc:'7 jours de suite',color:'#d29922',check:function(p,s){return s.max_streak>=7;}},
-    {id:'resolver',name:'Résolveur',icon:'fa-check-double',desc:'5 signalements résolus',color:'#3fb950',check:function(p,s){return s.resolved>=5;}},
-    {id:'photo',name:'Photographe',icon:'fa-camera',desc:'20 signalements avec photo',color:'#58a6ff',check:function(p,s){return s.with_photos>=20;}}
+    // Localisation
+    { id: 'local_hero', name: 'Héros local', icon: 'fa-home', color: '#3fb950', desc: '10 signalements même commune', check: function(p, s) { return s.maxCommuneCount >= 10; } },
+    { id: 'explorer_3', name: 'Explorateur', icon: 'fa-compass', color: '#58a6ff', desc: '3 communes', check: function(p, s) { return s.uniqueCommunes >= 3; } },
+    { id: 'explorer_10', name: 'Globe-trotteur', icon: 'fa-globe-americas', color: '#bc8cff', desc: '10 communes', check: function(p, s) { return s.uniqueCommunes >= 10; } },
+    { id: 'cartographer', name: 'Cartographe', icon: 'fa-map-marked-alt', color: '#d29922', desc: '20 communes', check: function(p, s) { return s.uniqueCommunes >= 20; } },
+    { id: 'island_hopper', name: 'Navigateur', icon: 'fa-ship', color: '#58a6ff', desc: 'Marie-Galante ou Saintes', check: function(p, s) { return s.hasIslands; } },
+
+    // Spéciaux
+    { id: 'fast_reporter', name: 'Rapide', icon: 'fa-rocket', color: '#f85149', desc: '3 signalements en 1 jour', check: function(p, s) { return s.maxDailyReports >= 3; } },
+    { id: 'night_owl', name: 'Oiseau de nuit', icon: 'fa-moon', color: '#bc8cff', desc: 'Signalement nocturne', check: function(p, s) { return s.nightReport; } },
+    { id: 'streak_7', name: 'Régulier', icon: 'fa-calendar-check', color: '#3fb950', desc: '7 jours consécutifs', check: function(p, s) { return s.maxStreak >= 7; } },
+    { id: 'resolver', name: 'Résolveur', icon: 'fa-check-double', color: '#3fb950', desc: '5 signalements résolus', check: function(p, s) { return s.resolvedCount >= 5; } },
+    { id: 'photographer', name: 'Photographe', icon: 'fa-camera', color: '#d29922', desc: '10 photos uploadées', check: function(p, s) { return s.photosCount >= 10; } },
+    { id: 'generous', name: 'Généreux', icon: 'fa-gift', color: '#bc8cff', desc: 'Vote + commentaire + article', check: function(p, s) { return s.votesGiven >= 1 && s.commentsCount >= 1 && s.wikiArticles >= 1; } }
   ],
 
-  computeStats: async function(userId) {
-    var s = {
-      cats:{},votes_given:0,max_upvotes:0,total_upvotes:0,
-      articles:0,comments:0,max_art_votes:0,
-      home_reports:0,commune_count:0,has_mg:false,
-      user_num:999,night_report:false,max_streak:0,
-      resolved:0,with_photos:0,rank:999
+  computeStats: async function() {
+    var userId = App.currentUser ? App.currentUser.id : null;
+    var stats = {
+      catCounts: {},
+      votesGiven: 0,
+      votesReceived: 0,
+      wikiArticles: 0,
+      commentsCount: 0,
+      uniqueCommunes: 0,
+      maxCommuneCount: 0,
+      hasIslands: false,
+      maxDailyReports: 0,
+      nightReport: false,
+      maxStreak: 0,
+      resolvedCount: 0,
+      photosCount: 0
     };
 
+    if (!userId) return stats;
+
     try {
-      // Reports
-      var rr = await App.supabase.from('reports').select('category,commune,images,status,created_at,upvotes').eq('user_id',userId);
-      if (rr.data && rr.data.length) {
-        var communes = {}, dates = [];
-        var mgList = ['Capesterre-de-Marie-Galante','Grand-Bourg','Saint-Louis'];
-        for (var i = 0; i < rr.data.length; i++) {
-          var r = rr.data[i];
-          s.cats[r.category] = (s.cats[r.category]||0)+1;
-          if (r.commune) { communes[r.commune] = (communes[r.commune]||0)+1; if (mgList.indexOf(r.commune)>=0) s.has_mg = true; }
-          if (r.images && r.images.length) s.with_photos++;
-          if (r.status === 'resolved') s.resolved++;
-          var uv = r.upvotes||0; s.total_upvotes += uv; if (uv > s.max_upvotes) s.max_upvotes = uv;
-          var h = new Date(r.created_at).getHours(); if (h >= 0 && h < 5) s.night_report = true;
-          dates.push(new Date(r.created_at).toISOString().split('T')[0]);
+      // User reports analysis
+      var myReports = App.reports.filter(function(r) { return r.user_id === userId; });
+      var communeCounts = {};
+      var dailyCounts = {};
+      var dates = [];
+      var islandCommunes = ['Capesterre-de-Marie-Galante','Grand-Bourg','Saint-Louis','Terre-de-Haut','Terre-de-Bas','La Desirade'];
+
+      for (var i = 0; i < myReports.length; i++) {
+        var r = myReports[i];
+        // Category counts
+        stats.catCounts[r.category] = (stats.catCounts[r.category] || 0) + 1;
+
+        // Commune
+        if (r.commune) {
+          communeCounts[r.commune] = (communeCounts[r.commune] || 0) + 1;
+          if (islandCommunes.indexOf(r.commune) !== -1) stats.hasIslands = true;
         }
-        s.commune_count = Object.keys(communes).length;
-        // Home commune
-        var profile = App.currentProfile;
-        if (profile && profile.commune && communes[profile.commune]) s.home_reports = communes[profile.commune];
-        // Streak
-        if (dates.length) {
-          dates.sort();
-          var unique = []; for (var j=0;j<dates.length;j++) if (unique.indexOf(dates[j])<0) unique.push(dates[j]);
-          var streak=1, best=1;
-          for (var k=1;k<unique.length;k++) {
-            var diff = (new Date(unique[k])-new Date(unique[k-1]))/86400000;
-            if (diff===1) { streak++; if(streak>best) best=streak; } else streak=1;
-          }
-          s.max_streak = best;
+
+        // Resolved
+        if (r.status === 'resolved') stats.resolvedCount++;
+
+        // Photos
+        if (r.images && r.images.length) stats.photosCount += r.images.length;
+
+        // Date analysis
+        var d = new Date(r.created_at);
+        var dayKey = d.toISOString().split('T')[0];
+        dailyCounts[dayKey] = (dailyCounts[dayKey] || 0) + 1;
+        dates.push(dayKey);
+
+        // Night report (0h-5h)
+        var h = d.getHours();
+        if (h >= 0 && h < 5) stats.nightReport = true;
+      }
+
+      // Unique communes
+      var communeKeys = Object.keys(communeCounts);
+      stats.uniqueCommunes = communeKeys.length;
+      for (var c = 0; c < communeKeys.length; c++) {
+        if (communeCounts[communeKeys[c]] > stats.maxCommuneCount) {
+          stats.maxCommuneCount = communeCounts[communeKeys[c]];
         }
       }
 
+      // Max daily
+      var dailyKeys = Object.keys(dailyCounts);
+      for (var d = 0; d < dailyKeys.length; d++) {
+        if (dailyCounts[dailyKeys[d]] > stats.maxDailyReports) {
+          stats.maxDailyReports = dailyCounts[dailyKeys[d]];
+        }
+      }
+
+      // Streak
+      if (dates.length > 0) {
+        var uniqueDates = [];
+        for (var u = 0; u < dates.length; u++) { if (uniqueDates.indexOf(dates[u]) === -1) uniqueDates.push(dates[u]); }
+        uniqueDates.sort();
+        var streak = 1, maxStreak = 1;
+        for (var s = 1; s < uniqueDates.length; s++) {
+          var prev = new Date(uniqueDates[s - 1]);
+          var curr = new Date(uniqueDates[s]);
+          var diff = Math.round((curr - prev) / 86400000);
+          if (diff === 1) { streak++; if (streak > maxStreak) maxStreak = streak; }
+          else { streak = 1; }
+        }
+        stats.maxStreak = maxStreak;
+      }
+
       // Votes given
-      var vg = await App.supabase.from('votes').select('id').eq('user_id',userId);
-      s.votes_given = vg.data ? vg.data.length : 0;
+      var votesResult = await App.supabase.from('votes').select('id').eq('user_id', userId);
+      stats.votesGiven = (votesResult.data && votesResult.data.length) || 0;
 
-      // Articles
-      var wa = await App.supabase.from('wiki_articles').select('upvotes').eq('author_id',userId);
-      s.articles = wa.data ? wa.data.length : 0;
-      if (wa.data) for (var m=0;m<wa.data.length;m++) { if ((wa.data[m].upvotes||0) > s.max_art_votes) s.max_art_votes = wa.data[m].upvotes; }
+      // Votes received
+      var totalVotesReceived = 0;
+      for (var v = 0; v < myReports.length; v++) {
+        totalVotesReceived += (myReports[v].upvotes || 0);
+      }
+      stats.votesReceived = totalVotesReceived;
 
-      // Comments
-      var c1 = await App.supabase.from('comments').select('id').eq('user_id',userId);
-      var c2 = await App.supabase.from('wiki_comments').select('id').eq('user_id',userId);
-      s.comments = (c1.data?c1.data.length:0) + (c2.data?c2.data.length:0);
+      // Wiki articles
+      var wikiResult = await App.supabase.from('wiki_articles').select('id').eq('author_id', userId);
+      stats.wikiArticles = (wikiResult.data && wikiResult.data.length) || 0;
 
-      // Rank
-      var pr = await App.supabase.from('profiles').select('id,reputation').order('reputation',{ascending:false});
-      if (pr.data) for (var n=0;n<pr.data.length;n++) { if (pr.data[n].id===userId) { s.rank=n+1; break; } }
+      // Comments (reports + wiki)
+      var cmtResult = await App.supabase.from('comments').select('id').eq('user_id', userId);
+      var wikiCmtResult = await App.supabase.from('wiki_comments').select('id').eq('user_id', userId);
+      stats.commentsCount = ((cmtResult.data && cmtResult.data.length) || 0) + ((wikiCmtResult.data && wikiCmtResult.data.length) || 0);
 
-      // User number
-      var ap = await App.supabase.from('profiles').select('id').order('created_at',{ascending:true});
-      if (ap.data) for (var o=0;o<ap.data.length;o++) { if (ap.data[o].id===userId) { s.user_num=o+1; break; } }
+    } catch(e) {
+      console.error('Badge stats error:', e);
+    }
 
-    } catch(e) { console.error('Badge stats:', e); }
-    return s;
+    return stats;
   },
 
-  getUnlocked: async function(profile, userId) {
-    var stats = await this.computeStats(userId);
+  getUnlocked: function(profile, stats) {
     var unlocked = [];
     for (var i = 0; i < this.list.length; i++) {
-      try { if (this.list[i].check(profile, stats)) unlocked.push(this.list[i]); } catch(e) {}
+      try {
+        if (this.list[i].check(profile, stats)) unlocked.push(this.list[i]);
+      } catch(e) {}
     }
-    return { unlocked: unlocked, total: this.list.length, stats: stats };
+    return unlocked;
   },
 
-  renderGrid: function(unlocked, showAll) {
-    var all = this.list;
-    var pct = Math.round(unlocked.length / all.length * 100);
+  renderGrid: function(profile, stats) {
+    var unlocked = this.getUnlocked(profile, stats);
+    var unlockedIds = unlocked.map(function(b) { return b.id; });
+    var pct = Math.round((unlocked.length / this.list.length) * 100);
 
     var html = '<div class="badges-header">' +
-      '<div class="badges-header__left"><i class="fas fa-medal" style="color:var(--yellow);font-size:1.1rem"></i>' +
-      '<div><div class="badges-header__title">Badges</div>' +
-      '<div class="badges-header__sub">' + unlocked.length + ' / ' + all.length + ' débloqués</div></div></div>' +
+      '<div class="badges-header__left"><span class="badges-header__title"><i class="fas fa-award" style="color:var(--yellow)"></i> ' + unlocked.length + '/' + this.list.length + '</span>' +
+      '<span class="badges-header__sub">badges débloqués</span></div>' +
       '<div class="badges-progress"><div class="badges-progress__bar" style="width:' + pct + '%"></div></div>' +
       '<span class="badges-progress__pct">' + pct + '%</span></div>';
 
     html += '<div class="badges-grid">';
-    for (var i = 0; i < all.length; i++) {
-      var b = all[i];
-      var isUnlocked = false;
-      for (var j = 0; j < unlocked.length; j++) { if (unlocked[j].id === b.id) { isUnlocked = true; break; } }
-      if (!showAll && !isUnlocked) continue;
-
+    for (var i = 0; i < this.list.length; i++) {
+      var b = this.list[i];
+      var isUnlocked = unlockedIds.indexOf(b.id) !== -1;
       html += '<div class="badge-card' + (isUnlocked ? ' badge-card--unlocked' : '') + '" title="' + App.esc(b.desc) + '">' +
-        '<div class="badge-card__glow" style="' + (isUnlocked ? 'background:' + b.color : '') + '"></div>' +
-        '<div class="badge-card__icon" style="' + (isUnlocked ? 'color:' + b.color + ';border-color:' + b.color + ';box-shadow:0 0 12px ' + b.color + '44' : '') + '">' +
-        '<i class="fas ' + b.icon + '"></i></div>' +
+        '<div class="badge-card__glow" style="background:' + b.color + '"></div>' +
+        '<div class="badge-card__icon" style="' + (isUnlocked ? 'color:' + b.color + ';border-color:' + b.color : '') + '">' +
+          '<i class="fas ' + b.icon + '"></i></div>' +
         '<div class="badge-card__name">' + App.esc(b.name) + '</div>' +
-        '<div class="badge-card__desc">' + App.esc(b.desc) + '</div>' +
-        '</div>';
+        '<div class="badge-card__desc">' + App.esc(b.desc) + '</div></div>';
     }
     html += '</div>';
     return html;
