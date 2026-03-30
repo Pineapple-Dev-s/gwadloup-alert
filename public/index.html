@@ -298,6 +298,10 @@
             <option value="proposition">💡 Proposition</option>
           </select>
         </div>
+        <div class="field">
+          <label>Aperçu</label>
+          <div id="wa-preview" class="wiki__body" style="display:none;min-height:auto;max-height:200px;overflow-y:auto;font-size:.82rem"></div>
+        </div>
         <div class="field"><label>Contenu (Markdown) *</label><textarea class="inp" id="wa-content" rows="12" style="min-height:250px;font-family:'JetBrains Mono',monospace;font-size:.78rem" placeholder="Ecrivez en Markdown..." required></textarea><small><span id="wa-char-count">0</span> caracteres</small></div>
         <div style="display:flex;gap:6px;justify-content:flex-end"><button type="button" class="btn btn--ghost" data-close>Annuler</button><button type="submit" class="btn btn--primary" id="btn-wiki-publish"><i class="fas fa-paper-plane"></i> Publier</button></div>
       </form>
