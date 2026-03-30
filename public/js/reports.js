@@ -5,9 +5,9 @@ var Reports = {
       if (App.filters.category) query = query.eq('category', App.filters.category);
       if (App.filters.status) query = query.eq('status', App.filters.status);
       if (App.filters.commune) query = query.eq('commune', App.filters.commune);
-      var { data, error } = await query;
-      if (error) throw error;
-      App.reports = data || [];
+      var result = await query;
+      if (result.error) throw result.error;
+      App.reports = result.data || [];
       MapManager.clear();
       for (var i = 0; i < App.reports.length; i++) MapManager.addReport(App.reports[i]);
       this.renderList();
@@ -92,20 +92,27 @@ var Reports = {
   renderLeaderboard: async function() {
     var el = document.getElementById('leaderboard-list'); if (!el) return;
     try {
-      var { data } = await App.supabase.from('profiles').select('username, reports_count, reputation, id').order('reputation', { ascending: false }).limit(10);
-      if (!data || data.length === 0) { el.innerHTML = '<p style="color:var(--text3);font-size:.8rem;text-align:center;padding:16px">Pas encore de contributeurs</p>'; return; }
+      var result = await App.supabase.from('profiles').select('id, username, reports_count, reputation').order('reputation', { ascending: false }).limit(10);
+      if (!result.data || result.data.length === 0) { el.innerHTML = '<p style="color:var(--text3);font-size:.8rem;text-align:center;padding:16px">Pas encore de contributeurs</p>'; return; }
       var html = '';
-      for (var i = 0; i < data.length; i++) {
-        var u = data[i], initial = u.username ? u.username.charAt(0).toUpperCase() : '?';
-        html += '<div class="lb"><span class="lb__rank">' + (i + 1) + '</span><div class="lb__av">' + initial + '</div><div class="lb__info"><div class="lb__name" style="cursor:pointer;text-decoration:underline dotted" onclick="UI.openPublicProfile(\'' + u.id + '\')">' + App.esc(u.username || 'Anonyme') + '</div><div class="lb__sub">' + (u.reports_count || 0) + ' signalements</div></div><span class="lb__pts">' + (u.reputation || 0) + ' pts</span></div>';
+      for (var i = 0; i < result.data.length; i++) {
+        var u = result.data[i], initial = u.username ? u.username.charAt(0).toUpperCase() : '?';
+        html += '<div class="lb" style="cursor:pointer" onclick="UI.openPublicProfile(\'' + u.id + '\')">' +
+          '<span class="lb__rank">' + (i + 1) + '</span>' +
+          '<div class="lb__av">' + initial + '</div>' +
+          '<div class="lb__info"><div class="lb__name">' + App.esc(u.username || 'Anonyme') + '</div>' +
+          '<div class="lb__sub">' + (u.reports_count || 0) + ' signalements</div></div>' +
+          '<span class="lb__pts">' + (u.reputation || 0) + ' pts</span></div>';
       }
       el.innerHTML = html;
     } catch (e) { el.innerHTML = '<p style="color:var(--text3);font-size:.8rem">Erreur</p>'; }
   },
 
   openDetail: async function(id) {
-    var report = App.reports.find(function(r) { return r.id === id; }); if (!report) return;
-    var container = document.getElementById('report-detail'); if (!container) return;
+    var report = App.reports.find(function(r) { return r.id === id; });
+    if (!report) return;
+    var container = document.getElementById('report-detail');
+    if (!container) return;
     var cat = App.categories[report.category] || App.categories.other;
     var status = App.statuses[report.status] || App.statuses.pending;
     var priority = App.priorities[report.priority] || App.priorities.medium;
@@ -116,27 +123,30 @@ var Reports = {
       : '<div class="det__gal det__gal--ph"><i class="fas ' + fa + '"></i></div>';
 
     var authorName = 'Citoyen';
-    try { var { data: profile } = await App.supabase.from('profiles').select('username').eq('id', report.user_id).single(); if (profile) authorName = profile.username; } catch (e) {}
+    var authorId = report.user_id;
+    try {
+      var profileResult = await App.supabase.from('profiles').select('username').eq('id', report.user_id).single();
+      if (profileResult.data) authorName = profileResult.data.username;
+    } catch (e) {}
 
     var hasVoted = false;
-    if (App.currentUser) { try { var { data: vote } = await App.supabase.from('votes').select('id').eq('report_id', id).eq('user_id', App.currentUser.id).maybeSingle(); if (vote) hasVoted = true; } catch (e) {} }
+    if (App.currentUser) {
+      try {
+        var voteResult = await App.supabase.from('votes').select('id').eq('report_id', id).eq('user_id', App.currentUser.id).maybeSingle();
+        if (voteResult.data) hasVoted = true;
+      } catch (e) {}
+    }
 
     var isOwner = App.currentUser && report.user_id === App.currentUser.id;
     var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
-
-    // Count REAL votes from votes table
-    var realVotes = 0;
-    try {
-      var countR = await App.supabase.from('votes').select('id', { count: 'exact', head: true }).eq('report_id', id);
-      realVotes = countR.count || 0;
-    } catch (e) {}
 
     var html = galHtml + '<div class="det__body">' +
       '<div class="det__badges"><span class="badge badge--cat"><i class="fas ' + fa + '"></i> ' + cat.label + '</span>' +
       '<span class="badge badge--' + report.status + '">' + status.label + '</span>' +
       '<span class="badge" style="background:' + priority.color + '22;color:' + priority.color + '">' + priority.label + '</span></div>' +
       '<h2 class="det__title">' + App.esc(report.title) + '</h2>' +
-      '<div class="det__meta"><span style="cursor:pointer;text-decoration:underline dotted" onclick="UI.openPublicProfile(\'' + report.user_id + '\')"><i class="fas fa-user"></i> ' + App.esc(authorName) + '</span>' +
+      '<div class="det__meta">' +
+      '<span style="cursor:pointer;text-decoration:underline dotted" onclick="UI.openPublicProfile(\'' + authorId + '\')"><i class="fas fa-user"></i> ' + App.esc(authorName) + '</span>' +
       '<span><i class="fas fa-map-pin"></i> ' + (report.commune || 'Guadeloupe') + '</span>' +
       '<span><i class="fas fa-clock"></i> ' + App.ago(report.created_at) + '</span></div>' +
       '<p class="det__desc">' + App.esc(report.description) + '</p>';
@@ -147,9 +157,10 @@ var Reports = {
         '<p style="font-size:.82rem;color:var(--text)">' + App.esc(report.admin_response) + '</p></div>';
     }
 
-    if (isAdmin) {
+    // Status update for logged in users
+    if (App.currentUser) {
       html += '<div style="background:var(--bg3);border-radius:var(--r);padding:12px;margin-bottom:16px">' +
-        '<div style="font-size:.75rem;font-weight:600;margin-bottom:6px;color:var(--text2)"><i class="fas fa-exchange-alt"></i> Gérer le statut (Admin)</div>' +
+        '<div style="font-size:.75rem;font-weight:600;margin-bottom:6px;color:var(--text2)"><i class="fas fa-exchange-alt"></i> Mettre à jour le statut</div>' +
         '<div style="display:flex;gap:4px;flex-wrap:wrap">';
       var statuses = ['pending', 'acknowledged', 'in_progress', 'resolved'];
       var statusLabels = { pending: 'En attente', acknowledged: 'Vu', in_progress: 'En cours', resolved: 'Résolu' };
@@ -159,13 +170,15 @@ var Reports = {
       html += '</div></div>';
     }
 
+    // Actions
     html += '<div class="det__actions">' +
-      '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="Reports.toggleVote(\'' + id + '\')" id="report-vote-btn-' + id + '"><i class="fas fa-arrow-up"></i> <span id="report-vote-count-' + id + '">' + realVotes + '</span> Soutenir</button>' +
-      '<button class="btn btn--outline" onclick="Share.report({id:\'' + id + '\',title:\'' + App.esc(report.title).replace(/'/g, "\\'") + '\',description:\'' + App.esc(report.description.substring(0, 100)).replace(/'/g, "\\'") + '\'})"><i class="fas fa-share-alt"></i> Partager</button>' +
+      '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="Reports.toggleVote(\'' + id + '\')"><i class="fas fa-arrow-up"></i> <span id="vote-count-' + id + '">' + (report.upvotes || 0) + '</span> Soutenir</button>' +
+      '<button class="btn btn--outline" onclick="Share.report(\'' + id + '\')"><i class="fas fa-share-alt"></i> Partager</button>' +
       '<button class="btn btn--outline" onclick="UI.closeModal(\'modal-detail\');MapManager.flyTo(' + report.latitude + ',' + report.longitude + ')"><i class="fas fa-map"></i> Carte</button>';
     if (isOwner || isAdmin) html += '<button class="btn btn--danger" onclick="Reports.deleteFromDetail(\'' + id + '\')"><i class="fas fa-trash"></i> Supprimer</button>';
     html += '</div>';
 
+    // Comments
     html += '<div class="comments"><div class="comments__title"><i class="fas fa-comments"></i> Commentaires</div>';
     if (App.currentUser) html += '<div class="cmtform"><textarea id="comment-input-' + id + '" placeholder="Votre commentaire..." rows="2"></textarea><button class="btn btn--primary" onclick="Reports.addComment(\'' + id + '\')"><i class="fas fa-paper-plane"></i></button></div>';
     html += '<div id="comments-list-' + id + '"></div></div></div>';
@@ -176,7 +189,8 @@ var Reports = {
   },
 
   deleteFromDetail: async function(id) {
-    var report = App.reports.find(function(r) { return r.id === id; }); if (!report) return;
+    var report = App.reports.find(function(r) { return r.id === id; });
+    if (!report) return;
     var isOwner = App.currentUser && report.user_id === App.currentUser.id;
     var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
     if (!isOwner && !isAdmin) { UI.toast('Non autorisé', 'error'); return; }
@@ -187,8 +201,8 @@ var Reports = {
       }
       await App.supabase.from('comments').delete().eq('report_id', id);
       await App.supabase.from('votes').delete().eq('report_id', id);
-      var { error } = await App.supabase.from('reports').delete().eq('id', id);
-      if (error) { UI.toast('Erreur: ' + error.message, 'error'); return; }
+      var result = await App.supabase.from('reports').delete().eq('id', id);
+      if (result.error) { UI.toast('Erreur: ' + result.error.message, 'error'); return; }
       UI.toast('Supprimé', 'success');
       UI.closeModal('modal-detail');
       App.reports = App.reports.filter(function(r) { return r.id !== id; });
@@ -198,14 +212,15 @@ var Reports = {
   },
 
   loadComments: async function(reportId) {
-    var el = document.getElementById('comments-list-' + reportId); if (!el) return;
+    var el = document.getElementById('comments-list-' + reportId);
+    if (!el) return;
     try {
-      var { data: comments } = await App.supabase.from('comments').select('*, profiles(username)').eq('report_id', reportId).order('created_at', { ascending: true });
-      if (!comments || comments.length === 0) { el.innerHTML = '<p style="color:var(--text3);font-size:.78rem;padding:8px">Aucun commentaire</p>'; return; }
+      var result = await App.supabase.from('comments').select('*, profiles(username)').eq('report_id', reportId).order('created_at', { ascending: true });
+      if (!result.data || result.data.length === 0) { el.innerHTML = '<p style="color:var(--text3);font-size:.78rem;padding:8px">Aucun commentaire</p>'; return; }
       var html = '';
-      for (var i = 0; i < comments.length; i++) {
-        var c = comments[i], name = (c.profiles && c.profiles.username) || 'Anonyme';
-        html += '<div class="cmt"><div class="cmt__av">' + name.charAt(0).toUpperCase() + '</div><div class="cmt__body"><div class="cmt__head"><span class="cmt__author" style="cursor:pointer;text-decoration:underline dotted" onclick="UI.openPublicProfile(\'' + c.user_id + '\')">' + App.esc(name) + '</span><span class="cmt__date">' + App.ago(c.created_at) + '</span></div><div class="cmt__text">' + App.esc(c.content) + '</div></div></div>';
+      for (var i = 0; i < result.data.length; i++) {
+        var c = result.data[i], name = (c.profiles && c.profiles.username) || 'Anonyme';
+        html += '<div class="cmt"><div class="cmt__av">' + name.charAt(0).toUpperCase() + '</div><div class="cmt__body"><div class="cmt__head"><span class="cmt__author" style="cursor:pointer" onclick="UI.openPublicProfile(\'' + c.user_id + '\')">' + App.esc(name) + '</span><span class="cmt__date">' + App.ago(c.created_at) + '</span></div><div class="cmt__text">' + App.esc(c.content) + '</div></div></div>';
       }
       el.innerHTML = html;
     } catch (e) { el.innerHTML = '<p style="color:var(--text3)">Erreur</p>'; }
@@ -215,8 +230,8 @@ var Reports = {
     if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
     var updates = { status: newStatus, updated_at: new Date().toISOString() };
     if (newStatus === 'resolved') updates.resolved_at = new Date().toISOString();
-    var { error } = await App.supabase.from('reports').update(updates).eq('id', reportId);
-    if (error) { UI.toast('Erreur', 'error'); } else {
+    var result = await App.supabase.from('reports').update(updates).eq('id', reportId);
+    if (result.error) { UI.toast('Erreur', 'error'); } else {
       UI.toast('Statut mis à jour', 'success');
       var report = App.reports.find(function(r) { return r.id === reportId; });
       if (report) { report.status = newStatus; if (newStatus === 'resolved') report.resolved_at = updates.resolved_at; }
@@ -227,36 +242,37 @@ var Reports = {
   toggleVote: async function(id) {
     if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
     try {
-      var { data: existing } = await App.supabase.from('votes').select('id').eq('report_id', id).eq('user_id', App.currentUser.id).maybeSingle();
-      if (existing) {
-        await App.supabase.from('votes').delete().eq('id', existing.id);
+      var existResult = await App.supabase.from('votes').select('id').eq('report_id', id).eq('user_id', App.currentUser.id).maybeSingle();
+
+      if (existResult.data) {
+        await App.supabase.from('votes').delete().eq('id', existResult.data.id);
         UI.toast('Vote retiré', 'info');
       } else {
-        await App.supabase.from('votes').insert({ report_id: id, user_id: App.currentUser.id });
+        var ins = await App.supabase.from('votes').insert({ report_id: id, user_id: App.currentUser.id });
+        if (ins.error) throw ins.error;
         UI.toast('Merci !', 'success');
       }
 
-      // Recompute real vote count
-      var countR = await App.supabase.from('votes').select('id', { count: 'exact', head: true }).eq('report_id', id);
-      var totalVotes = countR.count || 0;
+      // Count real votes
+      var allVotes = await App.supabase.from('votes').select('id').eq('report_id', id);
+      var realCount = (allVotes.data && allVotes.data.length) || 0;
+      await App.supabase.from('reports').update({ upvotes: realCount }).eq('id', id);
 
-      // Update in base
-      await App.supabase.from('reports').update({ upvotes: totalVotes }).eq('id', id);
+      // Update local data
+      var report = App.reports.find(function(r) { return r.id === id; });
+      if (report) report.upvotes = realCount;
 
-      // Update UI
-      var countEl = document.getElementById('report-vote-count-' + id);
-      var btnEl = document.getElementById('report-vote-btn-' + id);
-      if (countEl) countEl.textContent = totalVotes;
-      if (btnEl) {
-        if (existing) btnEl.classList.remove('voted');
-        else btnEl.classList.add('voted');
-      }
-    } catch (e) { UI.toast('Erreur', 'error'); }
+      this.openDetail(id);
+    } catch (e) {
+      console.error('Vote error:', e);
+      UI.toast('Erreur', 'error');
+    }
   },
 
   addComment: async function(reportId) {
     if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
-    var input = document.getElementById('comment-input-' + reportId); if (!input) return;
+    var input = document.getElementById('comment-input-' + reportId);
+    if (!input) return;
     var content = input.value.trim();
     if (!content || content.length < 2) { UI.toast('Trop court', 'warning'); return; }
     if (content.length > 1000) { UI.toast('Trop long (max 1000)', 'warning'); return; }
@@ -265,11 +281,13 @@ var Reports = {
       var modData = await modResp.json();
       if (modData.flagged && modData.reformulated && modData.cleaned) {
         content = modData.cleaned.description;
-        UI.toast('Commentaire reformulé automatiquement', 'info');
+        UI.toast('Commentaire reformulé', 'info');
       }
-      var { error } = await App.supabase.from('comments').insert({ report_id: reportId, user_id: App.currentUser.id, content: content });
-      if (error) throw error;
-      input.value = ''; UI.toast('Commentaire ajouté', 'success'); this.loadComments(reportId);
+      var result = await App.supabase.from('comments').insert({ report_id: reportId, user_id: App.currentUser.id, content: content });
+      if (result.error) throw result.error;
+      input.value = '';
+      UI.toast('Commentaire ajouté', 'success');
+      this.loadComments(reportId);
     } catch (e) { UI.toast('Erreur', 'error'); }
   },
 
@@ -286,10 +304,10 @@ var Reports = {
     var priority = document.querySelector('input[name="priority"]:checked');
 
     if (!category) { UI.toast('Choisissez une catégorie', 'warning'); return; }
-    if (!title || title.length < 5) { UI.toast('Titre trop court (min 5)', 'warning'); return; }
-    if (!description || description.length < 10) { UI.toast('Description trop courte (min 10)', 'warning'); return; }
+    if (!title || title.length < 5) { UI.toast('Titre trop court', 'warning'); return; }
+    if (!description || description.length < 10) { UI.toast('Description trop courte', 'warning'); return; }
     if (!lat || !lng) { UI.toast('Sélectionnez un emplacement', 'warning'); return; }
-    if (!MapManager.isInGuadeloupe(lat, lng)) { UI.toast('Emplacement hors Guadeloupe', 'error'); return; }
+    if (!MapManager.isInGuadeloupe(lat, lng)) { UI.toast('Hors Guadeloupe', 'error'); return; }
 
     var btn = document.getElementById('btn-submit-report');
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Envoi...';
@@ -297,30 +315,22 @@ var Reports = {
     try {
       var farmResp = await fetch('/api/check-farm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: App.currentUser.id }) });
       var farmData = await farmResp.json();
-      if (!farmData.allowed) {
-        UI.toast(farmData.reason || 'Limite atteinte', 'warning');
-        btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Envoyer';
-        return;
-      }
+      if (!farmData.allowed) { UI.toast(farmData.reason || 'Limite', 'warning'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Envoyer'; return; }
 
       var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title, description: description }) });
       var modData = await modResp.json();
-      if (modData.flagged && modData.reformulated && modData.cleaned) {
-        title = modData.cleaned.title;
-        description = modData.cleaned.description;
-        UI.toast('Contenu reformulé automatiquement', 'info');
-      }
+      if (modData.flagged && modData.reformulated && modData.cleaned) { title = modData.cleaned.title; description = modData.cleaned.description; UI.toast('Contenu reformulé', 'info'); }
 
       var imageUrls = await ImageUpload.uploadAll();
 
-      var { data, error } = await App.supabase.from('reports').insert({
+      var result = await App.supabase.from('reports').insert({
         user_id: App.currentUser.id, category: category.value,
         title: title, description: description,
         latitude: lat, longitude: lng, address: address, commune: commune,
         images: imageUrls, priority: priority ? priority.value : 'medium',
         status: 'pending', upvotes: 0
       }).select().single();
-      if (error) throw error;
+      if (result.error) throw result.error;
 
       if (App.currentProfile) {
         await App.supabase.from('profiles').update({
@@ -332,10 +342,10 @@ var Reports = {
       }
 
       UI.closeModal('modal-report');
-      UI.toast('Signalement créé !', 'success');
+      UI.toast('Signalement créé ! +10 pts', 'success');
       ImageUpload.reset();
       await this.loadAll();
-      if (data) MapManager.flyTo(data.latitude, data.longitude);
+      if (result.data) MapManager.flyTo(result.data.latitude, result.data.longitude);
     } catch (e) {
       console.error('Submit error:', e);
       UI.toast('Erreur: ' + (e.message || 'Échec'), 'error');
