@@ -56,17 +56,13 @@ function containsBadWords(text) {
   let severity = 'none';
   for (const w of ALWAYS_FLAG) {
     const nw = w.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    if (lower.includes(nw)) {
-      found.push(w);
-      if (!SOFT_INSULTS.includes(w)) severity = 'hard'; else if (severity !== 'hard') severity = 'soft';
-    }
+    if (lower.includes(nw)) { found.push(w); if (!SOFT_INSULTS.includes(w)) severity = 'hard'; else if (severity !== 'hard') severity = 'soft'; }
   }
   for (const w of BAD_WORDS) {
     if (found.includes(w)) continue;
     const nw = w.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     if (new RegExp('(?:^|\\W)' + nw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:$|\\W)', 'i').test(' ' + lower + ' ')) {
-      found.push(w);
-      if (!SOFT_INSULTS.includes(w)) severity = 'hard'; else if (severity !== 'hard') severity = 'soft';
+      found.push(w); if (!SOFT_INSULTS.includes(w)) severity = 'hard'; else if (severity !== 'hard') severity = 'soft';
     }
   }
   const insultPatterns = [
@@ -96,6 +92,7 @@ function markDelete(userId) {
   if (d) d.delCount++; else cooldowns.set(userId, { last: Date.now(), delCount: 1, delReset: Date.now() });
 }
 
+// FIXED CSP — added unpkg, jsdelivr, arcgisonline, opentopomap to connect-src
 app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -107,8 +104,8 @@ app.use((req, res, next) => {
     "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " +
     "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; " +
     "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; " +
-    "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://i.ibb.co https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.tile.opentopomap.org https://server.arcgisonline.com https://stamen-tiles.a.ssl.fastly.net; " +
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.imgbb.com https://nominatim.openstreetmap.org https://api.groq.com; " +
+    "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://i.ibb.co https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.tile.opentopomap.org https://server.arcgisonline.com; " +
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.imgbb.com https://nominatim.openstreetmap.org https://api.groq.com https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://*.tile.opentopomap.org https://server.arcgisonline.com; " +
     "frame-src 'none'; object-src 'none'; base-uri 'self'");
   if (req.secure || req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
   if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
@@ -159,7 +156,7 @@ app.get('/api/wiki-static', limit(30, 60000), (req, res) => {
 });
 app.get('/api/wiki-static/:page', limit(60, 60000), (req, res) => {
   const p = req.params.page.replace(/[^a-zA-Z0-9-_]/g, '');
-  const f = path.join(__dirname, 'wiki', `${p}.md`);
+  const f = path.join(__dirname, 'wiki', p + '.md');
   if (p && !p.startsWith('.') && fs.existsSync(f)) res.type('text/plain').send(fs.readFileSync(f, 'utf8'));
   else res.status(404).json({ error: 'Not found' });
 });
@@ -173,7 +170,6 @@ app.post('/api/mark-delete', limit(30, 60000), (req, res) => {
   res.json({ ok: true });
 });
 
-// Moderation — now accepts context param for wiki markdown output
 app.post('/api/moderate', limit(60, 60000), async (req, res) => {
   const { title, description, context } = req.body;
   const isWiki = context === 'wiki';
@@ -183,95 +179,49 @@ app.post('/api/moderate', limit(60, 60000), async (req, res) => {
   const key = getGroqKey();
   if (!key) {
     let ct = title || '', cd = description || '';
-    for (const w of check.words) {
-      if (w === '[insulte]') continue;
-      const r = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-      ct = ct.replace(r, '...'); cd = cd.replace(r, '...');
-    }
+    for (const w of check.words) { if (w === '[insulte]') continue; const r = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'); ct = ct.replace(r, '...'); cd = cd.replace(r, '...'); }
     return res.json({ flagged: true, reformulated: true, cleaned: { title: ct, description: cd } });
   }
 
-  const markdownInstruction = isWiki
-    ? `\n\nIMPORTANT: Le contenu est pour un wiki/forum qui utilise Markdown. CONSERVE tout le formatage Markdown existant (titres ##, listes -, **gras**, *italique*, tableaux, liens, code, etc). Ne supprime JAMAIS le formatage Markdown, reformule uniquement le texte problématique en gardant la structure.`
-    : '';
+  const mdNote = isWiki ? '\n\nIMPORTANT: CONSERVE tout le formatage Markdown existant (##, -, **, *, etc).' : '';
 
   try {
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 12000);
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant',
         messages: [
-          { role: 'system', content: `Tu es un filtre de modération pour "Gwadloup Alert", plateforme citoyenne Guadeloupe.
-
-TON TRAVAIL : Reformuler les messages problématiques NATURELLEMENT.
-
-RÈGLES :
-1. SUPPRIME noms de politiciens → remplace par "une personnalité publique" ou reformule sans
-2. SUPPRIME insultes/vulgarités → reformule poliment le même sens
-3. SUPPRIME attaques personnelles → transforme en critique constructive
-4. CONSERVE le sens utile du message
-5. Ton NATUREL, comme un humain poli
-
-INTERDICTIONS ABSOLUES :
-- JAMAIS de message d'excuse ("Je suis désolé", "Je ne peux pas", etc.)
-- JAMAIS d'explication sur la modification
-- JAMAIS de refus - tu reformules TOUJOURS
-- PAS de crochets [censuré] ni d'astérisques ***
-
-EXEMPLES :
-- "Macron est un idiot" → "La politique actuelle pose des questions"
-- "Ce mec est un connard il gare sa voiture n'importe où" → "Quelqu'un gare son véhicule de manière gênante"
-- "T'es bête ou quoi ?" → "Je ne suis pas d'accord avec ce point de vue"${markdownInstruction}
-
-Réponds UNIQUEMENT en JSON : {"title":"...","description":"..."}` },
-          { role: 'user', content: `Titre: ${(title || '').substring(0, 300)}\nDescription: ${(description || '').substring(0, 5000)}` }
+          { role: 'system', content: 'Tu es un filtre de modération pour "Gwadloup Alert", plateforme citoyenne Guadeloupe.\n\nRÈGLES:\n1. SUPPRIME noms de politiciens → "une personnalité publique"\n2. SUPPRIME insultes → reformule poliment\n3. CONSERVE le sens utile\n4. Ton NATUREL\n\nINTERDIT:\n- JAMAIS d\'excuse/explication\n- JAMAIS de refus\n- PAS de [censuré] ni ***' + mdNote + '\n\nRéponds UNIQUEMENT en JSON: {"title":"...","description":"..."}' },
+          { role: 'user', content: 'Titre: ' + (title || '').substring(0, 300) + '\nDescription: ' + (description || '').substring(0, 5000) }
         ],
         temperature: 0.3, max_tokens: isWiki ? 2000 : 600
       }),
       signal: ctrl.signal
     });
     clearTimeout(to);
-    if (!resp.ok) throw new Error('Groq ' + resp.status);
+    if (!resp.ok) throw new Error();
     const data = await resp.json();
     let txt = data.choices[0].message.content.trim();
     if (txt.includes('```')) txt = txt.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
-    const start = txt.indexOf('{'), end = txt.lastIndexOf('}');
-    if (start >= 0 && end > start) txt = txt.substring(start, end + 1);
-
+    const s = txt.indexOf('{'), e = txt.lastIndexOf('}');
+    if (s >= 0 && e > s) txt = txt.substring(s, e + 1);
     let parsed;
-    try { parsed = JSON.parse(txt); } catch (e) { throw new Error('JSON parse'); }
-
-    const apology = ['je suis désolé','je ne peux pas','je ne suis pas en mesure','veuillez reformuler',
-      'je ne peux pas répondre','nous sommes là pour','de manière respectueuse','je m\'excuse',
-      'contenu inapproprié','message inapproprié','il m\'est impossible'];
-    const combined = ((parsed.title || '') + ' ' + (parsed.description || '')).toLowerCase();
-    if (apology.some(p => combined.includes(p))) throw new Error('Apology');
-
-    const recheck = containsBadWords((parsed.title || '') + ' ' + (parsed.description || ''));
+    try { parsed = JSON.parse(txt); } catch (pe) { throw pe; }
+    const apology = ['je suis désolé','je ne peux pas','veuillez reformuler','je ne peux pas répondre','contenu inapproprié'];
+    const combined = ((parsed.title||'') + ' ' + (parsed.description||'')).toLowerCase();
+    if (apology.some(function(p) { return combined.includes(p); })) throw new Error('apology');
+    const recheck = containsBadWords((parsed.title||'') + ' ' + (parsed.description||''));
     if (recheck.found) {
-      let ct = parsed.title || '', cd = parsed.description || '';
-      for (const w of recheck.words) {
-        if (w === '[insulte]') continue;
-        const r = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-        ct = ct.replace(r, '...'); cd = cd.replace(r, '...');
-      }
-      return res.json({ flagged: true, reformulated: true, cleaned: { title: ct, description: cd } });
+      let ct2 = parsed.title||'', cd2 = parsed.description||'';
+      for (const w of recheck.words) { if (w==='[insulte]') continue; const r = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'); ct2 = ct2.replace(r,'...'); cd2 = cd2.replace(r,'...'); }
+      return res.json({ flagged: true, reformulated: true, cleaned: { title: ct2, description: cd2 } });
     }
-
-    return res.json({ flagged: true, reformulated: true, cleaned: {
-      title: (parsed.title || 'Signalement').substring(0, 150),
-      description: (parsed.description || 'Description').substring(0, 5000)
-    }});
+    return res.json({ flagged: true, reformulated: true, cleaned: { title: (parsed.title||'Signalement').substring(0,150), description: (parsed.description||'Description').substring(0,5000) } });
   } catch (e) {
-    let ct = title || '', cd = description || '';
-    for (const w of check.words) {
-      if (w === '[insulte]') continue;
-      const r = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-      ct = ct.replace(r, '...'); cd = cd.replace(r, '...');
-    }
+    let ct = title||'', cd = description||'';
+    for (const w of check.words) { if (w==='[insulte]') continue; const r = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'); ct = ct.replace(r,'...'); cd = cd.replace(r,'...'); }
     return res.json({ flagged: true, reformulated: true, cleaned: { title: ct, description: cd } });
   }
 });
@@ -279,4 +229,4 @@ Réponds UNIQUEMENT en JSON : {"title":"...","description":"..."}` },
 app.all('/api/*', (req, res) => res.status(404).json({ error: 'Route inconnue' }));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Erreur serveur' }); });
-app.listen(PORT, () => console.log(`Gwadloup Alert v10 — port ${PORT} — ${GROQ_KEYS.length} Groq key(s)`));
+app.listen(PORT, () => console.log('Gwadloup Alert v11 — port ' + PORT + ' — ' + GROQ_KEYS.length + ' Groq key(s)'));
