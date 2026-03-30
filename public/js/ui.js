@@ -1,20 +1,19 @@
 var UI = {
   catIcons: {
-    road:'fa-road',warning:'fa-exclamation-triangle',sign:'fa-sign',marking:'fa-paint-roller',
-    bump:'fa-wave-square',car:'fa-car',boat:'fa-ship',dump:'fa-trash',beach:'fa-umbrella-beach',
-    river:'fa-water',bin:'fa-trash-alt',light:'fa-lightbulb',cable:'fa-bolt',leak:'fa-tint',
-    flood:'fa-house-flood-water',sewer:'fa-faucet-drip',stagnant:'fa-droplet',plant:'fa-leaf',
-    tree:'fa-tree',invasive:'fa-seedling',building:'fa-building',abandoned:'fa-building-circle-xmark',
-    sidewalk:'fa-person-walking',railing:'fa-grip-lines',danger:'fa-shield-halved',
-    crosswalk:'fa-crosshairs',school:'fa-school',noise:'fa-volume-high',animals:'fa-paw',
-    mosquito:'fa-mosquito',graffiti:'fa-spray-can',other:'fa-map-pin'
+    road: 'fa-road', warning: 'fa-exclamation-triangle', sign: 'fa-sign', marking: 'fa-paint-roller',
+    bump: 'fa-wave-square', car: 'fa-car', boat: 'fa-ship', dump: 'fa-trash',
+    beach: 'fa-umbrella-beach', river: 'fa-water', bin: 'fa-trash-alt',
+    light: 'fa-lightbulb', cable: 'fa-bolt', leak: 'fa-tint',
+    flood: 'fa-house-flood-water', sewer: 'fa-faucet-drip', stagnant: 'fa-droplet',
+    plant: 'fa-leaf', tree: 'fa-tree', invasive: 'fa-seedling',
+    building: 'fa-building', abandoned: 'fa-building-circle-xmark',
+    sidewalk: 'fa-person-walking', railing: 'fa-grip-lines',
+    danger: 'fa-shield-halved', crosswalk: 'fa-crosshairs', school: 'fa-school',
+    noise: 'fa-volume-high', animals: 'fa-paw', mosquito: 'fa-mosquito',
+    other: 'fa-map-pin', graffiti: 'fa-spray-can'
   },
-  wikiCatIcons:{general:'📌',guide:'📖',info:'ℹ️',discussion:'💬',proposition:'💡'},
-  searchTimeout:null,
-  _viewedArticles:{},
-  _previewVisible:false,
 
-  init:function(){
+  init: function() {
     this.nav();
     this.modals();
     this.filters();
@@ -27,829 +26,1057 @@ var UI = {
     this.contactEmail();
     this.keyboardShortcuts();
     this.networkStatus();
-    if(typeof ImageUpload!=='undefined') ImageUpload.init();
   },
 
-  nav:function(){
-    var self=this;
-    var tabs=document.querySelectorAll('.hdr__tab');
-    tabs.forEach(function(tab){
-      tab.addEventListener('click',function(){
-        var view=this.getAttribute('data-view');
-        tabs.forEach(function(t){t.classList.remove('active');});
+  // ═══════════════ NAVIGATION ═══════════════
+  nav: function() {
+    var tabs = document.querySelectorAll('.hdr__tab');
+    for (var i = 0; i < tabs.length; i++) {
+      tabs[i].addEventListener('click', function() {
+        var view = this.getAttribute('data-view');
+        tabs.forEach(function(t) { t.classList.remove('active'); });
         this.classList.add('active');
-        document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active');});
-        var target=document.getElementById('view-'+view);
-        if(target) target.classList.add('active');
-        var nav=document.getElementById('main-nav');
-        if(nav) nav.classList.remove('open');
-        var burger=document.getElementById('burger-menu');
-        if(burger) burger.classList.remove('open');
-        if(view==='map'&&MapManager.map) setTimeout(function(){MapManager.map.invalidateSize();},100);
-        if(view==='stats') Reports.updateStats();
-        if(view==='wiki'){self.loadWikiStatic();self.loadCommunityArticles();}
-        if(view==='community') self.loadTagProposals();
+        document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
+        var target = document.getElementById('view-' + view);
+        if (target) target.classList.add('active');
+
+        // View-specific actions
+        if (view === 'map' && MapManager.map) {
+          setTimeout(function() { MapManager.map.invalidateSize(); }, 100);
+        }
+        if (view === 'stats') Reports.updateStats();
+        if (view === 'wiki') { UI.loadWikiStatic(); UI.loadCommunityArticles(); }
+        if (view === 'community') UI.loadTagProposals();
+
+        // Close burger on mobile
+        var nav = document.getElementById('main-nav');
+        var burger = document.getElementById('burger-menu');
+        if (nav) nav.classList.remove('open');
+        if (burger) burger.classList.remove('open');
       });
-    });
-    var logo=document.getElementById('logo-link');
-    if(logo) logo.addEventListener('click',function(e){
+    }
+
+    // Logo click = map
+    var logo = document.getElementById('logo-link');
+    if (logo) logo.addEventListener('click', function(e) {
       e.preventDefault();
-      var mapTab=document.querySelector('[data-view="map"]');
-      if(mapTab) mapTab.click();
+      var mapTab = document.querySelector('[data-view="map"]');
+      if (mapTab) mapTab.click();
     });
   },
 
-  burger:function(){
-    var burger=document.getElementById('burger-menu');
-    var nav=document.getElementById('main-nav');
-    if(burger&&nav) burger.addEventListener('click',function(){
-      burger.classList.toggle('open');
-      nav.classList.toggle('open');
-    });
-  },
-
-  modals:function(){
-    var self=this;
-    document.querySelectorAll('[data-close]').forEach(function(el){
-      el.addEventListener('click',function(){
-        var modal=el.closest('.modal');
-        if(modal) self.closeModal(modal.id);
+  // ═══════════════ MODALS ═══════════════
+  modals: function() {
+    document.querySelectorAll('[data-close]').forEach(function(el) {
+      el.addEventListener('click', function() {
+        var modal = this.closest('.modal');
+        if (modal) modal.classList.remove('open');
       });
     });
-    document.addEventListener('keydown',function(e){
-      if(e.key==='Escape'){
-        var modals=document.querySelectorAll('.modal.open');
-        if(modals.length) self.closeModal(modals[modals.length-1].id);
-      }
-    });
-    var newBtn=document.getElementById('btn-new-report');
-    if(newBtn) newBtn.addEventListener('click',function(){
-      if(!App.currentUser){self.toast('Connectez-vous','warning');return;}
-      self.resetReportForm();
-      self.openModal('modal-report');
-      setTimeout(function(){MapManager.initMiniMap();},200);
-    });
   },
 
-  openModal:function(id){
-    var m=document.getElementById(id);
-    if(m){m.classList.add('open');document.body.style.overflow='hidden';}
+  openModal: function(id) {
+    var m = document.getElementById(id);
+    if (m) m.classList.add('open');
   },
 
-  closeModal:function(id){
-    var m=document.getElementById(id);
-    if(m) m.classList.remove('open');
-    if(!document.querySelector('.modal.open')) document.body.style.overflow='';
+  closeModal: function(id) {
+    var m = document.getElementById(id);
+    if (m) m.classList.remove('open');
   },
 
-  filters:function(){
-    var filterIds=['filter-category','filter-status','filter-commune'];
-    filterIds.forEach(function(fid){
-      var el=document.getElementById(fid);
-      if(el) el.addEventListener('change',function(){
-        App.filters.category=document.getElementById('filter-category').value;
-        App.filters.status=document.getElementById('filter-status').value;
-        App.filters.commune=document.getElementById('filter-commune').value;
-        Reports.loadAll();
-      });
-    });
-    var reset=document.getElementById('btn-reset-filters');
-    if(reset) reset.addEventListener('click',function(){
-      document.getElementById('filter-category').value='';
-      document.getElementById('filter-status').value='';
-      document.getElementById('filter-commune').value='';
-      App.filters={category:'',status:'',commune:''};
+  // ═══════════════ FILTERS ═══════════════
+  filters: function() {
+    var self = this;
+    var filterCat = document.getElementById('filter-category');
+    var filterStatus = document.getElementById('filter-status');
+    var filterCommune = document.getElementById('filter-commune');
+    var resetBtn = document.getElementById('btn-reset-filters');
+    var sortReports = document.getElementById('sort-reports');
+
+    function applyFilters() {
+      App.filters.category = filterCat ? filterCat.value : '';
+      App.filters.status = filterStatus ? filterStatus.value : '';
+      App.filters.commune = filterCommune ? filterCommune.value : '';
+      Reports.loadAll();
+    }
+
+    if (filterCat) filterCat.addEventListener('change', applyFilters);
+    if (filterStatus) filterStatus.addEventListener('change', applyFilters);
+    if (filterCommune) filterCommune.addEventListener('change', applyFilters);
+    if (sortReports) sortReports.addEventListener('change', function() { Reports.renderList(); });
+
+    if (resetBtn) resetBtn.addEventListener('click', function() {
+      if (filterCat) filterCat.value = '';
+      if (filterStatus) filterStatus.value = '';
+      if (filterCommune) filterCommune.value = '';
+      App.filters = { category: '', status: '', commune: '' };
       Reports.loadAll();
     });
-    var sort=document.getElementById('sort-reports');
-    if(sort) sort.addEventListener('change',function(){
-      var v=sort.value;
-      if(v==='newest') App.reports.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);});
-      else if(v==='oldest') App.reports.sort(function(a,b){return new Date(a.created_at)-new Date(b.created_at);});
-      else if(v==='most-voted') App.reports.sort(function(a,b){return(b.upvotes||0)-(a.upvotes||0);});
-      Reports.renderList();
-    });
   },
 
-  form:function(){
-    var self=this;
-    var s1=document.getElementById('btn-step1-next');
-    if(s1) s1.addEventListener('click',function(){self.goStep(2);});
-    var s2=document.getElementById('btn-step2-next');
-    if(s2) s2.addEventListener('click',function(){self.goStep(3);});
-    document.querySelectorAll('[data-prev]').forEach(function(b){
-      b.addEventListener('click',function(){self.goStep(parseInt(b.getAttribute('data-prev')));});
-    });
-    var desc=document.getElementById('report-description');
-    if(desc) desc.addEventListener('input',function(){
-      var c=document.getElementById('desc-count');
-      if(c) c.textContent=desc.value.length;
-    });
-    var form=document.getElementById('report-form');
-    if(form) form.addEventListener('submit',function(e){e.preventDefault();Reports.submitReport();});
-    var geo=document.getElementById('btn-geolocate');
-    if(geo) geo.addEventListener('click',function(){self.geolocate();});
-    var addr=document.getElementById('address-search');
-    if(addr){
-      addr.addEventListener('input',function(){
-        clearTimeout(self.searchTimeout);
-        var q=addr.value.trim();
-        if(q.length<3){document.getElementById('search-results').classList.remove('open');return;}
-        self.searchTimeout=setTimeout(function(){self.searchAddress(q);},400);
+  // ═══════════════ FORM (Report steps) ═══════════════
+  form: function() {
+    var self = this;
+
+    // Step navigation
+    document.querySelectorAll('[data-prev]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var prev = parseInt(this.getAttribute('data-prev'));
+        self._goStep(prev);
       });
-      document.addEventListener('click',function(e){
-        if(!e.target.closest('.loc-search')) document.getElementById('search-results').classList.remove('open');
+    });
+
+    var step1Next = document.getElementById('btn-step1-next');
+    if (step1Next) step1Next.addEventListener('click', function() { self._goStep(2); });
+
+    var step2Next = document.getElementById('btn-step2-next');
+    if (step2Next) step2Next.addEventListener('click', function() { self._goStep(3); });
+
+    // Description counter
+    var desc = document.getElementById('report-description');
+    if (desc) desc.addEventListener('input', function() {
+      var counter = document.getElementById('desc-count');
+      if (counter) counter.textContent = this.value.length;
+    });
+
+    // Form submit
+    var form = document.getElementById('report-form');
+    if (form) form.addEventListener('submit', function(e) { e.preventDefault(); Reports.submitReport(); });
+
+    // Geolocate
+    var geoBtn = document.getElementById('btn-geolocate');
+    if (geoBtn) geoBtn.addEventListener('click', function() {
+      if (!navigator.geolocation) { UI.toast('Géolocalisation non disponible', 'error'); return; }
+      UI.toast('Localisation en cours...', 'info');
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        var lat = pos.coords.latitude, lng = pos.coords.longitude;
+        if (MapManager.isInGuadeloupe(lat, lng)) {
+          MapManager.setPin(lat, lng);
+          MapManager.reverseGeo(lat, lng);
+        } else {
+          UI.toast('Position hors Guadeloupe', 'warning');
+        }
+      }, function() {
+        UI.toast('Impossible de vous localiser', 'error');
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    });
+
+    // Address search
+    var searchInput = document.getElementById('address-search');
+    var searchResults = document.getElementById('search-results');
+    var searchTimer = null;
+    if (searchInput) {
+      searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimer);
+        var q = this.value.trim();
+        if (q.length < 3) { if (searchResults) searchResults.classList.remove('open'); return; }
+        searchTimer = setTimeout(function() {
+          MapManager.searchAddr(q).then(function(results) {
+            if (!results || results.length === 0) { searchResults.classList.remove('open'); return; }
+            var html = '';
+            for (var i = 0; i < results.length; i++) {
+              html += '<div class="loc-r" data-lat="' + results[i].lat + '" data-lng="' + results[i].lon + '">' + App.esc(results[i].display_name) + '</div>';
+            }
+            searchResults.innerHTML = html;
+            searchResults.classList.add('open');
+
+            searchResults.querySelectorAll('.loc-r').forEach(function(r) {
+              r.addEventListener('click', function() {
+                var lat = parseFloat(this.getAttribute('data-lat'));
+                var lng = parseFloat(this.getAttribute('data-lng'));
+                MapManager.setPin(lat, lng);
+                MapManager.reverseGeo(lat, lng);
+                searchInput.value = this.textContent;
+                searchResults.classList.remove('open');
+              });
+            });
+          });
+        }, 400);
+      });
+    }
+
+    // Image upload
+    if (typeof ImageUpload !== 'undefined') ImageUpload.init();
+  },
+
+  _goStep: function(step) {
+    document.querySelectorAll('.fstep').forEach(function(s) { s.classList.remove('active'); });
+    document.querySelectorAll('.steps__i').forEach(function(s) {
+      var sn = parseInt(s.getAttribute('data-step'));
+      s.classList.remove('active', 'done');
+      if (sn < step) s.classList.add('done');
+      if (sn === step) s.classList.add('active');
+    });
+    var target = document.getElementById('step-' + step);
+    if (target) target.classList.add('active');
+
+    // Init mini map on step 2
+    if (step === 2) {
+      setTimeout(function() { MapManager.initMiniMap(); }, 100);
+    }
+  },
+
+  openReportModal: function() {
+    // Reset form
+    var form = document.getElementById('report-form');
+    if (form) form.reset();
+    this._goStep(1);
+    var step1Btn = document.getElementById('btn-step1-next');
+    if (step1Btn) step1Btn.disabled = true;
+    var step2Btn = document.getElementById('btn-step2-next');
+    if (step2Btn) step2Btn.disabled = true;
+    ImageUpload.reset();
+    var descCount = document.getElementById('desc-count');
+    if (descCount) descCount.textContent = '0';
+    var locInfo = document.getElementById('location-info');
+    if (locInfo) locInfo.style.display = 'none';
+    this.openModal('modal-report');
+  },
+
+  // ═══════════════ BURGER ═══════════════
+  burger: function() {
+    var burger = document.getElementById('burger-menu');
+    var nav = document.getElementById('main-nav');
+    if (burger && nav) {
+      burger.addEventListener('click', function() {
+        burger.classList.toggle('open');
+        nav.classList.toggle('open');
       });
     }
   },
 
-  goStep:function(n){
-    document.querySelectorAll('.fstep').forEach(function(s){s.classList.remove('active');});
-    document.querySelectorAll('.steps__i').forEach(function(ind){
-      var s=parseInt(ind.getAttribute('data-step'));
-      ind.classList.remove('active','done');
-      if(s<n) ind.classList.add('done');
-      else if(s===n) ind.classList.add('active');
-    });
-    var t=document.getElementById('step-'+n);
-    if(t) t.classList.add('active');
-  },
-
-  geolocate:function(){
-    if(!navigator.geolocation){this.toast('Non supporté','error');return;}
-    this.toast('Localisation...','info');
-    navigator.geolocation.getCurrentPosition(function(p){
-      if(!MapManager.isInGuadeloupe(p.coords.latitude,p.coords.longitude)){UI.toast('Hors Guadeloupe','warning');return;}
-      MapManager.setPin(p.coords.latitude,p.coords.longitude);
-      MapManager.reverseGeo(p.coords.latitude,p.coords.longitude);
-      UI.toast('Position trouvée','success');
-    },function(){UI.toast('Erreur géolocalisation','error');},{enableHighAccuracy:true,timeout:10000});
-  },
-
-  searchAddress:async function(q){
-    var results=await MapManager.searchAddr(q);
-    var c=document.getElementById('search-results');
-    if(!results||!results.length){
-      c.innerHTML='<div class="loc-r" style="color:var(--text3)">Aucun résultat</div>';
-      c.classList.add('open');
-      return;
+  // ═══════════════ CATEGORY GRID ═══════════════
+  catGrid: function() {
+    var grid = document.getElementById('category-grid');
+    if (!grid) return;
+    var html = '';
+    for (var key in App.categories) {
+      var cat = App.categories[key];
+      var fa = this.catIcons[cat.icon] || 'fa-map-pin';
+      html += '<label class="catc"><input type="radio" name="category" value="' + key + '">' +
+        '<span class="catc__ico"><i class="fas ' + fa + '"></i></span>' +
+        '<span class="catc__name">' + cat.label + '</span></label>';
     }
-    var html='';
-    for(var i=0;i<results.length;i++){
-      html+='<div class="loc-r" data-lat="'+results[i].lat+'" data-lon="'+results[i].lon+'" data-name="'+App.esc(results[i].display_name)+'">'+App.esc(results[i].display_name)+'</div>';
+    grid.innerHTML = html;
+
+    // Enable next button on selection
+    grid.addEventListener('change', function() {
+      var btn = document.getElementById('btn-step1-next');
+      if (btn) btn.disabled = false;
+    });
+  },
+
+  // ═══════════════ COMMUNITY (tags) ═══════════════
+  community: function() {
+    var proposeBtn = document.getElementById('btn-propose-tag');
+    var formContainer = document.getElementById('tag-proposal-form-container');
+    var cancelBtn = document.getElementById('tp-cancel');
+    var form = document.getElementById('tag-proposal-form');
+
+    if (proposeBtn) proposeBtn.addEventListener('click', function() {
+      if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
+      if (formContainer) formContainer.style.display = formContainer.style.display === 'none' ? 'block' : 'none';
+    });
+
+    if (cancelBtn) cancelBtn.addEventListener('click', function() {
+      if (formContainer) formContainer.style.display = 'none';
+    });
+
+    if (form) form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      UI.submitTagProposal();
+    });
+  },
+
+  submitTagProposal: async function() {
+    if (!App.currentUser || !App.currentProfile) return;
+    var name = document.getElementById('tp-name').value.trim();
+    var icon = document.getElementById('tp-icon').value.trim() || 'fa-tag';
+    var desc = document.getElementById('tp-description').value.trim();
+
+    if (!name || !desc) { UI.toast('Remplissez tous les champs', 'warning'); return; }
+
+    try {
+      var result = await App.supabase.from('tag_proposals').insert({
+        name: name, icon: icon, description: desc,
+        author_id: App.currentUser.id,
+        author_name: App.currentProfile.username || 'Anonyme'
+      });
+      if (result.error) throw result.error;
+      UI.toast('Proposition envoyée !', 'success');
+      document.getElementById('tag-proposal-form').reset();
+      document.getElementById('tag-proposal-form-container').style.display = 'none';
+      this.loadTagProposals();
+    } catch(e) {
+      UI.toast('Erreur: ' + (e.message || 'Échec'), 'error');
     }
-    c.innerHTML=html;
-    c.classList.add('open');
-    c.querySelectorAll('.loc-r').forEach(function(el){
-      el.addEventListener('click',function(){
-        MapManager.setPin(parseFloat(el.getAttribute('data-lat')),parseFloat(el.getAttribute('data-lon')));
-        document.getElementById('report-address').value=el.getAttribute('data-name');
-        document.getElementById('selected-address').textContent=el.getAttribute('data-name');
-        document.getElementById('location-info').style.display='flex';
-        document.getElementById('address-search').value=el.getAttribute('data-name');
-        c.classList.remove('open');
-        MapManager.reverseGeo(parseFloat(el.getAttribute('data-lat')),parseFloat(el.getAttribute('data-lon')));
-      });
-    });
   },
 
-  resetReportForm:function(){
-    var f=document.getElementById('report-form');
-    if(f) f.reset();
-    this.goStep(1);
-    document.getElementById('report-lat').value='';
-    document.getElementById('report-lng').value='';
-    document.getElementById('report-address').value='';
-    document.getElementById('report-commune').value='';
-    document.getElementById('location-info').style.display='none';
-    document.getElementById('btn-step1-next').disabled=true;
-    document.getElementById('btn-step2-next').disabled=true;
-    var dc=document.getElementById('desc-count');
-    if(dc) dc.textContent='0';
-    if(typeof ImageUpload!=='undefined') ImageUpload.reset();
-  },
-
-  catGrid:function(){
-    var grid=document.getElementById('category-grid');
-    if(!grid) return;
-    var html='';
-    for(var k in App.categories){
-      var c=App.categories[k];
-      var fa=this.catIcons[c.icon]||'fa-map-pin';
-      html+='<label class="catc"><input type="radio" name="category" value="'+k+'"><span class="catc__ico"><i class="fas '+fa+'"></i></span><span class="catc__name">'+c.label+'</span></label>';
-    }
-    grid.innerHTML=html;
-    grid.querySelectorAll('input[name="category"]').forEach(function(inp){
-      inp.addEventListener('change',function(){document.getElementById('btn-step1-next').disabled=false;});
-    });
-  },
-
-  wikiTabs:function(){
-    var self=this;
-    document.querySelectorAll('.wiki-tab').forEach(function(tab){
-      tab.addEventListener('click',function(){
-        var t=tab.getAttribute('data-wtab');
-        document.querySelectorAll('.wiki-tab').forEach(function(x){x.classList.remove('active');});
-        tab.classList.add('active');
-        document.querySelectorAll('.wiki-panel').forEach(function(x){x.classList.remove('active');});
-        var p=document.getElementById('wpanel-'+t);
-        if(p) p.classList.add('active');
-        if(t==='community') self.loadCommunityArticles();
-      });
-    });
-  },
-
-  loadWikiStatic:async function(){
-    try{
-      var r=await fetch('/api/wiki-static');
-      var pages=await r.json();
-      var nav=document.getElementById('wiki-nav');
-      if(!nav) return;
-      if(!pages.length){nav.innerHTML='<p style="color:var(--text3);font-size:.75rem">Pas de docs</p>';return;}
-      var html='';
-      for(var i=0;i<pages.length;i++) html+='<button class="wnav'+(i===0?' active':'')+'" data-slug="'+pages[i].slug+'">'+App.esc(pages[i].title)+'</button>';
-      nav.innerHTML=html;
-      nav.querySelectorAll('.wnav').forEach(function(b){
-        b.addEventListener('click',function(){
-          nav.querySelectorAll('.wnav').forEach(function(x){x.classList.remove('active');});
-          b.classList.add('active');
-          UI.loadWikiPage(b.getAttribute('data-slug'));
-        });
-      });
-      if(pages.length) this.loadWikiPage(pages[0].slug);
-    }catch(e){console.error('Wiki:',e);}
-  },
-
-  loadWikiPage:async function(slug){
-    var c=document.getElementById('wiki-content');
-    if(!c) return;
-    c.innerHTML='<p class="wiki__load">Chargement...</p>';
-    try{
-      var r=await fetch('/api/wiki-static/'+slug);
-      if(!r.ok) throw new Error();
-      c.innerHTML=marked.parse(await r.text());
-    }catch(e){c.innerHTML='<p style="color:var(--text3)">Non trouvé</p>';}
-  },
-
-  _countVotes:async function(table,fk,id){
-    try{
-      var result=await App.supabase.from(table).select('id').eq(fk,id);
-      if(result.data) return result.data.length;
-      return 0;
-    }catch(e){return 0;}
-  },
-
-  loadCommunityArticles:async function(){
-    var c=document.getElementById('community-articles-list');
-    if(!c) return;
-    c.innerHTML='<p class="wiki__load">Chargement...</p>';
-    try{
-      var cf=document.getElementById('wiki-cat-filter');
-      var sf=document.getElementById('wiki-sort');
-      var q=App.supabase.from('wiki_articles').select('*');
-      if(cf&&cf.value) q=q.eq('category',cf.value);
-      if(sf&&sf.value==='popular') q=q.order('upvotes',{ascending:false});
-      else q=q.order('pinned',{ascending:false}).order('created_at',{ascending:false});
-      var r=await q;
-      if(r.error) throw r.error;
-      if(!r.data||!r.data.length){
-        c.innerHTML='<div class="empty" style="padding:40px"><i class="fas fa-pen-fancy fa-2x" style="color:var(--text3);margin-bottom:8px"></i><h3 style="font-size:.9rem">Pas encore d\'articles</h3></div>';
+  loadTagProposals: async function() {
+    var list = document.getElementById('tag-proposals-list');
+    if (!list) return;
+    try {
+      var result = await App.supabase.from('tag_proposals').select('*').order('upvotes', { ascending: false });
+      if (!result.data || result.data.length === 0) {
+        list.innerHTML = '<p style="color:var(--text3);font-size:.8rem">Aucune proposition pour le moment</p>';
         return;
       }
-      var html='';
-      for(var i=0;i<r.data.length;i++){
-        var a=r.data[i];
-        var ci=this.wikiCatIcons[a.category]||'📌';
-        var prev=(a.content||'').replace(/[#*`\[\]>|_~\-]/g,'').substring(0,150);
-        var pin=a.pinned?'<span style="background:var(--yellow);color:#000;padding:1px 6px;border-radius:10px;font-size:.6rem;font-weight:700;margin-left:6px"><i class="fas fa-thumbtack"></i> Épinglé</span>':'';
-        html+='<div class="wcard" data-article-id="'+a.id+'">'
-          +'<div class="wcard__head"><span class="wcard__cat">'+ci+' '+(a.category||'general')+pin+'</span><span class="wcard__date">'+App.ago(a.created_at)+'</span></div>'
-          +'<div class="wcard__title">'+App.esc(a.title)+'</div>'
-          +'<div class="wcard__preview">'+App.esc(prev)+'</div>'
-          +'<div class="wcard__foot"><span class="wcard__author"><i class="fas fa-user"></i> '+App.esc(a.author_name||'Anonyme')+'</span>'
-          +'<span class="wcard__votes"><i class="fas fa-arrow-up"></i> '+(a.upvotes||0)+' · <i class="fas fa-eye"></i> '+(a.views||0)+'</span></div></div>';
+      var html = '';
+      for (var i = 0; i < result.data.length; i++) {
+        var t = result.data[i];
+        var statusBadge = t.status === 'approved' ? '<span class="badge badge--resolved">Approuvé</span>' :
+          t.status === 'rejected' ? '<span class="badge badge--rejected">Rejeté</span>' :
+          '<span class="badge badge--pending">En attente</span>';
+        html += '<div class="adm" style="margin-bottom:6px">' +
+          '<div style="font-size:1.2rem;width:36px;text-align:center"><i class="fas ' + App.esc(t.icon || 'fa-tag') + '"></i></div>' +
+          '<div class="adm__info"><div class="adm__title">' + App.esc(t.name) + ' ' + statusBadge + '</div>' +
+          '<div class="adm__meta">' + App.esc(t.description) + ' · par ' + App.esc(t.author_name) + '</div></div>' +
+          '<button class="vote-btn" onclick="UI.voteTagProposal(\'' + t.id + '\')"><i class="fas fa-arrow-up"></i> ' + (t.upvotes || 0) + '</button></div>';
       }
-      c.innerHTML=html;
-      // Bind clicks
-      c.querySelectorAll('.wcard').forEach(function(card){
-        card.addEventListener('click',function(){
-          UI.openArticle(card.getAttribute('data-article-id'));
+      list.innerHTML = html;
+    } catch(e) {
+      list.innerHTML = '<p style="color:var(--text3)">Erreur de chargement</p>';
+    }
+  },
+
+  voteTagProposal: async function(id) {
+    if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
+    try {
+      var existing = await App.supabase.from('tag_votes').select('id').eq('proposal_id', id).eq('user_id', App.currentUser.id).maybeSingle();
+      if (existing.data) { UI.toast('Déjà voté', 'info'); return; }
+      await App.supabase.from('tag_votes').insert({ proposal_id: id, user_id: App.currentUser.id });
+      var allVotes = await App.supabase.from('tag_votes').select('id').eq('proposal_id', id);
+      var count = (allVotes.data && allVotes.data.length) || 0;
+      await App.supabase.from('tag_proposals').update({ upvotes: count }).eq('id', id);
+      UI.toast('Vote enregistré !', 'success');
+      this.loadTagProposals();
+    } catch(e) { UI.toast('Erreur', 'error'); }
+  },
+
+  // ═══════════════ WIKI TABS ═══════════════
+  wikiTabs: function() {
+    var tabs = document.querySelectorAll('.wiki-tab');
+    tabs.forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        var target = this.getAttribute('data-wtab');
+        tabs.forEach(function(t) { t.classList.remove('active'); });
+        this.classList.add('active');
+        document.querySelectorAll('.wiki-panel').forEach(function(p) { p.classList.remove('active'); });
+        var panel = document.getElementById('wpanel-' + target);
+        if (panel) panel.classList.add('active');
+      });
+    });
+
+    // Filter/sort for community articles
+    var catFilter = document.getElementById('wiki-cat-filter');
+    var wikiSort = document.getElementById('wiki-sort');
+    if (catFilter) catFilter.addEventListener('change', function() { UI.loadCommunityArticles(); });
+    if (wikiSort) wikiSort.addEventListener('change', function() { UI.loadCommunityArticles(); });
+  },
+
+  // ═══════════════ WIKI STATIC (official docs) ═══════════════
+  loadWikiStatic: async function() {
+    var nav = document.getElementById('wiki-nav');
+    var content = document.getElementById('wiki-content');
+    if (!nav) return;
+    try {
+      var resp = await fetch('/api/wiki-static');
+      var pages = await resp.json();
+      if (!pages.length) { nav.innerHTML = '<p style="color:var(--text3);font-size:.75rem">Aucun guide</p>'; return; }
+      var html = '';
+      for (var i = 0; i < pages.length; i++) {
+        html += '<button class="wnav' + (i === 0 ? ' active' : '') + '" data-slug="' + pages[i].slug + '">' + App.esc(pages[i].title) + '</button>';
+      }
+      nav.innerHTML = html;
+
+      // Load first page
+      this._loadWikiPage(pages[0].slug);
+
+      nav.querySelectorAll('.wnav').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          nav.querySelectorAll('.wnav').forEach(function(b) { b.classList.remove('active'); });
+          this.classList.add('active');
+          UI._loadWikiPage(this.getAttribute('data-slug'));
         });
       });
-      if(cf&&!cf._bound){cf.addEventListener('change',function(){UI.loadCommunityArticles();});cf._bound=true;}
-      if(sf&&!sf._bound){sf.addEventListener('change',function(){UI.loadCommunityArticles();});sf._bound=true;}
-    }catch(e){console.error('Articles:',e);c.innerHTML='<p style="color:var(--red)">Erreur</p>';}
+    } catch(e) {
+      if (nav) nav.innerHTML = '<p style="color:var(--text3)">Erreur</p>';
+    }
   },
 
-  openArticle:async function(id){
-    var c=document.getElementById('wiki-article-detail');
-    if(!c) return;
-    c.innerHTML='<p class="wiki__load">Chargement...</p>';
+  _loadWikiPage: async function(slug) {
+    var content = document.getElementById('wiki-content');
+    if (!content) return;
+    content.innerHTML = '<p class="wiki__load">Chargement...</p>';
+    try {
+      var resp = await fetch('/api/wiki-static/' + slug);
+      if (!resp.ok) throw new Error();
+      var md = await resp.text();
+      content.innerHTML = marked.parse(md);
+    } catch(e) {
+      content.innerHTML = '<p style="color:var(--text3)">Erreur de chargement</p>';
+    }
+  },
+
+  // ═══════════════ WIKI COMMUNITY ARTICLES ═══════════════
+  loadCommunityArticles: async function() {
+    var list = document.getElementById('community-articles-list');
+    if (!list) return;
+    list.innerHTML = '<p class="wiki__load">Chargement...</p>';
+
+    try {
+      var catFilter = document.getElementById('wiki-cat-filter');
+      var sortEl = document.getElementById('wiki-sort');
+      var cat = catFilter ? catFilter.value : '';
+      var sort = sortEl ? sortEl.value : 'newest';
+
+      var query = App.supabase.from('wiki_articles').select('*');
+      if (cat) query = query.eq('category', cat);
+
+      if (sort === 'popular') {
+        query = query.order('upvotes', { ascending: false });
+      } else {
+        query = query.order('pinned', { ascending: false }).order('created_at', { ascending: false });
+      }
+
+      var result = await query;
+      if (!result.data || result.data.length === 0) {
+        list.innerHTML = '<div class="empty"><span><i class="fas fa-book-open fa-3x"></i></span><h3>Aucun article</h3><p style="color:var(--text2)">Soyez le premier à écrire !</p></div>';
+        return;
+      }
+
+      var catEmojis = { general: '📌', guide: '📖', info: 'ℹ️', discussion: '💬', proposition: '💡' };
+      var html = '';
+      for (var i = 0; i < result.data.length; i++) {
+        var a = result.data[i];
+        var emoji = catEmojis[a.category] || '📌';
+        var preview = (a.content || '').replace(/[#*_`\[\]]/g, '').substring(0, 120);
+        html += '<div class="wcard" onclick="UI.openArticle(\'' + a.id + '\')">' +
+          '<div class="wcard__head">' +
+            '<span class="wcard__cat">' + emoji + ' ' + App.esc(a.category || 'general') + '</span>' +
+            '<span class="wcard__date">' + App.ago(a.created_at) + '</span>' +
+          '</div>' +
+          (a.pinned ? '<span style="font-size:.65rem;color:var(--yellow);margin-bottom:4px;display:inline-block"><i class="fas fa-thumbtack"></i> Épinglé</span>' : '') +
+          '<div class="wcard__title">' + App.esc(a.title) + '</div>' +
+          '<div class="wcard__preview">' + App.esc(preview) + '...</div>' +
+          '<div class="wcard__foot">' +
+            '<span class="wcard__author"><i class="fas fa-user"></i> ' + App.esc(a.author_name || 'Anonyme') + '</span>' +
+            '<span class="wcard__votes"><i class="fas fa-arrow-up"></i> ' + (a.upvotes || 0) + ' · <i class="fas fa-eye"></i> ' + (a.views || 0) + '</span>' +
+          '</div></div>';
+      }
+      list.innerHTML = html;
+    } catch(e) {
+      list.innerHTML = '<p style="color:var(--text3)">Erreur de chargement</p>';
+    }
+  },
+
+  // ═══════════════ OPEN ARTICLE ═══════════════
+  openArticle: async function(id) {
+    var container = document.getElementById('wiki-article-detail');
+    if (!container) return;
+    container.innerHTML = '<p class="wiki__load">Chargement...</p>';
     this.openModal('modal-wiki-article');
-    try{
-      if(!this._viewedArticles[id]){
-        this._viewedArticles[id]=true;
-        var vr=await App.supabase.from('wiki_articles').select('views').eq('id',id).single();
-        if(vr.data) await App.supabase.from('wiki_articles').update({views:(vr.data.views||0)+1}).eq('id',id);
+
+    try {
+      // Increment views
+      var viewResult = await App.supabase.from('wiki_articles').select('views').eq('id', id).single();
+      if (viewResult.data) {
+        await App.supabase.from('wiki_articles').update({ views: (viewResult.data.views || 0) + 1 }).eq('id', id);
       }
-      var r=await App.supabase.from('wiki_articles').select('*').eq('id',id).single();
-      if(r.error) throw r.error;
-      var a=r.data;
-      var isAdmin=App.currentProfile&&App.currentProfile.role==='admin';
-      var isAuthor=App.currentUser&&a.author_id===App.currentUser.id;
-      var hasVoted=false;
-      if(App.currentUser){
-        var vr2=await App.supabase.from('wiki_votes').select('id').eq('article_id',id).eq('user_id',App.currentUser.id).maybeSingle();
-        if(vr2.data) hasVoted=true;
+
+      // Load article
+      var result = await App.supabase.from('wiki_articles').select('*').eq('id', id).single();
+      if (!result.data) { container.innerHTML = '<p style="color:var(--text3)">Article introuvable</p>'; return; }
+      var a = result.data;
+
+      var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
+      var isAuthor = App.currentUser && a.author_id === App.currentUser.id;
+
+      // Check user vote
+      var hasVoted = false;
+      if (App.currentUser) {
+        var voteCheck = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).maybeSingle();
+        if (voteCheck.data) hasVoted = true;
       }
-      var realVotes=await this._countVotes('wiki_votes','article_id',id);
-      var ci=this.wikiCatIcons[a.category]||'📌';
-      var pin=a.pinned?' <span style="background:var(--yellow);color:#000;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:700"><i class="fas fa-thumbtack"></i> Épinglé</span>':'';
 
-      var html='<div style="padding:20px">'
-        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">'
-        +'<span class="wcard__cat" style="font-size:.75rem">'+ci+' '+(a.category||'general')+pin+'</span>'
-        +'<span style="font-size:.7rem;color:var(--text3)">'+App.ago(a.created_at)+'</span></div>'
-        +'<h1 style="font-size:1.3rem;font-weight:700;margin-bottom:12px">'+App.esc(a.title)+'</h1>'
-        +'<div style="display:flex;gap:12px;font-size:.78rem;color:var(--text2);margin-bottom:16px;flex-wrap:wrap">'
-        +'<span class="clickable-author" data-uid="'+a.author_id+'"><i class="fas fa-user" style="color:var(--green)"></i> '+App.esc(a.author_name||'Anonyme')+'</span>'
-        +'<span><i class="fas fa-eye"></i> '+(a.views||0)+' vues</span>'
-        +'<span><i class="fas fa-arrow-up" style="color:var(--orange)"></i> '+realVotes+' votes</span></div>'
-        +'<div class="wiki__body" style="margin-bottom:16px">'+marked.parse(a.content||'')+'</div>';
+      // Count real votes
+      var voteCountResult = await App.supabase.from('wiki_votes').select('id').eq('article_id', id);
+      var realVotes = (voteCountResult.data && voteCountResult.data.length) || 0;
 
-      if(a.poll_data&&typeof Polls!=='undefined') html+=Polls.renderPoll(a.poll_data,id);
+      var catEmojis = { general: '📌', guide: '📖', info: 'ℹ️', discussion: '💬', proposition: '💡' };
+      var emoji = catEmojis[a.category] || '📌';
 
-      html+='<div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--border);margin-bottom:16px">'
-        +'<button class="vote-btn'+(hasVoted?' voted':'')+'" id="art-vote-btn" data-aid="'+id+'"><i class="fas fa-arrow-up"></i> <span>'+realVotes+'</span> Voter</button>'
-        +'<button class="btn btn--outline" id="art-share-btn" data-aid="'+id+'" data-title="'+App.esc(a.title)+'"><i class="fas fa-share-alt"></i> Partager</button>';
-      if(isAdmin) html+='<button class="btn btn--outline" id="art-pin-btn" data-aid="'+id+'" data-pin="'+(!a.pinned)+'"><i class="fas fa-thumbtack"></i> '+(a.pinned?'Désépingler':'Épingler')+'</button>';
-      if(isAdmin||isAuthor) html+='<button class="btn btn--danger" id="art-del-btn" data-aid="'+id+'"><i class="fas fa-trash"></i> Supprimer</button>';
-      html+='</div>';
+      var html = '<div style="padding:20px">';
 
-      html+='<div class="comments" style="margin-top:0"><div class="comments__title" style="font-size:.9rem;margin-bottom:12px"><i class="fas fa-comments"></i> Discussion</div>';
-      if(App.currentUser){
-        html+='<div class="cmtform"><textarea id="wiki-cmt-input-'+id+'" placeholder="Votre commentaire..." rows="2" style="flex:1"></textarea>'
-          +'<button class="btn btn--primary" id="wiki-cmt-send" data-aid="'+id+'"><i class="fas fa-paper-plane"></i></button></div>';
-      }else{
-        html+='<p style="font-size:.78rem;color:var(--text3);margin-bottom:12px">Connectez-vous pour commenter</p>';
+      // Header
+      html += '<div style="margin-bottom:16px">' +
+        '<span class="wcard__cat">' + emoji + ' ' + App.esc(a.category) + '</span> ' +
+        '<span style="font-size:.68rem;color:var(--text3)">' + App.ago(a.created_at) + '</span>' +
+        (a.pinned ? ' <span style="font-size:.65rem;color:var(--yellow)"><i class="fas fa-thumbtack"></i> Épinglé</span>' : '') +
+        '<h2 style="font-size:1.3rem;font-weight:700;margin:8px 0 4px">' + App.esc(a.title) + '</h2>' +
+        '<div style="font-size:.78rem;color:var(--text2)">' +
+          '<span style="cursor:pointer;text-decoration:underline dotted" onclick="UI.openPublicProfile(\'' + a.author_id + '\')"><i class="fas fa-user" style="color:var(--green)"></i> ' + App.esc(a.author_name || 'Anonyme') + '</span>' +
+          ' · <i class="fas fa-eye"></i> ' + ((a.views || 0) + 1) +
+          ' · <i class="fas fa-arrow-up" style="color:var(--orange)"></i> ' + realVotes +
+        '</div></div>';
+
+      // Content (markdown)
+      html += '<div class="wiki__body" style="border:none;padding:0;margin-bottom:16px">' + marked.parse(a.content || '') + '</div>';
+
+      // Poll
+      if (a.poll_data) {
+        html += Polls.renderPoll(a.poll_data, id);
       }
-      html+='<div id="wiki-comments-'+id+'"><p class="wiki__load" style="font-size:.78rem">Chargement...</p></div></div></div>';
 
-      c.innerHTML=html;
+      // Actions
+      html += '<div style="display:flex;gap:6px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:16px">';
 
-      // Bind events
-      var voteBtn=document.getElementById('art-vote-btn');
-      if(voteBtn) voteBtn.addEventListener('click',function(){UI.toggleArticleVote(this.getAttribute('data-aid'));});
-      var shareBtn=document.getElementById('art-share-btn');
-      if(shareBtn) shareBtn.addEventListener('click',function(){
-        if(typeof Share!=='undefined') Share.shareArticle(this.getAttribute('data-aid'),this.getAttribute('data-title'));
-      });
-      var pinBtn=document.getElementById('art-pin-btn');
-      if(pinBtn) pinBtn.addEventListener('click',function(){UI.togglePinArticle(this.getAttribute('data-aid'),this.getAttribute('data-pin')==='true');});
-      var delBtn=document.getElementById('art-del-btn');
-      if(delBtn) delBtn.addEventListener('click',function(){Auth.deleteWikiArticle(this.getAttribute('data-aid'));});
-      var cmtSend=document.getElementById('wiki-cmt-send');
-      if(cmtSend) cmtSend.addEventListener('click',function(){UI.addWikiComment(this.getAttribute('data-aid'),null);});
-      // Author click
-      c.querySelectorAll('.clickable-author').forEach(function(el){
-        el.style.cursor='pointer';
-        el.style.textDecoration='underline dotted';
-        el.addEventListener('click',function(){UI.openPublicProfile(el.getAttribute('data-uid'));});
-      });
+      // Vote button
+      html += '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" id="wiki-vote-btn-' + id + '"><i class="fas fa-arrow-up"></i> <span>' + realVotes + '</span> Voter</button>';
 
+      // Share button
+      html += '<button class="btn btn--outline" id="wiki-share-btn-' + id + '"><i class="fas fa-share-alt"></i> Partager</button>';
+
+      // Admin: pin
+      if (isAdmin) {
+        html += '<button class="btn btn--outline" id="wiki-pin-btn-' + id + '"><i class="fas fa-thumbtack"></i> ' + (a.pinned ? 'Désépingler' : 'Épingler') + '</button>';
+      }
+
+      // Delete (admin or author)
+      if (isAdmin || isAuthor) {
+        html += '<button class="btn btn--danger" id="wiki-del-btn-' + id + '"><i class="fas fa-trash"></i> Supprimer</button>';
+      }
+      html += '</div>';
+
+      // Comments section
+      html += '<div class="comments">';
+      html += '<div class="comments__title"><i class="fas fa-comments"></i> Commentaires</div>';
+
+      if (App.currentUser) {
+        html += '<div class="cmtform">' +
+          '<textarea id="wiki-comment-input-' + id + '" placeholder="Votre commentaire..." rows="2"></textarea>' +
+          '<button class="btn btn--primary" id="wiki-comment-btn-' + id + '"><i class="fas fa-paper-plane"></i></button></div>';
+      }
+
+      html += '<div id="wiki-comments-list-' + id + '"></div>';
+      html += '</div></div>';
+
+      container.innerHTML = html;
+
+      // Bind events after rendering
+      var voteBtn = document.getElementById('wiki-vote-btn-' + id);
+      if (voteBtn) voteBtn.addEventListener('click', function() { UI.toggleArticleVote(id); });
+
+      var shareBtn = document.getElementById('wiki-share-btn-' + id);
+      if (shareBtn) shareBtn.addEventListener('click', function() { Share.shareArticle(id, a.title); });
+
+      var pinBtn = document.getElementById('wiki-pin-btn-' + id);
+      if (pinBtn) pinBtn.addEventListener('click', function() { UI.togglePinArticle(id, !a.pinned); });
+
+      var delBtn = document.getElementById('wiki-del-btn-' + id);
+      if (delBtn) delBtn.addEventListener('click', function() { Auth.deleteWikiArticle(id); });
+
+      var cmtBtn = document.getElementById('wiki-comment-btn-' + id);
+      if (cmtBtn) cmtBtn.addEventListener('click', function() { UI.addWikiComment(id); });
+
+      // Load comments
       this.loadWikiComments(id);
-    }catch(e){console.error('Article:',e);c.innerHTML='<p style="color:var(--red);padding:20px">Erreur</p>';}
+
+    } catch(e) {
+      console.error('Open article error:', e);
+      container.innerHTML = '<p style="color:var(--text3)">Erreur</p>';
+    }
   },
 
-  togglePinArticle:async function(id,pin){
-    if(!App.currentProfile||App.currentProfile.role!=='admin'){this.toast('Accès refusé','error');return;}
-    var r=await App.supabase.from('wiki_articles').update({pinned:pin,updated_at:new Date().toISOString()}).eq('id',id);
-    if(r.error) this.toast('Erreur','error');
-    else{this.toast(pin?'Épinglé !':'Désépinglé','success');this.openArticle(id);this.loadCommunityArticles();}
-  },
-
-  toggleArticleVote:async function(id){
-    if(!App.currentUser){this.toast('Connectez-vous','warning');return;}
-    try{
-      var ex=await App.supabase.from('wiki_votes').select('id').eq('article_id',id).eq('user_id',App.currentUser.id).maybeSingle();
-      if(ex.data){await App.supabase.from('wiki_votes').delete().eq('id',ex.data.id);this.toast('Vote retiré','info');}
-      else{var ins=await App.supabase.from('wiki_votes').insert({article_id:id,user_id:App.currentUser.id});if(ins.error) throw ins.error;this.toast('Merci !','success');}
-      var real=await this._countVotes('wiki_votes','article_id',id);
-      await App.supabase.from('wiki_articles').update({upvotes:real}).eq('id',id);
-      this.openArticle(id);
-    }catch(e){this.toast('Erreur','error');}
-  },
-
-  loadWikiComments:async function(aid){
-    var c=document.getElementById('wiki-comments-'+aid);
-    if(!c) return;
-    try{
-      var r=await App.supabase.from('wiki_comments').select('*, profiles(username)').eq('article_id',aid).order('created_at',{ascending:true});
-      if(r.error) throw r.error;
-      if(!r.data||!r.data.length){c.innerHTML='<p style="color:var(--text3);font-size:.78rem;padding:8px">Aucun commentaire</p>';return;}
-      var roots=[],map={};
-      for(var i=0;i<r.data.length;i++){
-        if(!r.data[i].reply_to) roots.push(r.data[i]);
-        else{if(!map[r.data[i].reply_to]) map[r.data[i].reply_to]=[];map[r.data[i].reply_to].push(r.data[i]);}
+  // ═══════════════ ARTICLE ACTIONS ═══════════════
+  toggleArticleVote: async function(articleId) {
+    if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
+    try {
+      var existing = await App.supabase.from('wiki_votes').select('id').eq('article_id', articleId).eq('user_id', App.currentUser.id).maybeSingle();
+      if (existing.data) {
+        await App.supabase.from('wiki_votes').delete().eq('id', existing.data.id);
+        UI.toast('Vote retiré', 'info');
+      } else {
+        await App.supabase.from('wiki_votes').insert({ article_id: articleId, user_id: App.currentUser.id });
+        UI.toast('Merci !', 'success');
       }
-      c.innerHTML=this._renderTree(roots,map,aid,0);
-      // Bind reply buttons
-      c.querySelectorAll('[data-reply-aid]').forEach(function(btn){
-        btn.addEventListener('click',function(){UI.showReplyForm(btn.getAttribute('data-reply-aid'),btn.getAttribute('data-reply-pid'));});
-      });
-      c.querySelectorAll('[data-del-aid]').forEach(function(btn){
-        btn.addEventListener('click',function(){UI.deleteWikiComment(btn.getAttribute('data-del-aid'),btn.getAttribute('data-del-cid'));});
-      });
-      c.querySelectorAll('.clickable-author').forEach(function(el){
-        el.style.cursor='pointer';
-        el.addEventListener('click',function(){UI.openPublicProfile(el.getAttribute('data-uid'));});
-      });
-    }catch(e){c.innerHTML='<p style="color:var(--red);font-size:.78rem">Erreur</p>';}
+      // Update count
+      var all = await App.supabase.from('wiki_votes').select('id').eq('article_id', articleId);
+      var count = (all.data && all.data.length) || 0;
+      await App.supabase.from('wiki_articles').update({ upvotes: count }).eq('id', articleId);
+      this.openArticle(articleId);
+    } catch(e) { UI.toast('Erreur', 'error'); }
   },
 
-  _renderTree:function(comments,map,aid,depth){
-    var html='';
-    var maxD=4;
-    var indent=Math.min(depth,maxD)*20;
-    var isAdmin=App.currentProfile&&App.currentProfile.role==='admin';
-    for(var i=0;i<comments.length;i++){
-      var cm=comments[i];
-      var name=(cm.profiles&&cm.profiles.username)||'Anonyme';
-      var ini=name.charAt(0).toUpperCase();
-      var own=App.currentUser&&cm.user_id===App.currentUser.id;
-      var border=depth>0?'border-left:2px solid var(--green);padding-left:8px;background:rgba(63,185,80,.02);':'';
-      html+='<div class="cmt" style="margin-left:'+indent+'px;'+border+'margin-bottom:6px">'
-        +'<div class="cmt__av">'+ini+'</div><div class="cmt__body" style="flex:1">'
-        +'<div class="cmt__head"><span class="cmt__author clickable-author" data-uid="'+cm.user_id+'">'+App.esc(name)+'</span><span class="cmt__date">'+App.ago(cm.created_at)+'</span></div>'
-        +'<div class="cmt__text">'+App.esc(cm.content)+'</div>'
-        +'<div style="display:flex;gap:8px;margin-top:4px">';
-      if(App.currentUser&&depth<maxD) html+='<button class="btn btn--ghost" style="font-size:.65rem;padding:2px 6px" data-reply-aid="'+aid+'" data-reply-pid="'+cm.id+'"><i class="fas fa-reply"></i> Répondre</button>';
-      if(own||isAdmin) html+='<button class="btn btn--ghost" style="font-size:.65rem;padding:2px 6px;color:var(--red)" data-del-aid="'+aid+'" data-del-cid="'+cm.id+'"><i class="fas fa-trash"></i></button>';
-      html+='</div><div id="reply-form-'+cm.id+'"></div></div></div>';
-      if(map[cm.id]) html+=this._renderTree(map[cm.id],map,aid,depth+1);
+  togglePinArticle: async function(articleId, pin) {
+    try {
+      await App.supabase.from('wiki_articles').update({ pinned: pin }).eq('id', articleId);
+      UI.toast(pin ? 'Article épinglé' : 'Article désépinglé', 'success');
+      this.openArticle(articleId);
+    } catch(e) { UI.toast('Erreur', 'error'); }
+  },
+
+  // ═══════════════ WIKI COMMENTS ═══════════════
+  loadWikiComments: async function(articleId) {
+    var el = document.getElementById('wiki-comments-list-' + articleId);
+    if (!el) return;
+    try {
+      var result = await App.supabase.from('wiki_comments')
+        .select('*, profiles(username)')
+        .eq('article_id', articleId)
+        .order('created_at', { ascending: true });
+
+      if (!result.data || result.data.length === 0) {
+        el.innerHTML = '<p style="color:var(--text3);font-size:.78rem;padding:8px">Aucun commentaire</p>';
+        return;
+      }
+
+      // Build tree
+      var roots = [];
+      var childMap = {};
+      for (var i = 0; i < result.data.length; i++) {
+        var c = result.data[i];
+        if (!c.reply_to) {
+          roots.push(c);
+        } else {
+          if (!childMap[c.reply_to]) childMap[c.reply_to] = [];
+          childMap[c.reply_to].push(c);
+        }
+      }
+
+      var html = this._renderCommentTree(roots, childMap, articleId, 0);
+      el.innerHTML = html;
+
+      // Bind reply buttons
+      el.querySelectorAll('.wiki-reply-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var parentId = this.getAttribute('data-parent');
+          var replyDiv = document.getElementById('reply-form-' + parentId);
+          if (replyDiv) replyDiv.style.display = replyDiv.style.display === 'none' ? 'block' : 'none';
+        });
+      });
+
+      el.querySelectorAll('.wiki-reply-submit').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var parentId = this.getAttribute('data-parent');
+          var aid = this.getAttribute('data-article');
+          UI.addWikiComment(aid, parentId);
+        });
+      });
+
+    } catch(e) {
+      el.innerHTML = '<p style="color:var(--text3)">Erreur</p>';
+    }
+  },
+
+  _renderCommentTree: function(comments, childMap, articleId, depth) {
+    if (depth > 4) return '';
+    var html = '';
+    for (var i = 0; i < comments.length; i++) {
+      var c = comments[i];
+      var name = (c.profiles && c.profiles.username) || 'Anonyme';
+      var indent = depth * 24;
+      html += '<div class="cmt" style="margin-left:' + indent + 'px">' +
+        '<div class="cmt__av">' + name.charAt(0).toUpperCase() + '</div>' +
+        '<div class="cmt__body">' +
+          '<div class="cmt__head">' +
+            '<span class="cmt__author" style="cursor:pointer" onclick="UI.openPublicProfile(\'' + c.user_id + '\')">' + App.esc(name) + '</span>' +
+            '<span class="cmt__date">' + App.ago(c.created_at) + '</span>' +
+          '</div>' +
+          '<div class="cmt__text">' + App.esc(c.content) + '</div>';
+
+      if (App.currentUser && depth < 4) {
+        html += '<button class="wiki-reply-btn" data-parent="' + c.id + '" style="font-size:.65rem;color:var(--text3);background:none;border:none;cursor:pointer;margin-top:2px"><i class="fas fa-reply"></i> Répondre</button>' +
+          '<div id="reply-form-' + c.id + '" style="display:none;margin-top:4px">' +
+            '<div class="cmtform"><textarea id="reply-input-' + c.id + '" placeholder="Répondre..." rows="1" style="font-size:.75rem"></textarea>' +
+            '<button class="btn btn--primary wiki-reply-submit" data-parent="' + c.id + '" data-article="' + articleId + '" style="padding:4px 8px"><i class="fas fa-paper-plane"></i></button></div></div>';
+      }
+
+      html += '</div></div>';
+
+      // Render children
+      if (childMap[c.id]) {
+        html += this._renderCommentTree(childMap[c.id], childMap, articleId, depth + 1);
+      }
     }
     return html;
   },
 
-  showReplyForm:function(aid,pid){
-    var c=document.getElementById('reply-form-'+pid);
-    if(!c) return;
-    if(c.innerHTML.trim()){c.innerHTML='';return;}
-    c.innerHTML='<div class="cmtform" style="margin-top:6px">'
-      +'<textarea id="reply-input-'+pid+'" placeholder="Réponse..." rows="2" style="flex:1;font-size:.78rem"></textarea>'
-      +'<button class="btn btn--primary" style="font-size:.72rem" id="reply-send-'+pid+'" data-aid="'+aid+'" data-pid="'+pid+'"><i class="fas fa-paper-plane"></i></button>'
-      +'<button class="btn btn--ghost" style="font-size:.72rem" id="reply-cancel-'+pid+'">Annuler</button></div>';
-    document.getElementById('reply-send-'+pid).addEventListener('click',function(){UI.addWikiComment(aid,pid);});
-    document.getElementById('reply-cancel-'+pid).addEventListener('click',function(){c.innerHTML='';});
-    setTimeout(function(){var t=document.getElementById('reply-input-'+pid);if(t)t.focus();},50);
+  addWikiComment: async function(articleId, replyTo) {
+    if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
+    var inputId = replyTo ? 'reply-input-' + replyTo : 'wiki-comment-input-' + articleId;
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    var content = input.value.trim();
+    if (!content || content.length < 2) { UI.toast('Trop court', 'warning'); return; }
+
+    try {
+      var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: '', description: content }) });
+      var modData = await modResp.json();
+      if (modData.flagged && modData.reformulated && modData.cleaned) {
+        content = modData.cleaned.description;
+      }
+
+      var insertData = { article_id: articleId, user_id: App.currentUser.id, content: content };
+      if (replyTo) insertData.reply_to = replyTo;
+
+      var result = await App.supabase.from('wiki_comments').insert(insertData);
+      if (result.error) throw result.error;
+      input.value = '';
+      UI.toast('Commentaire ajouté', 'success');
+      this.loadWikiComments(articleId);
+    } catch(e) { UI.toast('Erreur', 'error'); }
   },
 
-  addWikiComment:async function(aid,pid){
-    if(!App.currentUser){this.toast('Connectez-vous','warning');return;}
-    var inputId=pid?'reply-input-'+pid:'wiki-cmt-input-'+aid;
-    var inp=document.getElementById(inputId);
-    if(!inp) return;
-    var content=inp.value.trim();
-    if(!content||content.length<2){this.toast('Trop court','warning');return;}
-    try{
-      var modR=await fetch('/api/moderate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'',description:content,context:'wiki'})});
-      var modD=await modR.json();
-      if(modD.flagged&&modD.reformulated&&modD.cleaned){content=modD.cleaned.description;this.toast('Reformulé','info');}
-      var d={article_id:aid,user_id:App.currentUser.id,content:content};
-      if(pid) d.reply_to=pid;
-      var r=await App.supabase.from('wiki_comments').insert(d);
-      if(r.error) throw r.error;
-      inp.value='';
-      if(pid){var rc=document.getElementById('reply-form-'+pid);if(rc)rc.innerHTML='';}
-      this.toast('Ajouté','success');
-      this.loadWikiComments(aid);
-    }catch(e){this.toast('Erreur','error');}
-  },
+  // ═══════════════ WIKI WRITE ═══════════════
+  wikiWrite: function() {
+    var newBtn = document.getElementById('btn-new-article');
+    if (newBtn) newBtn.addEventListener('click', function() {
+      if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
+      UI.openModal('modal-wiki-write');
+    });
 
-  deleteWikiComment:async function(aid,cid){
-    if(!confirm('Supprimer ?')) return;
-    await App.supabase.from('wiki_comments').delete().eq('reply_to',cid);
-    await App.supabase.from('wiki_comments').delete().eq('id',cid);
-    this.toast('Supprimé','success');
-    this.loadWikiComments(aid);
-  },
+    var form = document.getElementById('wiki-write-form');
+    if (form) form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      UI.publishArticle();
+    });
 
-  wikiWrite:function(){
-    var self=this;
-    var btn=document.getElementById('btn-new-article');
-    if(btn) btn.addEventListener('click',function(){
-      if(!App.currentUser){self.toast('Connectez-vous','warning');return;}
-      document.getElementById('wiki-write-title').textContent='Écrire un article';
-      document.getElementById('wa-title').value='';
-      document.getElementById('wa-category').value='general';
-      document.getElementById('wa-content').value='';
-      document.getElementById('wa-char-count').textContent='0';
-      self._previewVisible=false;
-      var prev=document.getElementById('wa-preview');
-      if(prev){prev.style.display='none';prev.innerHTML='';}
-      var old=document.getElementById('md-toolbar');
-      if(old) old.remove();
-      var pf=document.getElementById('poll-form-container');
-      if(pf) pf.remove();
-      self.openModal('modal-wiki-write');
-      setTimeout(function(){
-        self.initMarkdownToolbar();
-        if(typeof Polls!=='undefined'&&!document.getElementById('poll-form-container')){
-          var waForm=document.getElementById('wiki-write-form');
-          var lastDiv=waForm.querySelector('div:last-child');
-          var pd=document.createElement('div');pd.id='poll-form-container';
-          pd.innerHTML='<button type="button" class="btn btn--outline" style="margin-bottom:8px" id="poll-toggle-btn"><i class="fas fa-poll"></i> Ajouter un sondage</button>'+Polls.getFormHtml();
-          waForm.insertBefore(pd,lastDiv);
-          document.getElementById('poll-toggle-btn').addEventListener('click',function(){Polls.toggleForm();});
+    // Character count
+    var contentArea = document.getElementById('wa-content');
+    if (contentArea) {
+      contentArea.addEventListener('input', function() {
+        var counter = document.getElementById('wa-char-count');
+        if (counter) counter.textContent = this.value.length;
+
+        // Live preview
+        var preview = document.getElementById('wa-preview');
+        if (preview && this.value.trim()) {
+          preview.style.display = 'block';
+          preview.innerHTML = marked.parse(this.value);
+        } else if (preview) {
+          preview.style.display = 'none';
         }
-      },200);
-    });
-    var wa=document.getElementById('wa-content');
-    if(wa) wa.addEventListener('input',function(){
-      document.getElementById('wa-char-count').textContent=wa.value.length;
-      if(UI._previewVisible) UI.updateMarkdownPreview();
-    });
-    var form=document.getElementById('wiki-write-form');
-    if(form) form.addEventListener('submit',function(e){e.preventDefault();self.publishArticle();});
+      });
+    }
+
+    // Markdown toolbar
+    this._addMarkdownToolbar();
+
+    // Poll toggle
+    var pollToggle = document.getElementById('wiki-poll-toggle');
+    if (pollToggle) pollToggle.addEventListener('click', function() { Polls.toggleForm(); });
   },
 
-  initMarkdownToolbar:function(){
-    var ta=document.getElementById('wa-content');if(!ta) return;
-    var old=document.getElementById('md-toolbar');if(old) old.remove();
-    var tb=document.createElement('div');tb.id='md-toolbar';
-    tb.style.cssText='display:flex;gap:2px;flex-wrap:wrap;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-bottom:none;border-radius:var(--r) var(--r) 0 0';
-    var btns=[
-      {i:'fa-bold',t:'Gras',a:'bold'},{i:'fa-italic',t:'Italique',a:'italic'},{i:'fa-strikethrough',t:'Barré',a:'strike'},{sep:1},
-      {i:'fa-heading',t:'H1',a:'h1'},{i:'fa-heading',t:'H2',a:'h2',s:1},{i:'fa-heading',t:'H3',a:'h3',ss:1},{sep:1},
-      {i:'fa-list-ul',t:'Liste',a:'ul'},{i:'fa-list-ol',t:'Numéros',a:'ol'},{sep:1},
-      {i:'fa-quote-left',t:'Citation',a:'quote'},{i:'fa-code',t:'Code',a:'code'},{sep:1},
-      {i:'fa-link',t:'Lien',a:'link'},{i:'fa-image',t:'Image',a:'image'},{i:'fa-table',t:'Tableau',a:'table'},{sep:1},
-      {i:'fa-eye',t:'Aperçu',a:'preview',sp:1}
+  _addMarkdownToolbar: function() {
+    var content = document.getElementById('wa-content');
+    if (!content) return;
+
+    var toolbar = document.createElement('div');
+    toolbar.style.cssText = 'display:flex;gap:2px;margin-bottom:4px;flex-wrap:wrap';
+
+    var tools = [
+      { icon: 'fa-bold', pre: '**', post: '**', label: 'Gras' },
+      { icon: 'fa-italic', pre: '*', post: '*', label: 'Italique' },
+      { icon: 'fa-strikethrough', pre: '~~', post: '~~', label: 'Barré' },
+      { icon: 'fa-heading', pre: '## ', post: '', label: 'Titre' },
+      { icon: 'fa-list-ul', pre: '- ', post: '', label: 'Liste' },
+      { icon: 'fa-list-ol', pre: '1. ', post: '', label: 'Liste num.' },
+      { icon: 'fa-quote-left', pre: '> ', post: '', label: 'Citation' },
+      { icon: 'fa-code', pre: '`', post: '`', label: 'Code' },
+      { icon: 'fa-link', pre: '[', post: '](url)', label: 'Lien' },
+      { icon: 'fa-image', pre: '![alt](', post: ')', label: 'Image' },
+      { icon: 'fa-table', pre: '| Col1 | Col2 |\n|------|------|\n| ', post: ' | val |', label: 'Tableau' }
     ];
-    for(var i=0;i<btns.length;i++){
-      var b=btns[i];
-      if(b.sep){var sep=document.createElement('div');sep.style.cssText='width:1px;height:20px;background:var(--border);margin:0 2px;align-self:center';tb.appendChild(sep);continue;}
-      var btn=document.createElement('button');btn.type='button';btn.title=b.t;
-      btn.style.cssText='width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:'+(b.sp?'var(--green2)':'var(--bg)')+';border:1px solid var(--border);border-radius:3px;cursor:pointer;color:'+(b.sp?'#fff':'var(--text2)')+';font-size:.7rem;transition:all .1s';
-      var fs=b.ss?' style="font-size:.5rem"':(b.s?' style="font-size:.6rem"':'');
-      btn.innerHTML='<i class="fas '+b.i+'"'+fs+'></i>';
-      btn.setAttribute('data-md',b.a);
-      btn.addEventListener('click',function(e){e.preventDefault();UI.applyMarkdown(this.getAttribute('data-md'));});
-      tb.appendChild(btn);
-    }
-    ta.parentNode.insertBefore(tb,ta);
-    ta.style.borderRadius='0 0 var(--r) var(--r)';
-    ta.style.borderTop='none';
-  },
 
-  applyMarkdown:function(a){
-    if(a==='preview'){this.toggleMarkdownPreview();return;}
-    var ta=document.getElementById('wa-content');if(!ta) return;
-    var s=ta.selectionStart,e=ta.selectionEnd,t=ta.value,sel=t.substring(s,e),bef=t.substring(0,s),aft=t.substring(e),ins='',co=0;
-    switch(a){
-      case 'bold':ins='**'+(sel||'gras')+'**';co=sel?0:-2;break;
-      case 'italic':ins='*'+(sel||'italique')+'*';co=sel?0:-1;break;
-      case 'strike':ins='~~'+(sel||'barré')+'~~';co=sel?0:-2;break;
-      case 'h1':ins='\n# '+(sel||'Titre')+'\n';break;
-      case 'h2':ins='\n## '+(sel||'Sous-titre')+'\n';break;
-      case 'h3':ins='\n### '+(sel||'Section')+'\n';break;
-      case 'ul':ins=sel?sel.split('\n').map(function(l){return '- '+l;}).join('\n'):'\n- Item 1\n- Item 2\n';break;
-      case 'ol':ins=sel?sel.split('\n').map(function(l,idx){return(idx+1)+'. '+l;}).join('\n'):'\n1. Item 1\n2. Item 2\n';break;
-      case 'quote':ins=sel?'> '+sel:'\n> Citation\n';break;
-      case 'code':ins='`'+(sel||'code')+'`';co=sel?0:-1;break;
-      case 'link':ins=sel?'['+sel+'](https://)':'[lien](https://example.com)';break;
-      case 'image':ins='![desc](https://image.jpg)';break;
-      case 'table':ins='\n| Col 1 | Col 2 |\n|-------|-------|\n| A | B |\n';break;
-      default:return;
-    }
-    ta.value=bef+ins+aft;ta.focus();
-    ta.setSelectionRange(s+ins.length+co,s+ins.length+co);
-    ta.dispatchEvent(new Event('input'));
-  },
-
-  toggleMarkdownPreview:function(){
-    var p=document.getElementById('wa-preview'),ta=document.getElementById('wa-content');
-    if(!p||!ta) return;
-    this._previewVisible=!this._previewVisible;
-    if(this._previewVisible){
-      p.innerHTML=ta.value?marked.parse(ta.value):'<p style="color:var(--text3)">Commencez à écrire...</p>';
-      p.style.cssText='display:block;min-height:100px;max-height:300px;overflow-y:auto;padding:12px;margin-bottom:8px;border:1px solid var(--green);border-radius:var(--r);background:var(--bg)';
-    }else{p.style.display='none';p.innerHTML='';}
-  },
-
-  updateMarkdownPreview:function(){
-    if(!this._previewVisible) return;
-    var p=document.getElementById('wa-preview'),ta=document.getElementById('wa-content');
-    if(p&&ta) p.innerHTML=ta.value?marked.parse(ta.value):'<p style="color:var(--text3)">Écrivez...</p>';
-  },
-
-  publishArticle:async function(){
-    if(!App.currentUser){this.toast('Connectez-vous','warning');return;}
-    var title=document.getElementById('wa-title').value.trim();
-    var cat=document.getElementById('wa-category').value;
-    var content=document.getElementById('wa-content').value.trim();
-    if(!title||title.length<3){this.toast('Titre trop court','warning');return;}
-    if(!content||content.length<10){this.toast('Contenu trop court','warning');return;}
-    var btn=document.getElementById('btn-wiki-publish');
-    btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Publication...';
-    try{
-      var modR=await fetch('/api/moderate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title,description:content,context:'wiki'})});
-      var modD=await modR.json();
-      if(modD.flagged&&modD.reformulated&&modD.cleaned){title=modD.cleaned.title;content=modD.cleaned.description;this.toast('Reformulé','info');}
-      var slug=title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').substring(0,80)+'-'+Date.now().toString(36);
-      var aName=(App.currentProfile&&App.currentProfile.username)||App.currentUser.email.split('@')[0];
-      var insertData={slug:slug,title:title,content:content,category:cat,author_id:App.currentUser.id,author_name:aName,upvotes:0,views:0,pinned:false};
-      if(typeof Polls!=='undefined'){var pd=Polls.getData();if(pd) insertData.poll_data=pd;}
-      var r=await App.supabase.from('wiki_articles').insert(insertData);
-      if(r.error) throw r.error;
-      if(App.currentProfile){
-        await App.supabase.from('profiles').update({reputation:(App.currentProfile.reputation||0)+5}).eq('id',App.currentUser.id);
-        App.currentProfile.reputation=(App.currentProfile.reputation||0)+5;
-      }
-      this._previewVisible=false;
-      this.closeModal('modal-wiki-write');
-      this.toast('Publié ! +5 pts','success');
-      this.loadCommunityArticles();
-    }catch(e){this.toast('Erreur','error');}
-    btn.disabled=false;btn.innerHTML='<i class="fas fa-paper-plane"></i> Publier';
-  },
-
-  community:function(){
-    var self=this;
-    var pb=document.getElementById('btn-propose-tag');
-    var fc=document.getElementById('tag-proposal-form-container');
-    var cb=document.getElementById('tp-cancel');
-    var f=document.getElementById('tag-proposal-form');
-    if(pb) pb.addEventListener('click',function(){
-      if(!App.currentUser){self.toast('Connectez-vous','warning');return;}
-      fc.style.display=fc.style.display==='none'?'block':'none';
-    });
-    if(cb) cb.addEventListener('click',function(){fc.style.display='none';});
-    if(f) f.addEventListener('submit',function(e){e.preventDefault();self.submitTagProposal();});
-  },
-
-  submitTagProposal:async function(){
-    if(!App.currentUser) return;
-    var n=document.getElementById('tp-name').value.trim();
-    var ic=document.getElementById('tp-icon').value.trim()||'fa-tag';
-    var d=document.getElementById('tp-description').value.trim();
-    if(!n||n.length<2){this.toast('Nom trop court','warning');return;}
-    if(!d||d.length<5){this.toast('Description trop courte','warning');return;}
-    var an=(App.currentProfile&&App.currentProfile.username)||'Anonyme';
-    var r=await App.supabase.from('tag_proposals').insert({name:n,icon:ic,description:d,author_id:App.currentUser.id,author_name:an,upvotes:0});
-    if(r.error){this.toast('Erreur','error');return;}
-    this.toast('Envoyé !','success');
-    document.getElementById('tag-proposal-form').reset();
-    document.getElementById('tag-proposal-form-container').style.display='none';
-    this.loadTagProposals();
-  },
-
-  loadTagProposals:async function(){
-    var c=document.getElementById('tag-proposals-list');
-    if(!c) return;
-    try{
-      var r=await App.supabase.from('tag_proposals').select('*').order('upvotes',{ascending:false});
-      if(r.error) throw r.error;
-      if(!r.data||!r.data.length){c.innerHTML='<p style="color:var(--text3);font-size:.8rem;text-align:center;padding:16px">Aucune proposition</p>';return;}
-      var uv={};
-      if(App.currentUser){var vr=await App.supabase.from('tag_votes').select('proposal_id').eq('user_id',App.currentUser.id);if(vr.data) for(var v=0;v<vr.data.length;v++) uv[vr.data[v].proposal_id]=true;}
-      var isAdmin=App.currentProfile&&App.currentProfile.role==='admin';
-      var html='';
-      for(var i=0;i<r.data.length;i++){
-        var t=r.data[i];
-        var hv=uv[t.id]||false;
-        var realCount=await this._countVotes('tag_votes','proposal_id',t.id);
-        var sb='';
-        if(t.status==='approved') sb='<span style="background:var(--green-bg);color:var(--green);padding:2px 6px;border-radius:10px;font-size:.6rem;font-weight:700;margin-left:6px"><i class="fas fa-check"></i> Validé</span>';
-        else if(t.status==='rejected') sb='<span style="background:var(--red-bg);color:var(--red);padding:2px 6px;border-radius:10px;font-size:.6rem;font-weight:700;margin-left:6px"><i class="fas fa-times"></i> Refusé</span>';
-        html+='<div class="adm" style="align-items:flex-start"><div style="flex:1"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap"><i class="fas '+App.esc(t.icon)+'" style="color:var(--green)"></i><strong style="font-size:.82rem">'+App.esc(t.name)+'</strong>'+sb+'</div><p style="font-size:.72rem;color:var(--text2);margin-bottom:4px">'+App.esc(t.description)+'</p><span style="font-size:.65rem;color:var(--text3)">Par '+App.esc(t.author_name)+' • '+App.ago(t.created_at)+'</span></div>'
-          +'<button class="vote-btn'+(hv?' voted':'')+'" data-tag-vote="'+t.id+'" id="tag-vote-btn-'+t.id+'"><i class="fas fa-arrow-up"></i> <span id="tag-vote-count-'+t.id+'">'+realCount+'</span></button>';
-        if(isAdmin){
-          html+='<div style="display:flex;gap:4px">';
-          if(t.status!=='approved') html+='<button class="btn btn--primary" style="font-size:.65rem;padding:3px 8px" data-tag-status="'+t.id+'" data-status="approved"><i class="fas fa-check"></i></button>';
-          if(t.status!=='rejected') html+='<button class="btn btn--outline" style="font-size:.65rem;padding:3px 8px;color:var(--orange)" data-tag-status="'+t.id+'" data-status="rejected"><i class="fas fa-ban"></i></button>';
-          html+='<button class="btn btn--danger" style="font-size:.65rem;padding:3px 8px" data-tag-del="'+t.id+'"><i class="fas fa-trash"></i></button></div>';
-        }
-        html+='</div>';
-      }
-      c.innerHTML=html;
-      // Bind
-      c.querySelectorAll('[data-tag-vote]').forEach(function(btn){btn.addEventListener('click',function(){UI.voteTagProposal(btn.getAttribute('data-tag-vote'));});});
-      c.querySelectorAll('[data-tag-status]').forEach(function(btn){btn.addEventListener('click',function(){UI.setTagStatus(btn.getAttribute('data-tag-status'),btn.getAttribute('data-status'));});});
-      c.querySelectorAll('[data-tag-del]').forEach(function(btn){btn.addEventListener('click',function(){UI.deleteTagProposal(btn.getAttribute('data-tag-del'));});});
-    }catch(e){c.innerHTML='<p style="color:var(--red)">Erreur</p>';}
-  },
-
-  voteTagProposal:async function(id){
-    if(!App.currentUser){this.toast('Connectez-vous','warning');return;}
-    try{
-      var ex=await App.supabase.from('tag_votes').select('id').eq('proposal_id',id).eq('user_id',App.currentUser.id).maybeSingle();
-      if(ex.data){await App.supabase.from('tag_votes').delete().eq('id',ex.data.id);this.toast('Vote retiré','info');}
-      else{var ins=await App.supabase.from('tag_votes').insert({proposal_id:id,user_id:App.currentUser.id});if(ins.error) throw ins.error;this.toast('Vote ajouté !','success');}
-      var real=await this._countVotes('tag_votes','proposal_id',id);
-      await App.supabase.from('tag_proposals').update({upvotes:real}).eq('id',id);
-      var ce=document.getElementById('tag-vote-count-'+id);if(ce) ce.textContent=real;
-      var be=document.getElementById('tag-vote-btn-'+id);
-      if(be){if(ex.data) be.classList.remove('voted');else be.classList.add('voted');}
-    }catch(e){this.toast('Erreur','error');this.loadTagProposals();}
-  },
-
-  setTagStatus:async function(id,status){
-    if(!App.currentProfile||App.currentProfile.role!=='admin'){this.toast('Accès refusé','error');return;}
-    var r=await App.supabase.from('tag_proposals').update({status:status}).eq('id',id);
-    if(r.error) this.toast('Erreur','error');
-    else{this.toast(status==='approved'?'Validée !':'Refusée',status==='approved'?'success':'info');this.loadTagProposals();}
-  },
-
-  deleteTagProposal:async function(id){
-    if(!confirm('Supprimer ?')) return;
-    await App.supabase.from('tag_votes').delete().eq('proposal_id',id);
-    await App.supabase.from('tag_proposals').delete().eq('id',id);
-    this.toast('Supprimé','success');this.loadTagProposals();
-  },
-
-  openPublicProfile:async function(userId){
-    if(!userId) return;
-    var c=document.getElementById('public-profile-content');
-    if(!c) return;
-    c.innerHTML='<p class="wiki__load">Chargement...</p>';
-    this.openModal('modal-public-profile');
-    try{
-      var pr=await App.supabase.from('profiles').select('*').eq('id',userId).single();
-      if(pr.error) throw pr.error;
-      var p=pr.data;
-      var name=p.username||'Anonyme';
-      var ini=name.charAt(0).toUpperCase();
-      var rc=await App.supabase.from('reports').select('id').eq('user_id',userId);
-      var reportCount=rc.data?rc.data.length:0;
-      var joinDate=p.created_at?new Date(p.created_at).toLocaleDateString('fr-FR',{year:'numeric',month:'long'}):'';
-
-      var html='<div style="padding:24px;text-align:center">'
-        +'<div style="width:72px;height:72px;border-radius:50%;background:var(--green2);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;margin:0 auto 10px;box-shadow:0 4px 16px rgba(63,185,80,.3)">'+ini+'</div>'
-        +'<h2 style="font-size:1.15rem;font-weight:700;margin-bottom:4px">'+App.esc(name)+'</h2>'
-        +'<div style="font-size:.75rem;color:var(--text2);margin-bottom:16px">'
-        +(p.commune?'<i class="fas fa-map-pin" style="color:var(--green)"></i> '+App.esc(p.commune)+' · ':'')
-        +'<i class="fas fa-calendar"></i> '+joinDate+'</div>'
-        +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px">'
-        +'<div class="sc"><div class="sc__v" style="font-size:1.3rem">'+reportCount+'</div><div class="sc__l">Signalements</div></div>'
-        +'<div class="sc"><div class="sc__v" style="font-size:1.3rem;color:var(--green)">'+(p.reputation||0)+'</div><div class="sc__l">Réputation</div></div>'
-        +'<div class="sc"><div class="sc__v" style="font-size:1.3rem;color:var(--yellow)" id="pub-badge-num">...</div><div class="sc__l">Badges</div></div>'
-        +'</div>'
-        +'<div id="pub-badges-area" style="text-align:left"><div style="text-align:center;padding:16px;color:var(--text3)"><span class="spinner"></span></div></div>'
-        +'</div>';
-      c.innerHTML=html;
-      if(typeof Badges!=='undefined'){
-        Badges.getUnlocked(p,userId).then(function(result){
-          var area=document.getElementById('pub-badges-area');
-          var num=document.getElementById('pub-badge-num');
-          if(area) area.innerHTML=Badges.renderGrid(result.unlocked,true);
-          if(num) num.textContent=result.unlocked.length;
+    for (var i = 0; i < tools.length; i++) {
+      (function(tool) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn--ghost';
+        btn.style.cssText = 'padding:3px 6px;font-size:.7rem';
+        btn.innerHTML = '<i class="fas ' + tool.icon + '"></i>';
+        btn.title = tool.label;
+        btn.addEventListener('click', function() {
+          var start = content.selectionStart;
+          var end = content.selectionEnd;
+          var selected = content.value.substring(start, end);
+          var replacement = tool.pre + (selected || tool.label) + tool.post;
+          content.value = content.value.substring(0, start) + replacement + content.value.substring(end);
+          content.focus();
+          content.dispatchEvent(new Event('input'));
         });
-      }else{
-        var area=document.getElementById('pub-badges-area');if(area) area.innerHTML='';
-        var num=document.getElementById('pub-badge-num');if(num) num.textContent='0';
+        toolbar.appendChild(btn);
+      })(tools[i]);
+    }
+
+    // Preview toggle
+    var previewBtn = document.createElement('button');
+    previewBtn.type = 'button';
+    previewBtn.className = 'btn btn--ghost';
+    previewBtn.style.cssText = 'padding:3px 6px;font-size:.7rem;margin-left:auto';
+    previewBtn.innerHTML = '<i class="fas fa-eye"></i>';
+    previewBtn.title = 'Aperçu';
+    previewBtn.addEventListener('click', function() {
+      var preview = document.getElementById('wa-preview');
+      if (preview) {
+        if (preview.style.display === 'none') {
+          preview.style.display = 'block';
+          preview.innerHTML = marked.parse(content.value || '');
+        } else {
+          preview.style.display = 'none';
+        }
       }
-    }catch(e){
-      console.error('Profile:',e);
-      c.innerHTML='<p style="color:var(--red);padding:20px;text-align:center">Profil introuvable</p>';
+    });
+    toolbar.appendChild(previewBtn);
+
+    // Poll button
+    var pollBtn = document.createElement('button');
+    pollBtn.type = 'button';
+    pollBtn.className = 'btn btn--ghost';
+    pollBtn.id = 'wiki-poll-toggle';
+    pollBtn.style.cssText = 'padding:3px 6px;font-size:.7rem';
+    pollBtn.innerHTML = '<i class="fas fa-poll"></i>';
+    pollBtn.title = 'Sondage';
+    pollBtn.addEventListener('click', function() { Polls.toggleForm(); });
+    toolbar.appendChild(pollBtn);
+
+    content.parentNode.insertBefore(toolbar, content);
+
+    // Insert poll form placeholder
+    var pollHtml = Polls.getFormHtml();
+    var pollDiv = document.createElement('div');
+    pollDiv.innerHTML = pollHtml;
+    content.parentNode.insertBefore(pollDiv.firstChild, content.nextSibling);
+    Polls.initForm();
+  },
+
+  publishArticle: async function() {
+    if (!App.currentUser || !App.currentProfile) return;
+    var title = document.getElementById('wa-title').value.trim();
+    var category = document.getElementById('wa-category').value;
+    var content = document.getElementById('wa-content').value.trim();
+
+    if (!title || title.length < 3) { UI.toast('Titre trop court', 'warning'); return; }
+    if (!content || content.length < 10) { UI.toast('Contenu trop court', 'warning'); return; }
+
+    var btn = document.getElementById('btn-wiki-publish');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Publication...';
+
+    try {
+      // Moderate
+      var modResp = await fetch('/api/moderate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title, description: content, context: 'wiki' })
+      });
+      var modData = await modResp.json();
+      if (modData.flagged && modData.reformulated && modData.cleaned) {
+        title = modData.cleaned.title;
+        content = modData.cleaned.description;
+        UI.toast('Contenu reformulé', 'info');
+      }
+
+      var slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36);
+
+      var pollData = Polls.getData();
+
+      var result = await App.supabase.from('wiki_articles').insert({
+        slug: slug,
+        title: title,
+        content: content,
+        category: category,
+        author_id: App.currentUser.id,
+        author_name: App.currentProfile.username || 'Anonyme',
+        poll_data: pollData
+      }).select().single();
+
+      if (result.error) throw result.error;
+
+      // Update reputation
+      if (App.currentProfile) {
+        await App.supabase.from('profiles').update({
+          reputation: (App.currentProfile.reputation || 0) + 15
+        }).eq('id', App.currentUser.id);
+        App.currentProfile.reputation = (App.currentProfile.reputation || 0) + 15;
+      }
+
+      UI.closeModal('modal-wiki-write');
+      UI.toast('Article publié ! +15 pts', 'success');
+      document.getElementById('wiki-write-form').reset();
+      var counter = document.getElementById('wa-char-count');
+      if (counter) counter.textContent = '0';
+      var preview = document.getElementById('wa-preview');
+      if (preview) preview.style.display = 'none';
+
+      this.loadCommunityArticles();
+    } catch(e) {
+      UI.toast('Erreur: ' + (e.message || 'Échec'), 'error');
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Publier';
+  },
+
+  // ═══════════════ PUBLIC PROFILE ═══════════════
+  openPublicProfile: async function(userId) {
+    if (!userId) return;
+
+    // If it's the current user, open private profile
+    if (App.currentUser && userId === App.currentUser.id) {
+      Auth.showProfile();
+      return;
+    }
+
+    try {
+      var profileResult = await App.supabase.from('profiles').select('*').eq('id', userId).single();
+      if (!profileResult.data) { UI.toast('Profil introuvable', 'error'); return; }
+      var p = profileResult.data;
+
+      var initial = (p.username || '?').charAt(0).toUpperCase();
+      var level = Auth._getLevel(p.reputation || 0);
+
+      // Get user's reports
+      var userReports = App.reports.filter(function(r) { return r.user_id === userId; });
+      var resolved = userReports.filter(function(r) { return r.status === 'resolved'; }).length;
+
+      var html = '<div class="pub-profile">' +
+        '<div class="pub-profile__avatar">' + initial + '</div>' +
+        '<div class="pub-profile__name">' + App.esc(p.username || 'Anonyme') + '</div>' +
+        '<div class="pub-profile__meta">' +
+          (p.commune ? '<i class="fas fa-map-pin"></i> ' + App.esc(p.commune) + ' · ' : '') +
+          '<i class="fas fa-calendar"></i> Membre depuis ' + new Date(p.created_at).toLocaleDateString('fr-FR') +
+          ' · Nv.' + level.num + ' ' + level.name +
+        '</div>' +
+        '<div class="pub-profile__stats">' +
+          '<div class="profile__stat"><div class="profile__stat-value">' + (p.reports_count || 0) + '</div><div class="profile__stat-label">Signalements</div></div>' +
+          '<div class="profile__stat profile__stat--green"><div class="profile__stat-value">' + resolved + '</div><div class="profile__stat-label">Résolus</div></div>' +
+          '<div class="profile__stat profile__stat--yellow"><div class="profile__stat-value">' + (p.reputation || 0) + '</div><div class="profile__stat-label">Réputation</div></div>' +
+        '</div>';
+
+      // Badges
+      html += '<div style="text-align:left;margin-top:16px" id="pub-badges-container"></div>';
+
+      // User's reports
+      if (userReports.length > 0) {
+        html += '<div style="text-align:left;margin-top:16px">' +
+          '<h3 style="font-size:.85rem;font-weight:700;margin-bottom:8px"><i class="fas fa-flag" style="color:var(--green)"></i> Signalements (' + userReports.length + ')</h3>';
+        var max = Math.min(userReports.length, 10);
+        for (var i = 0; i < max; i++) {
+          var r = userReports[i];
+          var cat = App.categories[r.category] || App.categories.other;
+          var status = App.statuses[r.status] || App.statuses.pending;
+          html += '<div class="adm" style="cursor:pointer;margin-bottom:4px" onclick="UI.closeModal(\'modal-profile\');Reports.openDetail(\'' + r.id + '\')">' +
+            '<div class="adm__info"><div class="adm__title">' + App.esc(r.title) + '</div>' +
+            '<div class="adm__meta"><span class="badge badge--cat">' + cat.label + '</span> <span class="badge badge--' + r.status + '">' + status.label + '</span> · ' + App.ago(r.created_at) + '</div></div>' +
+            '<span class="card__votes"><i class="fas fa-arrow-up"></i> ' + (r.upvotes || 0) + '</span></div>';
+        }
+        if (userReports.length > 10) html += '<p style="color:var(--text3);font-size:.75rem;margin-top:4px">+ ' + (userReports.length - 10) + ' autres</p>';
+        html += '</div>';
+      }
+
+      html += '</div>';
+
+      var container = document.getElementById('profile-content');
+      if (container) container.innerHTML = html;
+      this.openModal('modal-profile');
+
+      // Render badges for public profile
+      if (typeof Badges !== 'undefined') {
+        // Build minimal stats from public data
+        var pubStats = {
+          catCounts: {},
+          votesGiven: 0,
+          votesReceived: 0,
+          wikiArticles: 0,
+          commentsCount: 0,
+          uniqueCommunes: 0,
+          maxCommuneCount: 0,
+          hasIslands: false,
+          maxDailyReports: 0,
+          nightReport: false,
+          maxStreak: 0,
+          resolvedCount: resolved,
+          photosCount: 0
+        };
+        var communeCounts = {};
+        for (var i = 0; i < userReports.length; i++) {
+          var r = userReports[i];
+          pubStats.catCounts[r.category] = (pubStats.catCounts[r.category] || 0) + 1;
+          if (r.commune) communeCounts[r.commune] = (communeCounts[r.commune] || 0) + 1;
+          pubStats.votesReceived += (r.upvotes || 0);
+          if (r.images && r.images.length) pubStats.photosCount += r.images.length;
+        }
+        pubStats.uniqueCommunes = Object.keys(communeCounts).length;
+        for (var c in communeCounts) { if (communeCounts[c] > pubStats.maxCommuneCount) pubStats.maxCommuneCount = communeCounts[c]; }
+
+        var badgesEl = document.getElementById('pub-badges-container');
+        if (badgesEl) badgesEl.innerHTML = Badges.renderGrid(p, pubStats);
+      }
+
+    } catch(e) {
+      console.error('Public profile error:', e);
+      UI.toast('Erreur chargement profil', 'error');
     }
   },
 
-  contactEmail:function(){
-    var el=document.getElementById('contact-email-link');
-    var ed=document.getElementById('contact-email-display');
-    if(App.config&&App.config.contactEmail){if(el) el.href='mailto:'+App.config.contactEmail;if(ed) ed.textContent=App.config.contactEmail;}
-    var rl=document.getElementById('repo-link');if(rl&&App.config&&App.config.repoUrl) rl.href=App.config.repoUrl;
+  // ═══════════════ CONTACT EMAIL ═══════════════
+  contactEmail: function() {
+    var link = document.getElementById('contact-email-link');
+    var display = document.getElementById('contact-email-display');
+    if (App.config && App.config.contactEmail) {
+      if (link) link.href = 'mailto:' + App.config.contactEmail;
+      if (display) display.textContent = App.config.contactEmail;
+    }
   },
 
-  keyboardShortcuts:function(){
-    document.addEventListener('keydown',function(e){
-      if(e.ctrlKey&&e.shiftKey&&e.key==='N'){e.preventDefault();var b=document.getElementById('btn-new-report');if(b)b.click();}
-      var wa=document.getElementById('wa-content');
-      if(wa&&document.activeElement===wa){
-        if(e.ctrlKey&&e.key==='b'){e.preventDefault();UI.applyMarkdown('bold');}
-        if(e.ctrlKey&&e.key==='i'){e.preventDefault();UI.applyMarkdown('italic');}
-        if(e.ctrlKey&&e.key==='k'){e.preventDefault();UI.applyMarkdown('link');}
+  // ═══════════════ KEYBOARD SHORTCUTS ═══════════════
+  keyboardShortcuts: function() {
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal.open').forEach(function(m) { m.classList.remove('open'); });
       }
     });
   },
 
-  networkStatus:function(){
-    window.addEventListener('offline',function(){UI.toast('Hors ligne','warning');});
-    window.addEventListener('online',function(){UI.toast('Reconnecté','success');});
+  // ═══════════════ NETWORK STATUS ═══════════════
+  networkStatus: function() {
+    window.addEventListener('offline', function() { UI.toast('Connexion perdue', 'warning'); });
+    window.addEventListener('online', function() { UI.toast('Reconnecté', 'success'); Reports.loadAll(); });
   },
 
-  toast:function(msg,type){
-    type=type||'info';
-    var icons={success:'fa-check-circle',error:'fa-exclamation-circle',warning:'fa-exclamation-triangle',info:'fa-info-circle'};
-    var c=document.getElementById('toast-container');if(!c) return;
-    var t=document.createElement('div');t.className='toast toast--'+type;
-    t.innerHTML='<i class="toast__ico fas '+(icons[type]||icons.info)+'"></i><span class="toast__msg">'+App.esc(msg)+'</span><button class="toast__x"><i class="fas fa-times"></i></button>';
-    t.querySelector('.toast__x').addEventListener('click',function(){t.remove();});
-    c.appendChild(t);
-    setTimeout(function(){t.style.transition='all .3s';t.style.opacity='0';t.style.transform='translateX(60px)';setTimeout(function(){if(t.parentNode)t.remove();},300);},4000);
+  // ═══════════════ TOAST ═══════════════
+  toast: function(msg, type) {
+    type = type || 'info';
+    var container = document.getElementById('toast-container');
+    if (!container) return;
+
+    var icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+
+    var toast = document.createElement('div');
+    toast.className = 'toast toast--' + type;
+    toast.innerHTML = '<span class="toast__ico"><i class="fas ' + (icons[type] || icons.info) + '"></i></span>' +
+      '<span class="toast__msg">' + App.esc(msg) + '</span>' +
+      '<button class="toast__x"><i class="fas fa-times"></i></button>';
+
+    toast.querySelector('.toast__x').addEventListener('click', function() { toast.remove(); });
+
+    container.appendChild(toast);
+
+    setTimeout(function() {
+      if (toast.parentNode) toast.remove();
+    }, 4000);
   },
 
-  showLoading:function(){var e=document.getElementById('loading-overlay');if(e) e.classList.add('active');},
-  hideLoading:function(){var e=document.getElementById('loading-overlay');if(e) e.classList.remove('active');}
+  // ═══════════════ LOADING ═══════════════
+  showLoading: function() {
+    var loader = document.getElementById('loading-overlay');
+    if (loader) loader.classList.add('active');
+  },
+
+  hideLoading: function() {
+    var loader = document.getElementById('loading-overlay');
+    if (loader) loader.classList.remove('active');
+  }
 };
