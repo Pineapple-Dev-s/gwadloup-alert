@@ -1,4 +1,6 @@
 var Reports = {
+  viewMode: 'list', // 'list' or 'cards'
+
   loadAll: async function() {
     try {
       var query = App.supabase.from('reports').select('*').order('created_at', { ascending: false });
@@ -21,22 +23,31 @@ var Reports = {
   renderList: function() {
     var grid = document.getElementById('reports-grid');
     var empty = document.getElementById('list-empty');
-    var count = document.getElementById('list-count');
+    var countEl = document.getElementById('list-count');
+    var header = document.getElementById('list-header');
     if (!grid) return;
-    if (App.reports.length === 0) {
-      grid.innerHTML = '';
-      if (empty) empty.style.display = 'block';
-      if (count) count.textContent = '0 signalement';
-      return;
-    }
-    if (empty) empty.style.display = 'none';
-    if (count) count.textContent = App.reports.length + ' signalement' + (App.reports.length > 1 ? 's' : '');
 
+    // Sort
     var sorted = App.reports.slice();
     var sortEl = document.getElementById('sort-reports');
     var sortVal = sortEl ? sortEl.value : 'newest';
     if (sortVal === 'oldest') sorted.sort(function(a, b) { return new Date(a.created_at) - new Date(b.created_at); });
     else if (sortVal === 'most-voted') sorted.sort(function(a, b) { return (b.upvotes || 0) - (a.upvotes || 0); });
+
+    if (sorted.length === 0) {
+      grid.innerHTML = '';
+      grid.className = 'grid';
+      if (empty) empty.style.display = 'block';
+      if (header) header.style.display = 'none';
+      if (countEl) countEl.textContent = '0';
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+    if (header) header.style.display = 'flex';
+    if (countEl) countEl.textContent = sorted.length;
+
+    var isCards = this.viewMode === 'cards';
+    grid.className = isCards ? 'grid--cards' : 'grid';
 
     var html = '';
     for (var i = 0; i < sorted.length; i++) {
@@ -44,17 +55,44 @@ var Reports = {
       var cat = App.categories[r.category] || App.categories.other;
       var status = App.statuses[r.status] || App.statuses.pending;
       var fa = MapManager.getFaForCat(r.category);
-      var imgHtml = (r.images && r.images.length > 0)
-        ? '<img class="card__img" src="' + r.images[0] + '" alt="" loading="lazy">'
-        : '<div class="card__ph"><i class="fas ' + fa + '"></i></div>';
-      html += '<div class="card" onclick="Reports.openDetail(\'' + r.id + '\')">' + imgHtml +
-        '<div class="card__body"><div class="card__row">' +
-        '<span class="badge badge--cat"><i class="fas ' + fa + '"></i> ' + cat.label + '</span>' +
-        '<span class="badge badge--' + r.status + '">' + status.label + '</span></div>' +
-        '<div class="card__title">' + App.esc(r.title) + '</div>' +
-        '<div class="card__addr"><i class="fas fa-map-pin"></i> ' + (r.address ? App.esc(r.address.substring(0, 40)) : r.commune || 'Guadeloupe') + '</div>' +
-        '<div class="card__foot"><span class="card__votes"><i class="fas fa-arrow-up"></i> ' + (r.upvotes || 0) + '</span>' +
-        '<span class="card__date">' + App.ago(r.created_at) + '</span></div></div></div>';
+
+      if (isCards) {
+        // Card view
+        var imgHtml = (r.images && r.images.length > 0)
+          ? '<img class="card__img" src="' + r.images[0] + '" alt="" loading="lazy">'
+          : '<div class="card__ph"><i class="fas ' + fa + '"></i></div>';
+        html += '<div class="card" onclick="Reports.openDetail(\'' + r.id + '\')">' + imgHtml +
+          '<div class="card__body">' +
+            '<div class="card__row">' +
+              '<span class="badge badge--cat"><i class="fas ' + fa + '"></i> ' + cat.label + '</span>' +
+              '<span class="badge badge--' + r.status + '">' + status.label + '</span>' +
+            '</div>' +
+            '<div class="card__title">' + App.esc(r.title) + '</div>' +
+            '<div class="card__addr"><i class="fas fa-map-pin"></i> ' + (r.address ? App.esc(r.address.substring(0, 45)) : r.commune || 'Guadeloupe') + '</div>' +
+            '<div class="card__foot">' +
+              '<span class="card__votes"><i class="fas fa-arrow-up"></i> ' + (r.upvotes || 0) + '</span>' +
+              '<span class="card__date"><i class="fas fa-clock"></i> ' + App.ago(r.created_at) + '</span>' +
+            '</div>' +
+          '</div></div>';
+      } else {
+        // List view (GitHub Issues style)
+        html += '<div class="card" onclick="Reports.openDetail(\'' + r.id + '\')">' +
+          '<div class="card__indicator card__indicator--' + r.status + '"></div>' +
+          '<div class="card__body">' +
+            '<div class="card__row">' +
+              '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">' +
+                '<span class="badge badge--cat"><i class="fas ' + fa + '"></i> ' + cat.label + '</span>' +
+                '<span class="card__title" style="margin:0">' + App.esc(r.title) + '</span>' +
+              '</div>' +
+              '<span class="badge badge--' + r.status + '">' + status.label + '</span>' +
+            '</div>' +
+            '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">' +
+              '<span class="card__addr"><i class="fas fa-map-pin"></i> ' + (r.commune || 'Guadeloupe') + '</span>' +
+              '<span class="card__votes"><i class="fas fa-arrow-up"></i> ' + (r.upvotes || 0) + '</span>' +
+              '<span class="card__date">' + App.ago(r.created_at) + '</span>' +
+            '</div>' +
+          '</div></div>';
+      }
     }
     grid.innerHTML = html;
   },
@@ -67,11 +105,25 @@ var Reports = {
       else if (s === 'in_progress' || s === 'acknowledged') inProgress++;
       else if (s === 'resolved') resolved++;
     }
+
+    // Topbar stats
     var ids = { 'stat-total': total, 'stat-pending': pending, 'stat-progress': inProgress, 'stat-resolved': resolved,
       'stats-total': total, 'stats-pending': pending, 'stats-in-progress': inProgress, 'stats-resolved': resolved };
     for (var id in ids) { var el = document.getElementById(id); if (el) el.textContent = ids[id]; }
+
+    // Progress bars
+    var barPending = document.getElementById('bar-pending');
+    var barProgress = document.getElementById('bar-progress');
+    var barResolved = document.getElementById('bar-resolved');
+    if (total > 0) {
+      if (barPending) barPending.style.width = Math.round((pending / total) * 100) + '%';
+      if (barProgress) barProgress.style.width = Math.round((inProgress / total) * 100) + '%';
+      if (barResolved) barResolved.style.width = Math.round((resolved / total) * 100) + '%';
+    }
+
     this.renderCharts();
     this.renderLeaderboard();
+    this.renderMairies();
   },
 
   renderCharts: function() {
@@ -80,39 +132,85 @@ var Reports = {
       var cat = App.reports[i].category; catCounts[cat] = (catCounts[cat] || 0) + 1;
       var com = App.reports[i].commune || 'Non défini'; comCounts[com] = (comCounts[com] || 0) + 1;
     }
-    this._renderBarChart('chart-categories', catCounts, function(k) { return (App.categories[k] || App.categories.other).label; });
-    this._renderBarChart('chart-communes', comCounts, function(k) { return k; });
+    this._renderBarChart('chart-categories', catCounts, function(k) { return (App.categories[k] || App.categories.other).label; }, 'cat');
+    this._renderBarChart('chart-communes', comCounts, function(k) { return k; }, 'com');
   },
 
-  _renderBarChart: function(elId, counts, labelFn) {
+  _renderBarChart: function(elId, counts, labelFn, type) {
     var el = document.getElementById(elId); if (!el) return;
-    var sorted = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; }).slice(0, 8);
+    var sorted = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; }).slice(0, 10);
     var max = sorted.length > 0 ? counts[sorted[0]] : 1;
+    var fillClass = type === 'cat' ? 'bar__fill--cat' : 'bar__fill--com';
     var html = '';
     for (var i = 0; i < sorted.length; i++) {
       var k = sorted[i], pct = Math.round((counts[k] / max) * 100);
-      html += '<div class="bar"><span class="bar__label">' + labelFn(k) + '</span><div class="bar__track"><div class="bar__fill" style="width:' + pct + '%"><span class="bar__val">' + counts[k] + '</span></div></div></div>';
+      html += '<div class="bar"><span class="bar__label">' + labelFn(k) + '</span><div class="bar__track"><div class="bar__fill ' + fillClass + '" style="width:' + pct + '%"><span class="bar__val">' + counts[k] + '</span></div></div></div>';
     }
-    el.innerHTML = html || '<p style="color:var(--text3);font-size:.8rem">Pas de données</p>';
+    el.innerHTML = html || '<p style="color:var(--text3);font-size:.82rem;text-align:center;padding:20px">Pas encore de données</p>';
+  },
+
+  renderMairies: function() {
+    var grid = document.getElementById('mairie-grid');
+    if (!grid) return;
+
+    // Calculate per-commune stats
+    var communeStats = {};
+    for (var i = 0; i < App.reports.length; i++) {
+      var r = App.reports[i];
+      var c = r.commune || 'Non défini';
+      if (!communeStats[c]) communeStats[c] = { total: 0, resolved: 0, pending: 0, inProgress: 0 };
+      communeStats[c].total++;
+      if (r.status === 'resolved') communeStats[c].resolved++;
+      else if (r.status === 'pending') communeStats[c].pending++;
+      else communeStats[c].inProgress++;
+    }
+
+    // Sort by total reports
+    var communes = Object.keys(communeStats).sort(function(a, b) { return communeStats[b].total - communeStats[a].total; });
+
+    if (communes.length === 0) {
+      grid.innerHTML = '<p style="color:var(--text3);font-size:.82rem">Aucune donnée par commune</p>';
+      return;
+    }
+
+    var html = '';
+    var maxToShow = Math.min(communes.length, 12);
+    for (var i = 0; i < maxToShow; i++) {
+      var name = communes[i];
+      var s = communeStats[name];
+      var rate = s.total > 0 ? Math.round((s.resolved / s.total) * 100) : 0;
+
+      html += '<div class="mairie-card">' +
+        '<div class="mairie-card__name"><i class="fas fa-landmark"></i> ' + App.esc(name) + '</div>' +
+        '<div class="mairie-card__stats">' +
+          '<span><i class="fas fa-flag" style="color:var(--blue)"></i> ' + s.total + '</span>' +
+          '<span><i class="fas fa-clock" style="color:var(--orange)"></i> ' + s.pending + '</span>' +
+          '<span><i class="fas fa-check" style="color:var(--green)"></i> ' + s.resolved + '</span>' +
+        '</div>' +
+        '<div class="mairie-card__bar"><div class="mairie-card__bar-fill" style="width:' + rate + '%"></div></div>' +
+        '<div class="mairie-card__rate">' + rate + '% résolu</div>' +
+      '</div>';
+    }
+    grid.innerHTML = html;
   },
 
   renderLeaderboard: async function() {
     var el = document.getElementById('leaderboard-list'); if (!el) return;
     try {
       var result = await App.supabase.from('profiles').select('id, username, reports_count, reputation').order('reputation', { ascending: false }).limit(10);
-      if (!result.data || result.data.length === 0) { el.innerHTML = '<p style="color:var(--text3);font-size:.8rem;text-align:center;padding:16px">Pas encore de contributeurs</p>'; return; }
+      if (!result.data || result.data.length === 0) { el.innerHTML = '<p style="color:var(--text3);font-size:.82rem;text-align:center;padding:20px">Pas encore de contributeurs</p>'; return; }
       var html = '';
       for (var i = 0; i < result.data.length; i++) {
         var u = result.data[i], initial = u.username ? u.username.charAt(0).toUpperCase() : '?';
-        html += '<div class="lb" style="cursor:pointer" onclick="UI.openPublicProfile(\'' + u.id + '\')">' +
-          '<span class="lb__rank">' + (i + 1) + '</span>' +
+        html += '<div class="lb" onclick="UI.openPublicProfile(\'' + u.id + '\')">' +
+          '<span class="lb__rank">' + (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1)) + '</span>' +
           '<div class="lb__av">' + initial + '</div>' +
           '<div class="lb__info"><div class="lb__name">' + App.esc(u.username || 'Anonyme') + '</div>' +
           '<div class="lb__sub">' + (u.reports_count || 0) + ' signalements</div></div>' +
-          '<span class="lb__pts">' + (u.reputation || 0) + ' pts</span></div>';
+          '<span class="lb__pts"><i class="fas fa-star"></i> ' + (u.reputation || 0) + '</span></div>';
       }
       el.innerHTML = html;
-    } catch (e) { el.innerHTML = '<p style="color:var(--text3);font-size:.8rem">Erreur</p>'; }
+    } catch (e) { el.innerHTML = '<p style="color:var(--text3);font-size:.82rem">Erreur</p>'; }
   },
 
   openDetail: async function(id) {
@@ -150,7 +248,7 @@ var Reports = {
     var html = galHtml + '<div class="det__body">' +
       '<div class="det__badges"><span class="badge badge--cat"><i class="fas ' + fa + '"></i> ' + cat.label + '</span>' +
       '<span class="badge badge--' + report.status + '">' + status.label + '</span>' +
-      '<span class="badge" style="background:' + priority.color + '22;color:' + priority.color + '">' + priority.label + '</span></div>' +
+      '<span class="badge" style="background:' + priority.color + '18;color:' + priority.color + '">' + priority.label + '</span></div>' +
       '<h2 class="det__title">' + App.esc(report.title) + '</h2>' +
       '<div class="det__meta">' +
       '<span style="cursor:pointer;text-decoration:underline dotted" onclick="UI.openPublicProfile(\'' + authorId + '\')"><i class="fas fa-user"></i> ' + App.esc(authorName) + '</span>' +
@@ -159,25 +257,23 @@ var Reports = {
       '<p class="det__desc">' + App.esc(report.description) + '</p>';
 
     if (report.admin_response) {
-      html += '<div style="background:var(--blue-bg);border:1px solid rgba(88,166,255,.2);border-radius:var(--r);padding:12px;margin-bottom:16px">' +
-        '<div style="font-size:.75rem;font-weight:700;color:var(--blue);margin-bottom:4px"><i class="fas fa-shield-alt"></i> Réponse officielle</div>' +
-        '<p style="font-size:.82rem;color:var(--text)">' + App.esc(report.admin_response) + '</p></div>';
+      html += '<div style="background:var(--blue-bg);border:1px solid rgba(88,166,255,.2);border-radius:var(--r);padding:14px;margin-bottom:20px">' +
+        '<div style="font-size:.78rem;font-weight:700;color:var(--blue);margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="fas fa-shield-alt"></i> Réponse officielle</div>' +
+        '<p style="font-size:.85rem;color:var(--text);line-height:1.7">' + App.esc(report.admin_response) + '</p></div>';
     }
 
-    // Status update for logged in users
     if (App.currentUser) {
-      html += '<div style="background:var(--bg3);border-radius:var(--r);padding:12px;margin-bottom:16px">' +
-        '<div style="font-size:.75rem;font-weight:600;margin-bottom:6px;color:var(--text2)"><i class="fas fa-exchange-alt"></i> Mettre à jour le statut</div>' +
-        '<div style="display:flex;gap:4px;flex-wrap:wrap">';
+      html += '<div style="background:var(--bg3);border-radius:var(--r);padding:14px;margin-bottom:20px;border:1px solid var(--border)">' +
+        '<div style="font-size:.78rem;font-weight:600;margin-bottom:8px;color:var(--text2)"><i class="fas fa-exchange-alt"></i> Mettre à jour le statut</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap">';
       var statuses = ['pending', 'acknowledged', 'in_progress', 'resolved'];
       var statusLabels = { pending: 'En attente', acknowledged: 'Vu', in_progress: 'En cours', resolved: 'Résolu' };
       for (var i = 0; i < statuses.length; i++) {
-        html += '<button class="btn btn--outline' + (report.status === statuses[i] ? ' btn--primary' : '') + '" onclick="Reports.changeStatus(\'' + id + '\',\'' + statuses[i] + '\')">' + statusLabels[statuses[i]] + '</button>';
+        html += '<button class="btn btn--outline' + (report.status === statuses[i] ? ' btn--primary' : '') + '" onclick="Reports.changeStatus(\'' + id + '\',\'' + statuses[i] + '\')" style="font-size:.75rem">' + statusLabels[statuses[i]] + '</button>';
       }
       html += '</div></div>';
     }
 
-    // Actions — FIXED: Share.shareReport instead of Share.report
     html += '<div class="det__actions">' +
       '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="Reports.toggleVote(\'' + id + '\')"><i class="fas fa-arrow-up"></i> <span id="vote-count-' + id + '">' + (report.upvotes || 0) + '</span> Soutenir</button>' +
       '<button class="btn btn--outline" onclick="Share.shareReport(\'' + id + '\')"><i class="fas fa-share-alt"></i> Partager</button>' +
@@ -185,7 +281,6 @@ var Reports = {
     if (isOwner || isAdmin) html += '<button class="btn btn--danger" onclick="Reports.deleteFromDetail(\'' + id + '\')"><i class="fas fa-trash"></i> Supprimer</button>';
     html += '</div>';
 
-    // Comments
     html += '<div class="comments"><div class="comments__title"><i class="fas fa-comments"></i> Commentaires</div>';
     if (App.currentUser) html += '<div class="cmtform"><textarea id="comment-input-' + id + '" placeholder="Votre commentaire..." rows="2"></textarea><button class="btn btn--primary" onclick="Reports.addComment(\'' + id + '\')"><i class="fas fa-paper-plane"></i></button></div>';
     html += '<div id="comments-list-' + id + '"></div></div></div>';
@@ -223,11 +318,11 @@ var Reports = {
     if (!el) return;
     try {
       var result = await App.supabase.from('comments').select('*, profiles(username)').eq('report_id', reportId).order('created_at', { ascending: true });
-      if (!result.data || result.data.length === 0) { el.innerHTML = '<p style="color:var(--text3);font-size:.78rem;padding:8px">Aucun commentaire</p>'; return; }
+      if (!result.data || result.data.length === 0) { el.innerHTML = '<p style="color:var(--text3);font-size:.8rem;padding:10px">Aucun commentaire</p>'; return; }
       var html = '';
       for (var i = 0; i < result.data.length; i++) {
         var c = result.data[i], name = (c.profiles && c.profiles.username) || 'Anonyme';
-        html += '<div class="cmt"><div class="cmt__av">' + name.charAt(0).toUpperCase() + '</div><div class="cmt__body"><div class="cmt__head"><span class="cmt__author" style="cursor:pointer" onclick="UI.openPublicProfile(\'' + c.user_id + '\')">' + App.esc(name) + '</span><span class="cmt__date">' + App.ago(c.created_at) + '</span></div><div class="cmt__text">' + App.esc(c.content) + '</div></div></div>';
+        html += '<div class="cmt"><div class="cmt__av">' + name.charAt(0).toUpperCase() + '</div><div class="cmt__body"><div class="cmt__head"><span class="cmt__author" onclick="UI.openPublicProfile(\'' + c.user_id + '\')">' + App.esc(name) + '</span><span class="cmt__date">' + App.ago(c.created_at) + '</span></div><div class="cmt__text">' + App.esc(c.content) + '</div></div></div>';
       }
       el.innerHTML = html;
     } catch (e) { el.innerHTML = '<p style="color:var(--text3)">Erreur</p>'; }
