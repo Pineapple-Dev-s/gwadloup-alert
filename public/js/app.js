@@ -1,61 +1,40 @@
-const App = {
+var App = {
   config: null, supabase: null, currentUser: null, currentProfile: null,
   reports: [], filters: { category: '', status: '', commune: '' },
   categories: {
-    pothole:{icon:'road',label:'Nid de poule'},
-    dangerous_road:{icon:'warning',label:'Route dangereuse'},
-    damaged_sign:{icon:'sign',label:'Signalisation'},
-    missing_marking:{icon:'marking',label:'Marquage'},
-    speed_bump_needed:{icon:'bump',label:'Ralentisseur'},
-    abandoned_vehicle:{icon:'car',label:'Véhicule abandonné'},
-    abandoned_boat:{icon:'boat',label:'Bateau abandonné'},
-    illegal_dump:{icon:'dump',label:'Dépôt sauvage'},
-    beach_pollution:{icon:'beach',label:'Pollution plage'},
-    river_pollution:{icon:'river',label:'Pollution rivière'},
-    overflowing_bin:{icon:'bin',label:'Poubelle pleine'},
-    broken_light:{icon:'light',label:'Éclairage'},
-    exposed_cable:{icon:'cable',label:'Câble exposé'},
-    water_leak:{icon:'leak',label:'Fuite'},
-    flooding:{icon:'flood',label:'Inondation'},
-    sewer_issue:{icon:'sewer',label:'Assainissement'},
-    stagnant_water:{icon:'stagnant',label:'Eau stagnante'},
-    vegetation:{icon:'plant',label:'Végétation'},
-    fallen_tree:{icon:'tree',label:'Arbre tombé'},
-    invasive_species:{icon:'invasive',label:'Espèce invasive'},
-    damaged_building:{icon:'building',label:'Bâtiment'},
-    abandoned_building:{icon:'abandoned',label:'Abandonné'},
-    damaged_sidewalk:{icon:'sidewalk',label:'Trottoir'},
-    missing_railing:{icon:'railing',label:'Garde-fou'},
-    dangerous_area:{icon:'danger',label:'Zone dangereuse'},
-    missing_crosswalk:{icon:'crosswalk',label:'Passage piéton'},
-    school_zone_issue:{icon:'school',label:'Zone scolaire'},
-    noise:{icon:'noise',label:'Bruit'},
-    stray_animals:{icon:'animals',label:'Animaux errants'},
-    mosquito_breeding:{icon:'mosquito',label:'Moustiques'},
+    pothole:{icon:'road',label:'Nid de poule'},dangerous_road:{icon:'warning',label:'Route dangereuse'},
+    damaged_sign:{icon:'sign',label:'Signalisation'},missing_marking:{icon:'marking',label:'Marquage'},
+    speed_bump_needed:{icon:'bump',label:'Ralentisseur'},abandoned_vehicle:{icon:'car',label:'Véhicule abandonné'},
+    abandoned_boat:{icon:'boat',label:'Bateau abandonné'},illegal_dump:{icon:'dump',label:'Dépôt sauvage'},
+    beach_pollution:{icon:'beach',label:'Pollution plage'},river_pollution:{icon:'river',label:'Pollution rivière'},
+    overflowing_bin:{icon:'bin',label:'Poubelle pleine'},broken_light:{icon:'light',label:'Éclairage'},
+    exposed_cable:{icon:'cable',label:'Câble exposé'},water_leak:{icon:'leak',label:'Fuite'},
+    flooding:{icon:'flood',label:'Inondation'},sewer_issue:{icon:'sewer',label:'Assainissement'},
+    stagnant_water:{icon:'stagnant',label:'Eau stagnante'},vegetation:{icon:'plant',label:'Végétation'},
+    fallen_tree:{icon:'tree',label:'Arbre tombé'},invasive_species:{icon:'invasive',label:'Espèce invasive'},
+    damaged_building:{icon:'building',label:'Bâtiment'},abandoned_building:{icon:'abandoned',label:'Abandonné'},
+    damaged_sidewalk:{icon:'sidewalk',label:'Trottoir'},missing_railing:{icon:'railing',label:'Garde-fou'},
+    dangerous_area:{icon:'danger',label:'Zone dangereuse'},missing_crosswalk:{icon:'crosswalk',label:'Passage piéton'},
+    school_zone_issue:{icon:'school',label:'Zone scolaire'},noise:{icon:'noise',label:'Bruit'},
+    stray_animals:{icon:'animals',label:'Animaux errants'},mosquito_breeding:{icon:'mosquito',label:'Moustiques'},
     other:{icon:'other',label:'Autre'}
   },
   statuses: {
-    pending:{label:'En attente',icon:'clock'},
-    acknowledged:{label:'Pris en compte',icon:'eye'},
-    in_progress:{label:'En cours',icon:'spinner'},
-    resolved:{label:'Résolu',icon:'check'},
-    rejected:{label:'Rejeté',icon:'times'}
+    pending:{label:'En attente'},acknowledged:{label:'Pris en compte'},
+    in_progress:{label:'En cours'},resolved:{label:'Résolu'},rejected:{label:'Rejeté'}
   },
   priorities: {
-    low:{label:'Faible',color:'#3fb950'},
-    medium:{label:'Moyenne',color:'#d29922'},
-    high:{label:'Haute',color:'#FF8B00'},
-    critical:{label:'Critique',color:'#f85149'}
+    low:{label:'Faible',color:'#3fb950'},medium:{label:'Moyenne',color:'#d29922'},
+    high:{label:'Haute',color:'#FF8B00'},critical:{label:'Critique',color:'#f85149'}
   },
 
-  async init() {
+  init: async function() {
     try {
       UI.showLoading();
       var r = await fetch('/api/config');
       if (!r.ok) throw new Error('Config fail');
       this.config = await r.json();
       if (!this.config.supabaseUrl) throw new Error('No supabase URL');
-
       this.supabase = window.supabase.createClient(this.config.supabaseUrl, this.config.supabaseAnonKey);
 
       var hash = window.location.hash;
@@ -79,18 +58,15 @@ const App = {
           else if (p.eventType === 'UPDATE') Reports.handleUpdate(p.new);
           else if (p.eventType === 'DELETE') Reports.handleDelete(p.old);
         }).subscribe();
-      } catch (rtErr) {
-        console.warn('Realtime unavailable:', rtErr.message);
-      }
+      } catch (e) { console.warn('Realtime unavailable'); }
 
-      // Auto-refresh fallback
-      setInterval(function() {
-        if (document.visibilityState === 'visible') Reports.loadAll();
-      }, 60000);
+      // Auto-refresh
+      setInterval(function() { if (document.visibilityState === 'visible') Reports.loadAll(); }, 60000);
 
-      try { PWA.init(); } catch(e) { console.warn('PWA init failed'); }
-
-      try { Share.init(); } catch(e) {}
+      // Deep links
+      try { if (typeof Share !== 'undefined') Share.init(); } catch (e) {}
+      // PWA
+      try { if (typeof PWA !== 'undefined') PWA.init(); } catch (e) {}
 
       UI.hideLoading();
     } catch (e) {
