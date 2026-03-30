@@ -7,7 +7,7 @@ var UI = {
     tree:'fa-tree',invasive:'fa-seedling',building:'fa-building',abandoned:'fa-building-circle-xmark',
     sidewalk:'fa-person-walking',railing:'fa-grip-lines',danger:'fa-shield-halved',
     crosswalk:'fa-crosshairs',school:'fa-school',noise:'fa-volume-high',animals:'fa-paw',
-    mosquito:'fa-mosquito',other:'fa-map-pin'
+    mosquito:'fa-mosquito',graffiti:'fa-spray-can',other:'fa-map-pin'
   },
   wikiCatIcons:{general:'📌',guide:'📖',info:'ℹ️',discussion:'💬',proposition:'💡'},
   searchTimeout:null,
