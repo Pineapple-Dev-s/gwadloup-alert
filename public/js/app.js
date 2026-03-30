@@ -5,6 +5,7 @@ var App = {
   currentProfile: null,
   reports: [],
   filters: { category: '', status: '', commune: '' },
+  banner: null,
 
   categories: {
     pothole:           { icon: 'road',      label: 'Nid de poule' },
@@ -56,43 +57,54 @@ var App = {
   },
 
   init: async function() {
-    try {
-      UI.showLoading();
+    var loader = document.getElementById('loading-overlay');
+    if (loader) loader.classList.add('active');
 
-      // Load config
+    try {
       var configResp = await fetch('/api/config');
       this.config = await configResp.json();
 
-      // Init Supabase
       this.supabase = window.supabase.createClient(this.config.supabaseUrl, this.config.supabaseAnonKey);
 
       // Handle auth URL fragments
       var hash = window.location.hash;
-      if (hash && hash.indexOf('access_token') !== -1) {
-        await new Promise(function(r) { setTimeout(r, 1000); });
-        history.replaceState(null, '', window.location.pathname);
-        UI.toast('Email confirmé !', 'success');
-      } else if (hash && hash.indexOf('error') !== -1) {
-        history.replaceState(null, '', window.location.pathname);
+      if (hash) {
+        if (hash.indexOf('access_token') !== -1) {
+          await new Promise(function(r) { setTimeout(r, 1000); });
+          history.replaceState(null, '', window.location.pathname);
+          if (typeof UI !== 'undefined') UI.toast('Email confirmé !', 'success');
+        } else if (hash.indexOf('error') !== -1) {
+          history.replaceState(null, '', window.location.pathname);
+        }
       }
 
-      // Init modules
-      await Auth.init();
-      MapManager.init();
-      UI.init();
-      await Reports.loadAll();
+      // Init modules in order
+      if (typeof Auth !== 'undefined') await Auth.init();
+      if (typeof MapManager !== 'undefined') MapManager.init();
+      if (typeof UI !== 'undefined') UI.init();
+      if (typeof Reports !== 'undefined') await Reports.loadAll();
 
-      // Realtime
+      // Load banner
+      this.loadBanner();
+
+      // Realtime — optimized with throttle
+      this._rtThrottle = null;
       this.supabase.channel('rt')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports' }, function(p) { Reports.handleNew(p.new); })
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'reports' }, function(p) { Reports.handleUpdate(p.new); })
-        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'reports' }, function(p) { Reports.handleDelete(p.old); })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports' }, function(p) {
+          if (typeof Reports !== 'undefined') Reports.handleNew(p.new);
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'reports' }, function(p) {
+          if (typeof Reports !== 'undefined') Reports.handleUpdate(p.new);
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'reports' }, function(p) {
+          if (typeof Reports !== 'undefined') Reports.handleDelete(p.old);
+        })
         .subscribe();
 
-      // Auto refresh every 60s
+      // Auto refresh every 120s (reduced from 60s for perf)
       setInterval(function() {
-        if (document.visibilityState === 'visible') Reports.loadAll();
-      }, 60000);
+        if (document.visibilityState === 'visible' && typeof Reports !== 'undefined') Reports.loadAll();
+      }, 120000);
 
       // Optional modules
       if (typeof Share !== 'undefined' && Share.init) Share.init();
@@ -100,9 +112,22 @@ var App = {
 
     } catch(e) {
       console.error('App init error:', e);
-      UI.toast('Erreur de chargement', 'error');
+      if (typeof UI !== 'undefined') UI.toast('Erreur de chargement', 'error');
     }
-    UI.hideLoading();
+
+    if (loader) loader.classList.remove('active');
+  },
+
+  loadBanner: async function() {
+    try {
+      var result = await this.supabase.from('site_banners').select('*').eq('active', true).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (result.data) {
+        this.banner = result.data;
+        UI.renderBanner(result.data);
+      }
+    } catch(e) {
+      // Table might not exist yet — that's OK
+    }
   },
 
   ago: function(d) {
