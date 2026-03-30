@@ -6,13 +6,14 @@ var ImageUpload = {
     var self = this;
     var dz = document.getElementById('photo-dropzone');
     var inp = document.getElementById('photo-input');
-    if (!dz || !inp) return;
 
     dz.addEventListener('click', function() { inp.click(); });
+
     inp.addEventListener('change', function(e) {
       self.handleFiles(Array.from(e.target.files));
       inp.value = '';
     });
+
     dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.classList.add('dragover'); });
     dz.addEventListener('dragleave', function() { dz.classList.remove('dragover'); });
     dz.addEventListener('drop', function(e) {
@@ -26,7 +27,7 @@ var ImageUpload = {
   handleFiles: function(newFiles) {
     var self = this;
     var remaining = this.maxFiles - this.files.length;
-    if (remaining <= 0) { UI.toast('Maximum ' + this.maxFiles + ' photos', 'warning'); return; }
+    if (remaining <= 0) { UI.toast('Max ' + this.maxFiles + ' photos', 'warning'); return; }
 
     var toAdd = newFiles.slice(0, remaining);
     toAdd.forEach(function(file) {
@@ -42,7 +43,6 @@ var ImageUpload = {
 
   renderThumb: function(id, file) {
     var preview = document.getElementById('photo-preview');
-    if (!preview) return;
     var reader = new FileReader();
     reader.onload = function(e) {
       var div = document.createElement('div');
@@ -70,11 +70,12 @@ var ImageUpload = {
       fileType: 'image/webp',
       initialQuality: 0.75
     };
+
     return imageCompression(file, options).then(function(compressed) {
       var originalKB = (file.size / 1024).toFixed(0);
       var compressedKB = (compressed.size / 1024).toFixed(0);
       var ratio = Math.round((1 - compressed.size / file.size) * 100);
-      console.log('Compression: ' + originalKB + 'KB → ' + compressedKB + 'KB (-' + ratio + '%)');
+      console.log('Compression: ' + originalKB + 'KB -> ' + compressedKB + 'KB (' + ratio + '% reduit)');
       return compressed;
     }).catch(function() {
       return file;
@@ -88,7 +89,10 @@ var ImageUpload = {
 
     this.files.forEach(function(item) {
       chain = chain.then(function() {
-        if (item.url) { urls.push(item.url); return; }
+        if (item.url) {
+          urls.push(item.url);
+          return;
+        }
 
         var thumb = document.getElementById('thumb-' + item.id);
         if (thumb) {
@@ -102,7 +106,8 @@ var ImageUpload = {
           var fd = new FormData();
           fd.append('image', compressed);
           return fetch('https://api.imgbb.com/1/upload?key=' + App.config.imgbbApiKey, {
-            method: 'POST', body: fd
+            method: 'POST',
+            body: fd
           });
         }).then(function(resp) {
           return resp.json();
@@ -110,11 +115,17 @@ var ImageUpload = {
           if (!data.success) throw new Error('Upload failed');
           item.url = data.data.display_url;
           urls.push(item.url);
-          if (thumb) { var ld = thumb.querySelector('.thumb__loader'); if (ld) ld.remove(); }
+          if (thumb) {
+            var ld = thumb.querySelector('.thumb__loader');
+            if (ld) ld.remove();
+          }
         }).catch(function(err) {
           console.error('Upload error:', err);
           UI.toast('Erreur upload photo', 'error');
-          if (thumb) { var ld = thumb.querySelector('.thumb__loader'); if (ld) ld.remove(); }
+          if (thumb) {
+            var ld = thumb.querySelector('.thumb__loader');
+            if (ld) ld.remove();
+          }
         });
       });
     });
