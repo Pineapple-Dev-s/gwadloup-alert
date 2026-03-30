@@ -31,9 +31,16 @@ var Reports = {
     }
     if (empty) empty.style.display = 'none';
     if (count) count.textContent = App.reports.length + ' signalement' + (App.reports.length > 1 ? 's' : '');
+
+    var sorted = App.reports.slice();
+    var sortEl = document.getElementById('sort-reports');
+    var sortVal = sortEl ? sortEl.value : 'newest';
+    if (sortVal === 'oldest') sorted.sort(function(a, b) { return new Date(a.created_at) - new Date(b.created_at); });
+    else if (sortVal === 'most-voted') sorted.sort(function(a, b) { return (b.upvotes || 0) - (a.upvotes || 0); });
+
     var html = '';
-    for (var i = 0; i < App.reports.length; i++) {
-      var r = App.reports[i];
+    for (var i = 0; i < sorted.length; i++) {
+      var r = sorted[i];
       var cat = App.categories[r.category] || App.categories.other;
       var status = App.statuses[r.status] || App.statuses.pending;
       var fa = MapManager.getFaForCat(r.category);
@@ -170,10 +177,10 @@ var Reports = {
       html += '</div></div>';
     }
 
-    // Actions
+    // Actions — FIXED: Share.shareReport instead of Share.report
     html += '<div class="det__actions">' +
       '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="Reports.toggleVote(\'' + id + '\')"><i class="fas fa-arrow-up"></i> <span id="vote-count-' + id + '">' + (report.upvotes || 0) + '</span> Soutenir</button>' +
-      '<button class="btn btn--outline" onclick="Share.report(\'' + id + '\')"><i class="fas fa-share-alt"></i> Partager</button>' +
+      '<button class="btn btn--outline" onclick="Share.shareReport(\'' + id + '\')"><i class="fas fa-share-alt"></i> Partager</button>' +
       '<button class="btn btn--outline" onclick="UI.closeModal(\'modal-detail\');MapManager.flyTo(' + report.latitude + ',' + report.longitude + ')"><i class="fas fa-map"></i> Carte</button>';
     if (isOwner || isAdmin) html += '<button class="btn btn--danger" onclick="Reports.deleteFromDetail(\'' + id + '\')"><i class="fas fa-trash"></i> Supprimer</button>';
     html += '</div>';
@@ -243,7 +250,6 @@ var Reports = {
     if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
     try {
       var existResult = await App.supabase.from('votes').select('id').eq('report_id', id).eq('user_id', App.currentUser.id).maybeSingle();
-
       if (existResult.data) {
         await App.supabase.from('votes').delete().eq('id', existResult.data.id);
         UI.toast('Vote retiré', 'info');
@@ -252,16 +258,11 @@ var Reports = {
         if (ins.error) throw ins.error;
         UI.toast('Merci !', 'success');
       }
-
-      // Count real votes
       var allVotes = await App.supabase.from('votes').select('id').eq('report_id', id);
       var realCount = (allVotes.data && allVotes.data.length) || 0;
       await App.supabase.from('reports').update({ upvotes: realCount }).eq('id', id);
-
-      // Update local data
       var report = App.reports.find(function(r) { return r.id === id; });
       if (report) report.upvotes = realCount;
-
       this.openDetail(id);
     } catch (e) {
       console.error('Vote error:', e);
@@ -293,7 +294,6 @@ var Reports = {
 
   submitReport: async function() {
     if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
-
     var category = document.querySelector('input[name="category"]:checked');
     var title = document.getElementById('report-title').value.trim();
     var description = document.getElementById('report-description').value.trim();
