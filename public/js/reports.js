@@ -154,6 +154,7 @@ var Reports = {
 
     html += '<div class="det__actions">' +
       '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="Reports.toggleVote(\'' + id + '\')"><i class="fas fa-arrow-up"></i> <span id="vote-count-' + id + '">' + (report.upvotes || 0) + '</span> Soutenir</button>' +
+      '<button class="btn btn--outline" onclick="Share.report({id:\'' + id + '\',title:\'' + App.esc(report.title).replace(/'/g, "\\'") + '\',description:\'' + App.esc(report.description.substring(0, 100)).replace(/'/g, "\\'") + '\'})"><i class="fas fa-share-alt"></i> Partager</button>' +
       '<button class="btn btn--outline" onclick="UI.closeModal(\'modal-detail\');MapManager.flyTo(' + report.latitude + ',' + report.longitude + ')"><i class="fas fa-map"></i> Carte</button>';
     if (isOwner || isAdmin) html += '<button class="btn btn--danger" onclick="Reports.deleteFromDetail(\'' + id + '\')"><i class="fas fa-trash"></i> Supprimer</button>';
     html += '</div>';
