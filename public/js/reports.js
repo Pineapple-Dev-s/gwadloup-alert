@@ -82,14 +82,12 @@ var Reports = {
       else if (s === 'resolved') resolved++;
     }
 
-    // Topbar stats
     var el;
     el = document.getElementById('stat-total'); if (el) el.textContent = total;
     el = document.getElementById('stat-pending'); if (el) el.textContent = pending;
     el = document.getElementById('stat-progress'); if (el) el.textContent = inProgress;
     el = document.getElementById('stat-resolved'); if (el) el.textContent = resolved;
 
-    // Stats page
     el = document.getElementById('stats-total'); if (el) el.textContent = total;
     el = document.getElementById('stats-pending'); if (el) el.textContent = pending;
     el = document.getElementById('stats-in-progress'); if (el) el.textContent = inProgress;
@@ -100,7 +98,6 @@ var Reports = {
   },
 
   renderCharts: function() {
-    // Categories chart
     var catCounts = {};
     for (var i = 0; i < App.reports.length; i++) {
       var cat = App.reports[i].category;
@@ -122,7 +119,6 @@ var Reports = {
       catEl.innerHTML = html || '<p style="color:var(--text3);font-size:.8rem">Pas de données</p>';
     }
 
-    // Communes chart
     var comCounts = {};
     for (var i = 0; i < App.reports.length; i++) {
       var com = App.reports[i].commune || 'Non défini';
@@ -185,7 +181,6 @@ var Reports = {
     var priority = App.priorities[report.priority] || App.priorities.medium;
     var fa = MapManager.getFaForCat(report.category);
 
-    // Gallery
     var galHtml;
     if (report.images && report.images.length > 0) {
       galHtml = '<div class="det__gal"><img src="' + report.images[0] + '" alt=""></div>';
@@ -193,14 +188,12 @@ var Reports = {
       galHtml = '<div class="det__gal det__gal--ph"><i class="fas ' + fa + '"></i></div>';
     }
 
-    // Get author
     var authorName = 'Citoyen';
     try {
       var { data: profile } = await App.supabase.from('profiles').select('username').eq('id', report.user_id).single();
       if (profile) authorName = profile.username;
     } catch (e) {}
 
-    // Check if user voted
     var hasVoted = false;
     if (App.currentUser) {
       try {
@@ -208,6 +201,9 @@ var Reports = {
         if (vote) hasVoted = true;
       } catch (e) {}
     }
+
+    var isOwner = App.currentUser && report.user_id === App.currentUser.id;
+    var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
 
     var html = galHtml +
       '<div class="det__body">' +
@@ -248,8 +244,15 @@ var Reports = {
       '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="Reports.toggleVote(\'' + id + '\')">' +
       '<i class="fas fa-arrow-up"></i> <span id="vote-count-' + id + '">' + (report.upvotes || 0) + '</span> Soutenir</button>' +
       '<button class="btn btn--outline" onclick="UI.closeModal(\'modal-detail\');MapManager.flyTo(' + report.latitude + ',' + report.longitude + ')">' +
-      '<i class="fas fa-map"></i> Voir sur carte</button>' +
-      '</div>';
+      '<i class="fas fa-map"></i> Voir sur carte</button>';
+
+    // Delete button for owner or admin
+    if (isOwner || isAdmin) {
+      html += '<button class="btn btn--danger" onclick="Reports.deleteFromDetail(\'' + id + '\')">' +
+        '<i class="fas fa-trash"></i> Supprimer</button>';
+    }
+
+    html += '</div>';
 
     // Comments section
     html += '<div class="comments">' +
@@ -267,8 +270,50 @@ var Reports = {
     container.innerHTML = html;
     UI.openModal('modal-detail');
 
-    // Load comments
     this.loadComments(id);
+  },
+
+  deleteFromDetail: async function(id) {
+    var report = App.reports.find(function(r) { return r.id === id; });
+    if (!report) return;
+
+    var isOwner = App.currentUser && report.user_id === App.currentUser.id;
+    var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      UI.toast('Vous ne pouvez pas supprimer ce signalement', 'error');
+      return;
+    }
+
+    if (!confirm('Supprimer ce signalement ? Cette action est irréversible.')) return;
+
+    try {
+      await App.supabase.from('comments').delete().eq('report_id', id);
+      await App.supabase.from('votes').delete().eq('report_id', id);
+      var { error } = await App.supabase.from('reports').delete().eq('id', id);
+
+      if (error) {
+        UI.toast('Erreur: ' + error.message, 'error');
+      } else {
+        UI.toast('Signalement supprimé', 'success');
+        UI.closeModal('modal-detail');
+        App.reports = App.reports.filter(function(r) { return r.id !== id; });
+        MapManager.removeReport(id);
+        this.renderList();
+        this.updateStats();
+
+        // Update profile stats if own report
+        if (isOwner && App.currentProfile) {
+          App.currentProfile.reports_count = Math.max(0, (App.currentProfile.reports_count || 1) - 1);
+          await App.supabase.from('profiles').update({
+            reports_count: App.currentProfile.reports_count
+          }).eq('id', App.currentUser.id);
+        }
+      }
+    } catch (e) {
+      console.error('Delete from detail error:', e);
+      UI.toast('Erreur de suppression', 'error');
+    }
   },
 
   loadComments: async function(reportId) {
@@ -313,7 +358,6 @@ var Reports = {
       UI.toast('Erreur: ' + error.message, 'error');
     } else {
       UI.toast('Statut mis à jour !', 'success');
-      // Update local
       var report = App.reports.find(function(r) { return r.id === reportId; });
       if (report) {
         report.status = newStatus;
@@ -321,7 +365,6 @@ var Reports = {
       }
       this.renderList();
       this.updateStats();
-      // Refresh detail
       this.openDetail(reportId);
     }
   },
@@ -333,14 +376,12 @@ var Reports = {
       var { data: existing } = await App.supabase.from('votes').select('id').eq('report_id', id).eq('user_id', App.currentUser.id).single();
 
       if (existing) {
-        // Remove vote
         await App.supabase.from('votes').delete().eq('id', existing.id);
         await App.supabase.from('reports').update({
           upvotes: Math.max(0, (App.reports.find(function(r) { return r.id === id; }).upvotes || 1) - 1)
         }).eq('id', id);
         UI.toast('Vote retiré', 'info');
       } else {
-        // Add vote
         await App.supabase.from('votes').insert({ report_id: id, user_id: App.currentUser.id });
         await App.supabase.from('reports').update({
           upvotes: (App.reports.find(function(r) { return r.id === id; }).upvotes || 0) + 1
@@ -348,7 +389,6 @@ var Reports = {
         UI.toast('Merci pour votre soutien !', 'success');
       }
 
-      // Reload
       await this.loadAll();
       this.openDetail(id);
     } catch (e) {
@@ -367,7 +407,6 @@ var Reports = {
     if (content.length > 1000) { UI.toast('Commentaire trop long (max 1000)', 'warning'); return; }
 
     try {
-      // Moderate comment
       var modResp = await fetch('/api/moderate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -429,7 +468,6 @@ var Reports = {
     btn.innerHTML = '<span class="spinner"></span> Envoi...';
 
     try {
-      // Moderate content
       var modResp = await fetch('/api/moderate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -450,10 +488,8 @@ var Reports = {
         }
       }
 
-      // Upload images
       var imageUrls = await ImageUpload.uploadAll();
 
-      // Insert report
       var { data, error } = await App.supabase.from('reports').insert({
         user_id: App.currentUser.id,
         category: category.value,
@@ -471,7 +507,6 @@ var Reports = {
 
       if (error) throw error;
 
-      // Update profile stats
       if (App.currentProfile) {
         await App.supabase.from('profiles').update({
           reports_count: (App.currentProfile.reports_count || 0) + 1,
