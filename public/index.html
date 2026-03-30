@@ -117,32 +117,81 @@
       </div>
     </section>
 
-    <!-- LIST -->
+    <!-- LIST — Updated GitHub Issues style -->
     <section class="view" id="view-list">
       <div class="container">
         <div class="sec-head">
-          <div><h1>Signalements</h1><p id="list-count">0</p></div>
-          <select class="sel" id="sort-reports"><option value="newest">Recents</option><option value="oldest">Anciens</option><option value="most-voted">Soutenus</option></select>
+          <div><h1><i class="fas fa-list-ul"></i> Signalements</h1><p id="list-subtitle">Tous les signalements de la communauté</p></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select class="sel" id="sort-reports"><option value="newest">Plus récents</option><option value="oldest">Plus anciens</option><option value="most-voted">Plus soutenus</option></select>
+            <button class="btn btn--outline" id="btn-toggle-view" title="Changer de vue"><i class="fas fa-th-large"></i></button>
+          </div>
+        </div>
+        <div class="list-header" id="list-header">
+          <div class="list-header__left">
+            <span class="list-header__count"><i class="fas fa-exclamation-circle"></i> <span id="list-count">0</span> signalements</span>
+          </div>
+          <div class="list-header__tabs">
+            <button class="list-header__tab active" data-filter="">Tous</button>
+            <button class="list-header__tab" data-filter="pending">En attente</button>
+            <button class="list-header__tab" data-filter="in_progress">En cours</button>
+            <button class="list-header__tab" data-filter="resolved">Résolus</button>
+          </div>
         </div>
         <div class="grid" id="reports-grid"></div>
-        <div class="empty" id="list-empty" style="display:none"><span><i class="fas fa-inbox fa-3x"></i></span><h3>Aucun signalement</h3></div>
+        <div class="empty" id="list-empty" style="display:none"><i class="fas fa-inbox"></i><h3>Aucun signalement</h3><p>Soyez le premier à signaler un problème</p></div>
       </div>
     </section>
 
-    <!-- STATS -->
+    <!-- STATS — Dashboard style with Mairies -->
     <section class="view" id="view-stats">
       <div class="container">
-        <div class="sec-head"><div><h1>Tableau de bord</h1></div></div>
-        <div class="scards">
-          <div class="sc sc--b"><div class="sc__v" id="stats-total">0</div><div class="sc__l">Total</div></div>
-          <div class="sc sc--o"><div class="sc__v" id="stats-pending">0</div><div class="sc__l">Attente</div></div>
-          <div class="sc sc--p"><div class="sc__v" id="stats-in-progress">0</div><div class="sc__l">Cours</div></div>
-          <div class="sc sc--g"><div class="sc__v" id="stats-resolved">0</div><div class="sc__l">Resolus</div></div>
+        <div class="sec-head"><div><h1><i class="fas fa-chart-bar"></i> Tableau de bord</h1><p>Statistiques en temps réel de la plateforme</p></div></div>
+        <div class="stats-hero">
+          <div class="sc sc--b">
+            <div class="sc__icon"><i class="fas fa-flag"></i></div>
+            <div class="sc__v" id="stats-total">0</div>
+            <div class="sc__l">Total signalements</div>
+            <div class="sc__bar"><div class="sc__bar-fill" style="width:100%;background:var(--blue)"></div></div>
+          </div>
+          <div class="sc sc--o">
+            <div class="sc__icon"><i class="fas fa-clock"></i></div>
+            <div class="sc__v" id="stats-pending">0</div>
+            <div class="sc__l">En attente</div>
+            <div class="sc__bar"><div class="sc__bar-fill" id="bar-pending" style="width:0%;background:var(--orange)"></div></div>
+          </div>
+          <div class="sc sc--p">
+            <div class="sc__icon"><i class="fas fa-wrench"></i></div>
+            <div class="sc__v" id="stats-in-progress">0</div>
+            <div class="sc__l">En cours</div>
+            <div class="sc__bar"><div class="sc__bar-fill" id="bar-progress" style="width:0%;background:var(--purple)"></div></div>
+          </div>
+          <div class="sc sc--g">
+            <div class="sc__icon"><i class="fas fa-check-circle"></i></div>
+            <div class="sc__v" id="stats-resolved">0</div>
+            <div class="sc__l">Résolus</div>
+            <div class="sc__bar"><div class="sc__bar-fill" id="bar-resolved" style="width:0%;background:var(--green)"></div></div>
+          </div>
         </div>
+
         <div class="charts-row">
-          <div class="cbox"><h3><i class="fas fa-tags"></i> Categories</h3><div id="chart-categories"></div></div>
-          <div class="cbox"><h3><i class="fas fa-map"></i> Communes</h3><div id="chart-communes"></div></div>
+          <div class="cbox"><h3><i class="fas fa-tags"></i> Par catégorie</h3><div id="chart-categories"></div></div>
+          <div class="cbox"><h3><i class="fas fa-map-marker-alt"></i> Par commune</h3><div id="chart-communes"></div></div>
         </div>
+
+        <!-- MAIRIES PARTNERSHIP -->
+        <div class="mairie-section">
+          <div class="mairie-banner">
+            <div class="mairie-banner__icon"><i class="fas fa-landmark"></i></div>
+            <div class="mairie-banner__content">
+              <div class="mairie-banner__title">Espace Mairies <span class="verified"><i class="fas fa-check-circle"></i></span></div>
+              <div class="mairie-banner__desc">Suivi des signalements par commune. Les mairies partenaires peuvent répondre directement aux citoyens et mettre à jour le statut des interventions.</div>
+            </div>
+            <div class="mairie-banner__action"><a href="mailto:maxenceponche971@gmail.com?subject=Partenariat%20Mairie%20Gwadloup%20Alert" class="btn btn--primary btn--lg"><i class="fas fa-handshake"></i> Devenir partenaire</a></div>
+          </div>
+          <div class="mairie-grid" id="mairie-grid"></div>
+        </div>
+
         <div class="cbox"><h3><i class="fas fa-trophy"></i> Top contributeurs</h3><div id="leaderboard-list"></div></div>
       </div>
     </section>
