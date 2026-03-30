@@ -5,7 +5,7 @@ var App = {
     pothole:{icon:'road',label:'Nid de poule'},dangerous_road:{icon:'warning',label:'Route dangereuse'},
     damaged_sign:{icon:'sign',label:'Signalisation'},missing_marking:{icon:'marking',label:'Marquage'},
     speed_bump_needed:{icon:'bump',label:'Ralentisseur'},abandoned_vehicle:{icon:'car',label:'Véhicule abandonné'},
-    abandoned_boat:{icon:'boat',label:'Bateau abandonné'},illegal_dump:{icon:'dump',label:'Dépôt sauvage'},
+    abandoned_boat:{icon:'boat',label:'Bateau abandonné'},illegal_dump:{icon:'dump',label:'Dépôt sauvage'},graffiti:{icon:'spray-can',label:'Graffiti'},
     beach_pollution:{icon:'beach',label:'Pollution plage'},river_pollution:{icon:'river',label:'Pollution rivière'},
     overflowing_bin:{icon:'bin',label:'Poubelle pleine'},broken_light:{icon:'light',label:'Éclairage'},
     exposed_cable:{icon:'cable',label:'Câble exposé'},water_leak:{icon:'leak',label:'Fuite'},
