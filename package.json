@@ -1,6 +1,6 @@
 {
   "name": "gwadloup-alert",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -12,6 +12,6 @@
     "dotenv": "^16.3.1"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "22.x"
   }
 }
