@@ -88,6 +88,8 @@ const App = {
         if (document.visibilityState === 'visible') Reports.loadAll();
       }, 60000);
 
+      try { PWA.init(); } catch(e) { console.warn('PWA init failed'); }
+
       UI.hideLoading();
     } catch (e) {
       console.error('Init:', e);
