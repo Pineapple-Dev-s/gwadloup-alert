@@ -92,7 +92,6 @@ function markDelete(userId) {
   if (d) d.delCount++; else cooldowns.set(userId, { last: Date.now(), delCount: 1, delReset: Date.now() });
 }
 
-// FIXED CSP — added unpkg, jsdelivr, arcgisonline, opentopomap to connect-src
 app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
