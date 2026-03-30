@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Gwadloup Alèrt — Signalement citoyen Guadeloupe">
+  <meta name="description" content="Gwadloup Alèrt - Plateforme citoyenne de signalement pour la Guadeloupe">
   <meta name="theme-color" content="#161b22">
   <title>Gwadloup Alèrt</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚑</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🇬🇵</text></svg>">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
@@ -26,6 +26,7 @@
         <button class="hdr__tab" data-view="list"><i class="fas fa-list"></i><span>Liste</span></button>
         <button class="hdr__tab" data-view="stats"><i class="fas fa-chart-bar"></i><span>Stats</span></button>
         <button class="hdr__tab" data-view="wiki"><i class="fas fa-book"></i><span>Wiki</span></button>
+        <button class="hdr__tab" data-view="community"><i class="fas fa-users"></i><span>Communauté</span></button>
       </nav>
       <div class="hdr__right">
         <button class="btn btn--accent" id="btn-new-report" style="display:none"><i class="fas fa-plus"></i><span>Signaler</span></button>
@@ -73,25 +74,94 @@
               <div class="ts ts--ok"><strong id="stat-resolved">0</strong><span>résolus</span></div>
             </div>
             <div class="topbar__filters">
-              <select class="sel" id="filter-category"><option value="">Catégorie</option>
-                <optgroup label="Routes"><option value="pothole">🕳�� Nid de poule</option><option value="dangerous_road">⚠️ Route dangereuse</option><option value="damaged_sign">🚧 Signalisation</option><option value="missing_marking">🚸 Marquage</option><option value="speed_bump_needed">🔶 Ralentisseur</option></optgroup>
-                <optgroup label="Véhicules"><option value="abandoned_vehicle">🚗 Véhicule</option><option value="abandoned_boat">⛵ Bateau</option></optgroup>
-                <optgroup label="Déchets"><option value="illegal_dump">🗑️ Dépôt</option><option value="beach_pollution">🏖️ Plage</option><option value="river_pollution">🏞️ Rivière</option><option value="overflowing_bin">🗑️ Poubelle</option></optgroup>
-                <optgroup label="Éclairage"><option value="broken_light">💡 Éclairage</option><option value="exposed_cable">⚡ Câble</option></optgroup>
-                <optgroup label="Eau"><option value="water_leak">💧 Fuite</option><option value="flooding">🌊 Inondation</option><option value="sewer_issue">🚿 Égout</option><option value="stagnant_water">🦟 Stagnante</option></optgroup>
-                <optgroup label="Végétation"><option value="vegetation">🌿 Végétation</option><option value="fallen_tree">🌳 Arbre</option><option value="invasive_species">🌱 Invasive</option></optgroup>
-                <optgroup label="Infra"><option value="damaged_building">🏚️ Bâtiment</option><option value="abandoned_building">🏗️ Abandonné</option><option value="damaged_sidewalk">🚶 Trottoir</option><option value="missing_railing">🚧 Garde-fou</option></optgroup>
-                <optgroup label="Sécurité"><option value="dangerous_area">🛡️ Zone</option><option value="missing_crosswalk">🚶 Passage</option><option value="school_zone_issue">🏫 École</option></optgroup>
-                <optgroup label="Nuisances"><option value="noise">🔊 Bruit</option><option value="stray_animals">🐕 Animaux</option><option value="mosquito_breeding">🦟 Moustiques</option></optgroup>
-                <option value="other">📌 Autre</option>
+              <select class="sel" id="filter-category">
+                <option value="">Catégorie</option>
+                <optgroup label="Routes">
+                  <option value="pothole">Nid de poule</option>
+                  <option value="dangerous_road">Route dangereuse</option>
+                  <option value="damaged_sign">Signalisation</option>
+                  <option value="missing_marking">Marquage</option>
+                  <option value="speed_bump_needed">Ralentisseur</option>
+                </optgroup>
+                <optgroup label="Véhicules">
+                  <option value="abandoned_vehicle">Véhicule abandonné</option>
+                  <option value="abandoned_boat">Bateau abandonné</option>
+                </optgroup>
+                <optgroup label="Déchets">
+                  <option value="illegal_dump">Dépôt sauvage</option>
+                  <option value="beach_pollution">Pollution plage</option>
+                  <option value="river_pollution">Pollution rivière</option>
+                  <option value="overflowing_bin">Poubelle pleine</option>
+                </optgroup>
+                <optgroup label="Éclairage">
+                  <option value="broken_light">Éclairage</option>
+                  <option value="exposed_cable">Câble exposé</option>
+                </optgroup>
+                <optgroup label="Eau">
+                  <option value="water_leak">Fuite</option>
+                  <option value="flooding">Inondation</option>
+                  <option value="sewer_issue">Égout</option>
+                  <option value="stagnant_water">Eau stagnante</option>
+                </optgroup>
+                <optgroup label="Végétation">
+                  <option value="vegetation">Végétation</option>
+                  <option value="fallen_tree">Arbre tombé</option>
+                  <option value="invasive_species">Espèce invasive</option>
+                </optgroup>
+                <optgroup label="Infrastructure">
+                  <option value="damaged_building">Bâtiment</option>
+                  <option value="abandoned_building">Abandonné</option>
+                  <option value="damaged_sidewalk">Trottoir</option>
+                  <option value="missing_railing">Garde-fou</option>
+                </optgroup>
+                <optgroup label="Sécurité">
+                  <option value="dangerous_area">Zone dangereuse</option>
+                  <option value="missing_crosswalk">Passage piéton</option>
+                  <option value="school_zone_issue">Zone scolaire</option>
+                </optgroup>
+                <optgroup label="Nuisances">
+                  <option value="noise">Bruit</option>
+                  <option value="stray_animals">Animaux errants</option>
+                  <option value="mosquito_breeding">Moustiques</option>
+                </optgroup>
+                <option value="other">Autre</option>
               </select>
-              <select class="sel" id="filter-status"><option value="">Statut</option><option value="pending">⏳ Attente</option><option value="acknowledged">👁️ Vu</option><option value="in_progress">🔧 Cours</option><option value="resolved">✅ Résolu</option></select>
-              <select class="sel" id="filter-commune"><option value="">Commune</option>
-                <optgroup label="Grande-Terre"><option>Les Abymes</option><option>Anse-Bertrand</option><option>Le Gosier</option><option>Le Moule</option><option>Morne-à-l'Eau</option><option>Petit-Canal</option><option>Pointe-à-Pitre</option><option>Port-Louis</option><option>Saint-François</option><option>Sainte-Anne</option></optgroup>
-                <optgroup label="Basse-Terre"><option>Baie-Mahault</option><option>Baillif</option><option>Basse-Terre</option><option>Bouillante</option><option>Capesterre-Belle-Eau</option><option>Deshaies</option><option>Gourbeyre</option><option>Goyave</option><option>Lamentin</option><option>Petit-Bourg</option><option>Pointe-Noire</option><option>Saint-Claude</option><option>Sainte-Rose</option><option>Trois-Rivières</option><option>Vieux-Fort</option><option>Vieux-Habitants</option></optgroup>
-                <optgroup label="Marie-Galante"><option>Capesterre-de-Marie-Galante</option><option>Grand-Bourg</option><option>Saint-Louis</option></optgroup>
-                <optgroup label="Les Saintes"><option>Terre-de-Haut</option><option>Terre-de-Bas</option></optgroup>
-                <optgroup label="La Désirade"><option>La Désirade</option></optgroup>
+              <select class="sel" id="filter-status">
+                <option value="">Statut</option>
+                <option value="pending">En attente</option>
+                <option value="acknowledged">Pris en compte</option>
+                <option value="in_progress">En cours</option>
+                <option value="resolved">Résolu</option>
+              </select>
+              <select class="sel" id="filter-commune">
+                <option value="">Commune</option>
+                <optgroup label="Grande-Terre">
+                  <option>Les Abymes</option><option>Anse-Bertrand</option>
+                  <option>Le Gosier</option><option>Le Moule</option>
+                  <option>Morne-à-l'Eau</option><option>Petit-Canal</option>
+                  <option>Pointe-à-Pitre</option><option>Port-Louis</option>
+                  <option>Saint-François</option><option>Sainte-Anne</option>
+                </optgroup>
+                <optgroup label="Basse-Terre">
+                  <option>Baie-Mahault</option><option>Baillif</option>
+                  <option>Basse-Terre</option><option>Bouillante</option>
+                  <option>Capesterre-Belle-Eau</option><option>Deshaies</option>
+                  <option>Gourbeyre</option><option>Goyave</option>
+                  <option>Lamentin</option><option>Petit-Bourg</option>
+                  <option>Pointe-Noire</option><option>Saint-Claude</option>
+                  <option>Sainte-Rose</option><option>Trois-Rivières</option>
+                  <option>Vieux-Fort</option><option>Vieux-Habitants</option>
+                </optgroup>
+                <optgroup label="Marie-Galante">
+                  <option>Capesterre-de-Marie-Galante</option>
+                  <option>Grand-Bourg</option><option>Saint-Louis</option>
+                </optgroup>
+                <optgroup label="Les Saintes">
+                  <option>Terre-de-Haut</option><option>Terre-de-Bas</option>
+                </optgroup>
+                <optgroup label="La Désirade">
+                  <option>La Désirade</option>
+                </optgroup>
               </select>
               <button class="topbar__reset" id="btn-reset-filters"><i class="fas fa-undo"></i></button>
             </div>
@@ -104,27 +174,36 @@
     <!-- LIST -->
     <section class="view" id="view-list">
       <div class="container">
-        <div class="sec-head"><div><h1>Signalements</h1><p id="list-count">0</p></div>
-          <select class="sel" id="sort-reports"><option value="newest">Récents</option><option value="oldest">Anciens</option><option value="most-voted">Soutenus</option></select>
+        <div class="sec-head">
+          <div><h1>Signalements</h1><p id="list-count">0 signalements</p></div>
+          <select class="sel" id="sort-reports">
+            <option value="newest">Plus récents</option>
+            <option value="oldest">Plus anciens</option>
+            <option value="most-voted">Plus soutenus</option>
+          </select>
         </div>
         <div class="grid" id="reports-grid"></div>
-        <div class="empty" id="list-empty" style="display:none"><span>📭</span><h3>Aucun signalement</h3></div>
+        <div class="empty" id="list-empty" style="display:none">
+          <span><i class="fas fa-inbox fa-3x"></i></span>
+          <h3>Aucun signalement</h3>
+          <p>Soyez le premier à signaler un problème !</p>
+        </div>
       </div>
     </section>
 
     <!-- STATS -->
     <section class="view" id="view-stats">
       <div class="container">
-        <div class="sec-head"><div><h1>Tableau de bord</h1></div></div>
+        <div class="sec-head"><div><h1><i class="fas fa-chart-bar"></i> Tableau de bord</h1></div></div>
         <div class="scards">
           <div class="sc sc--b"><div class="sc__v" id="stats-total">0</div><div class="sc__l">Total</div></div>
-          <div class="sc sc--o"><div class="sc__v" id="stats-pending">0</div><div class="sc__l">Attente</div></div>
-          <div class="sc sc--p"><div class="sc__v" id="stats-in-progress">0</div><div class="sc__l">Cours</div></div>
+          <div class="sc sc--o"><div class="sc__v" id="stats-pending">0</div><div class="sc__l">En attente</div></div>
+          <div class="sc sc--p"><div class="sc__v" id="stats-in-progress">0</div><div class="sc__l">En cours</div></div>
           <div class="sc sc--g"><div class="sc__v" id="stats-resolved">0</div><div class="sc__l">Résolus</div></div>
         </div>
         <div class="charts-row">
-          <div class="cbox"><h3><i class="fas fa-tags"></i> Catégories</h3><div id="chart-categories"></div></div>
-          <div class="cbox"><h3><i class="fas fa-map"></i> Communes</h3><div id="chart-communes"></div></div>
+          <div class="cbox"><h3><i class="fas fa-tags"></i> Par catégorie</h3><div id="chart-categories"></div></div>
+          <div class="cbox"><h3><i class="fas fa-map"></i> Par commune</h3><div id="chart-communes"></div></div>
         </div>
         <div class="cbox"><h3><i class="fas fa-trophy"></i> Top contributeurs</h3><div id="leaderboard-list"></div></div>
       </div>
@@ -134,49 +213,330 @@
     <section class="view" id="view-wiki">
       <div class="container">
         <div class="wiki">
-          <aside class="wiki__side" id="wiki-sidebar"><h3><i class="fas fa-book"></i> Wiki</h3><nav id="wiki-nav"></nav></aside>
+          <aside class="wiki__side" id="wiki-sidebar">
+            <h3><i class="fas fa-book"></i> Wiki</h3>
+            <nav id="wiki-nav"></nav>
+            <button class="btn btn--outline btn--full" id="btn-wiki-new" style="display:none;margin-top:12px"><i class="fas fa-plus"></i> Nouvel article</button>
+          </aside>
           <article class="wiki__body" id="wiki-content"><p class="wiki__load">Chargement...</p></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMMUNITY -->
+    <section class="view" id="view-community">
+      <div class="container">
+        <div class="sec-head">
+          <div>
+            <h1><i class="fas fa-users"></i> Communauté</h1>
+            <p>Espace collaboratif pour améliorer Gwadloup Alèrt</p>
+          </div>
+        </div>
+
+        <!-- Contact -->
+        <div class="cbox" style="margin-bottom:16px">
+          <h3><i class="fas fa-envelope"></i> Contact</h3>
+          <p style="font-size:.85rem;color:var(--text2);margin-bottom:8px">
+            Une question, une suggestion, un partenariat ? Contactez le créateur du projet :
+          </p>
+          <a href="mailto:maxenceponche971@gmail.com" class="btn btn--primary">
+            <i class="fas fa-envelope"></i> maxenceponche971@gmail.com
+          </a>
+        </div>
+
+        <!-- Tag Proposals -->
+        <div class="cbox" style="margin-bottom:16px">
+          <h3><i class="fas fa-tags"></i> Propositions de catégories</h3>
+          <p style="font-size:.85rem;color:var(--text2);margin-bottom:12px">
+            Vous pensez qu'il manque une catégorie de signalement ? Proposez-la !
+          </p>
+          <div id="tag-proposals-list"></div>
+          <div id="tag-proposal-form" style="display:none;margin-top:12px">
+            <div class="field">
+              <label>Nom de la catégorie</label>
+              <input type="text" class="inp" id="tag-name" placeholder="Ex: Abribus cassé" maxlength="50">
+            </div>
+            <div class="field">
+              <label>Justification</label>
+              <textarea class="inp" id="tag-reason" placeholder="Pourquoi cette catégorie serait utile ?" rows="2" maxlength="300"></textarea>
+            </div>
+            <button class="btn btn--primary" id="btn-submit-tag"><i class="fas fa-paper-plane"></i> Proposer</button>
+          </div>
+          <button class="btn btn--outline" id="btn-new-tag" style="margin-top:8px;display:none">
+            <i class="fas fa-plus"></i> Proposer une catégorie
+          </button>
+        </div>
+
+        <!-- Open Source -->
+        <div class="cbox" style="margin-bottom:16px">
+          <h3><i class="fab fa-github"></i> Open Source</h3>
+          <p style="font-size:.85rem;color:var(--text2);margin-bottom:8px">
+            Gwadloup Alèrt est un projet <strong>100% open source</strong>. Le code est disponible sur GitHub.
+            Tout le monde peut contribuer : code, traductions, documentation, design...
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <a href="https://github.com" class="btn btn--outline" target="_blank"><i class="fab fa-github"></i> Voir le code</a>
+            <a href="mailto:maxenceponche971@gmail.com" class="btn btn--ghost"><i class="fas fa-hands-helping"></i> Je veux contribuer</a>
+          </div>
+        </div>
+
+        <!-- How it works -->
+        <div class="cbox">
+          <h3><i class="fas fa-info-circle"></i> Comment ça marche ?</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:12px">
+            <div style="text-align:center;padding:16px">
+              <div style="font-size:2rem;margin-bottom:8px">📸</div>
+              <strong style="font-size:.85rem">1. Signalez</strong>
+              <p style="font-size:.75rem;color:var(--text2);margin-top:4px">Prenez une photo et localisez le problème sur la carte</p>
+            </div>
+            <div style="text-align:center;padding:16px">
+              <div style="font-size:2rem;margin-bottom:8px">👍</div>
+              <strong style="font-size:.85rem">2. Soutenez</strong>
+              <p style="font-size:.75rem;color:var(--text2);margin-top:4px">Votez pour les signalements qui vous concernent</p>
+            </div>
+            <div style="text-align:center;padding:16px">
+              <div style="font-size:2rem;margin-bottom:8px">🔄</div>
+              <strong style="font-size:.85rem">3. Suivez</strong>
+              <p style="font-size:.75rem;color:var(--text2);margin-top:4px">La communauté met à jour le statut ensemble</p>
+            </div>
+            <div style="text-align:center;padding:16px">
+              <div style="font-size:2rem;margin-bottom:8px">✅</div>
+              <strong style="font-size:.85rem">4. Résolu !</strong>
+              <p style="font-size:.75rem;color:var(--text2);margin-top:4px">Le problème est réglé grâce à la mobilisation</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
   </main>
 
   <!-- MODALS -->
-  <div class="modal" id="modal-report"><div class="modal__bg" data-close></div><div class="modal__box modal__box--lg"><div class="modal__top"><h2>Nouveau signalement</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
-    <form id="report-form">
-      <div class="steps"><div class="steps__i active" data-step="1"><span>1</span></div><div class="steps__line"></div><div class="steps__i" data-step="2"><span>2</span></div><div class="steps__line"></div><div class="steps__i" data-step="3"><span>3</span></div></div>
-      <div class="fstep active" id="step-1"><h3>Type de problème</h3><div class="catgrid" id="category-grid"></div><div class="fstep__ft"><div></div><button type="button" class="btn btn--primary" id="btn-step1-next" disabled>Suivant →</button></div></div>
-      <div class="fstep" id="step-2"><h3>Localisation</h3><p class="fstep__d">Cliquez sur la carte ou géolocalisez-vous</p><div class="loc-bar"><button type="button" class="btn btn--outline" id="btn-geolocate"><i class="fas fa-crosshairs"></i> Localiser</button><div class="loc-search"><i class="fas fa-search"></i><input type="text" id="address-search" placeholder="Adresse..." autocomplete="off"><div class="loc-results" id="search-results"></div></div></div><div class="minimap" id="mini-map"></div><div class="loc-info" id="location-info" style="display:none"><i class="fas fa-map-pin"></i><span id="selected-address"></span></div><input type="hidden" id="report-lat"><input type="hidden" id="report-lng"><input type="hidden" id="report-address"><input type="hidden" id="report-commune"><div class="fstep__ft"><button type="button" class="btn btn--ghost" data-prev="1">← Retour</button><button type="button" class="btn btn--primary" id="btn-step2-next" disabled>Suivant →</button></div></div>
-      <div class="fstep" id="step-3"><h3>Détails</h3><div class="field"><label>Titre *</label><input type="text" class="inp" id="report-title" placeholder="Ex: Nid de poule route de Gosier" minlength="5" maxlength="150" required></div><div class="field"><label>Description *</label><textarea class="inp" id="report-description" placeholder="Décrivez le problème..." minlength="10" maxlength="2000" rows="3" required></textarea><small><span id="desc-count">0</span>/2000</small></div><div class="field"><label>Photos (max 4)</label><div class="dropzone" id="photo-dropzone"><i class="fas fa-cloud-upload-alt"></i><p>Glissez ou <u>parcourir</u></p><input type="file" id="photo-input" accept="image/*" multiple hidden></div><div class="thumbs" id="photo-preview"></div></div><div class="field"><label>Priorité</label><div class="prios"><label class="prio"><input type="radio" name="priority" value="low"><em style="background:#00875A"></em>Faible</label><label class="prio active"><input type="radio" name="priority" value="medium" checked><em style="background:#FFAB00"></em>Moyenne</label><label class="prio"><input type="radio" name="priority" value="high"><em style="background:#FF8B00"></em>Haute</label><label class="prio"><input type="radio" name="priority" value="critical"><em style="background:#DE350B"></em>Critique</label></div></div><div class="fstep__ft"><button type="button" class="btn btn--ghost" data-prev="2">← Retour</button><button type="submit" class="btn btn--primary" id="btn-submit-report"><i class="fas fa-paper-plane"></i> Envoyer</button></div></div>
-    </form>
-  </div></div>
-
-  <div class="modal" id="modal-detail"><div class="modal__bg" data-close></div><div class="modal__box modal__box--lg"><button class="modal__x" data-close><i class="fas fa-times"></i></button><div id="report-detail"></div></div></div>
-  <div class="modal" id="modal-admin"><div class="modal__bg" data-close></div><div class="modal__box modal__box--lg"><div class="modal__top"><h2>Administration</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div><div id="admin-panel"><div id="admin-reports-list"></div></div></div></div>
-  <div class="modal" id="modal-login"><div class="modal__bg" data-close></div><div class="modal__box modal__box--sm"><div class="modal__top"><h2>Connexion</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div><form class="aform" id="login-form"><div class="field"><label>Email</label><input type="email" class="inp" id="login-email" placeholder="votre@email.com" required></div><div class="field"><label>Mot de passe</label><input type="password" class="inp" id="login-password" placeholder="••••••••" required></div><div class="aform__err" id="login-error" style="display:none"></div><button type="submit" class="btn btn--primary btn--full" id="btn-login-submit">Se connecter</button><p class="aform__sw">Pas de compte ? <a href="#" id="switch-to-register">S'inscrire</a></p></form></div></div>
-  <div class="modal" id="modal-register"><div class="modal__bg" data-close></div><div class="modal__box modal__box--sm"><div class="modal__top"><h2>Inscription</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div><form class="aform" id="register-form"><div class="field"><label>Pseudo</label><input type="text" class="inp" id="register-username" placeholder="Pseudo" minlength="3" maxlength="30" required></div><div class="field"><label>Email</label><input type="email" class="inp" id="register-email" placeholder="votre@email.com" required></div><div class="field"><label>Commune</label><select class="inp" id="register-commune"><option value="">Choisir...</option><optgroup label="Grande-Terre"><option>Les Abymes</option><option>Anse-Bertrand</option><option>Le Gosier</option><option>Le Moule</option><option>Morne-à-l'Eau</option><option>Petit-Canal</option><option>Pointe-à-Pitre</option><option>Port-Louis</option><option>Saint-François</option><option>Sainte-Anne</option></optgroup><optgroup label="Basse-Terre"><option>Baie-Mahault</option><option>Baillif</option><option>Basse-Terre</option><option>Bouillante</option><option>Capesterre-Belle-Eau</option><option>Deshaies</option><option>Gourbeyre</option><option>Goyave</option><option>Lamentin</option><option>Petit-Bourg</option><option>Pointe-Noire</option><option>Saint-Claude</option><option>Sainte-Rose</option><option>Trois-Rivières</option><option>Vieux-Fort</option><option>Vieux-Habitants</option></optgroup><optgroup label="Marie-Galante"><option>Capesterre-de-Marie-Galante</option><option>Grand-Bourg</option><option>Saint-Louis</option></optgroup><optgroup label="Les Saintes"><option>Terre-de-Haut</option><option>Terre-de-Bas</option></optgroup><optgroup label="La Désirade"><option>La Désirade</option></optgroup></select></div><div class="field"><label>Mot de passe</label><input type="password" class="inp" id="register-password" placeholder="Min. 6 car." minlength="6" required></div><div class="field"><label>Confirmer</label><input type="password" class="inp" id="register-password-confirm" placeholder="Confirmer" minlength="6" required></div><div class="aform__err" id="register-error" style="display:none"></div><button type="submit" class="btn btn--primary btn--full" id="btn-register-submit">Créer mon compte</button><p class="aform__sw">Déjà un compte ? <a href="#" id="switch-to-login">Connexion</a></p></form></div></div>
-  <div class="modal" id="modal-profile"><div class="modal__bg" data-close></div><div class="modal__box modal__box--sm"><div class="modal__top"><h2>Profil</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div><div id="profile-content"></div></div></div>
-  <div class="modal" id="modal-my-reports"><div class="modal__bg" data-close></div><div class="modal__box modal__box--lg"><div class="modal__top"><h2>Mes signalements</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div><div id="my-reports-content"></div></div></div>
-
-  <div class="toasts" id="toast-container"></div>
-  <div class="loader" id="loading-overlay">
-   <div class="loader__in">
-    <div class="loader__grid">
-      <div class="loader__cell"></div>
-      <div class="loader__cell"></div>
-      <div class="loader__cell"></div>
-      <div class="loader__cell"></div>
-      <div class="loader__cell"></div>
-      <div class="loader__cell"></div>
-      <div class="loader__cell"></div>
-      <div class="loader__cell"></div>
-      <div class="loader__cell"></div>
+  <div class="modal" id="modal-report">
+    <div class="modal__bg" data-close></div>
+    <div class="modal__box modal__box--lg">
+      <div class="modal__top"><h2>Nouveau signalement</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
+      <form id="report-form">
+        <div class="steps">
+          <div class="steps__i active" data-step="1"><span>1</span></div>
+          <div class="steps__line"></div>
+          <div class="steps__i" data-step="2"><span>2</span></div>
+          <div class="steps__line"></div>
+          <div class="steps__i" data-step="3"><span>3</span></div>
+        </div>
+        <div class="fstep active" id="step-1">
+          <h3>Type de problème</h3>
+          <p class="fstep__d">Sélectionnez la catégorie qui correspond le mieux</p>
+          <div class="catgrid" id="category-grid"></div>
+          <div class="fstep__ft">
+            <div></div>
+            <button type="button" class="btn btn--primary" id="btn-step1-next" disabled>Suivant <i class="fas fa-arrow-right"></i></button>
+          </div>
+        </div>
+        <div class="fstep" id="step-2">
+          <h3>Localisation</h3>
+          <p class="fstep__d">Cliquez sur la carte ou géolocalisez-vous</p>
+          <div class="loc-bar">
+            <button type="button" class="btn btn--outline" id="btn-geolocate"><i class="fas fa-crosshairs"></i> Me localiser</button>
+            <div class="loc-search">
+              <i class="fas fa-search"></i>
+              <input type="text" id="address-search" placeholder="Rechercher une adresse en Guadeloupe..." autocomplete="off">
+              <div class="loc-results" id="search-results"></div>
+            </div>
+          </div>
+          <div class="minimap" id="mini-map"></div>
+          <div class="loc-info" id="location-info" style="display:none">
+            <i class="fas fa-map-pin"></i>
+            <span id="selected-address"></span>
+          </div>
+          <input type="hidden" id="report-lat">
+          <input type="hidden" id="report-lng">
+          <input type="hidden" id="report-address">
+          <input type="hidden" id="report-commune">
+          <div class="fstep__ft">
+            <button type="button" class="btn btn--ghost" data-prev="1"><i class="fas fa-arrow-left"></i> Retour</button>
+            <button type="button" class="btn btn--primary" id="btn-step2-next" disabled>Suivant <i class="fas fa-arrow-right"></i></button>
+          </div>
+        </div>
+        <div class="fstep" id="step-3">
+          <h3>Détails</h3>
+          <p class="fstep__d">Décrivez le problème en détail</p>
+          <div class="field">
+            <label>Titre *</label>
+            <input type="text" class="inp" id="report-title" placeholder="Ex: Nid de poule dangereux route de Gosier" minlength="5" maxlength="150" required>
+          </div>
+          <div class="field">
+            <label>Description *</label>
+            <textarea class="inp" id="report-description" placeholder="Décrivez le problème : taille, danger, depuis quand..." minlength="10" maxlength="2000" rows="3" required></textarea>
+            <small><span id="desc-count">0</span>/2000</small>
+          </div>
+          <div id="ai-reformulate" style="display:none;margin-bottom:12px">
+            <div style="background:var(--blue-bg);border:1px solid rgba(88,166,255,.2);border-radius:var(--r);padding:10px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <span style="font-size:.78rem;color:var(--blue);font-weight:600"><i class="fas fa-magic"></i> Reformulation IA</span>
+                <button type="button" class="btn btn--ghost" id="btn-accept-ai" style="font-size:.7rem"><i class="fas fa-check"></i> Accepter</button>
+              </div>
+              <div id="ai-title" style="font-weight:600;font-size:.82rem;margin-bottom:4px"></div>
+              <div id="ai-description" style="font-size:.78rem;color:var(--text2)"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Photos (max 4)</label>
+            <div class="dropzone" id="photo-dropzone">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <p>Glissez vos photos ici ou <u>parcourir</u></p>
+              <small style="color:var(--text3)">JPG, PNG, WebP — max 10MB par photo</small>
+              <input type="file" id="photo-input" accept="image/*" multiple hidden>
+            </div>
+            <div class="thumbs" id="photo-preview"></div>
+          </div>
+          <div class="field">
+            <label>Priorité</label>
+            <div class="prios">
+              <label class="prio"><input type="radio" name="priority" value="low"><em style="background:#00875A"></em>Faible</label>
+              <label class="prio active"><input type="radio" name="priority" value="medium" checked><em style="background:#FFAB00"></em>Moyenne</label>
+              <label class="prio"><input type="radio" name="priority" value="high"><em style="background:#FF8B00"></em>Haute</label>
+              <label class="prio"><input type="radio" name="priority" value="critical"><em style="background:#DE350B"></em>Critique</label>
+            </div>
+          </div>
+          <div class="fstep__ft">
+            <button type="button" class="btn btn--ghost" data-prev="2"><i class="fas fa-arrow-left"></i> Retour</button>
+            <button type="submit" class="btn btn--primary" id="btn-submit-report"><i class="fas fa-paper-plane"></i> Envoyer le signalement</button>
+          </div>
+        </div>
+      </form>
     </div>
-    <div class="loader__text">gwadloup<span>alèrt</span></div>
-   </div>
   </div>
 
-  <!-- VERSIONS FIXES — pas de @2 latest qui bug -->
+  <div class="modal" id="modal-detail">
+    <div class="modal__bg" data-close></div>
+    <div class="modal__box modal__box--lg">
+      <button class="modal__x" data-close><i class="fas fa-times"></i></button>
+      <div id="report-detail"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-admin">
+    <div class="modal__bg" data-close></div>
+    <div class="modal__box modal__box--lg">
+      <div class="modal__top"><h2><i class="fas fa-shield-alt"></i> Administration</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
+      <div id="admin-panel"><div id="admin-reports-list"></div></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-login">
+    <div class="modal__bg" data-close></div>
+    <div class="modal__box modal__box--sm">
+      <div class="modal__top"><h2>Connexion</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
+      <form class="aform" id="login-form">
+        <div class="field"><label>Email</label><input type="email" class="inp" id="login-email" placeholder="votre@email.com" required></div>
+        <div class="field"><label>Mot de passe</label><input type="password" class="inp" id="login-password" placeholder="Votre mot de passe" required></div>
+        <div class="aform__err" id="login-error" style="display:none"></div>
+        <button type="submit" class="btn btn--primary btn--full" id="btn-login-submit"><i class="fas fa-sign-in-alt"></i> Se connecter</button>
+        <p class="aform__sw">Pas de compte ? <a href="#" id="switch-to-register">S'inscrire gratuitement</a></p>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-register">
+    <div class="modal__bg" data-close></div>
+    <div class="modal__box modal__box--sm">
+      <div class="modal__top"><h2>Inscription</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
+      <form class="aform" id="register-form">
+        <div class="field"><label>Pseudo</label><input type="text" class="inp" id="register-username" placeholder="Votre pseudo" minlength="3" maxlength="30" required></div>
+        <div class="field"><label>Email</label><input type="email" class="inp" id="register-email" placeholder="votre@email.com" required></div>
+        <div class="field">
+          <label>Commune</label>
+          <select class="inp" id="register-commune">
+            <option value="">Choisir votre commune...</option>
+            <optgroup label="Grande-Terre">
+              <option>Les Abymes</option><option>Anse-Bertrand</option>
+              <option>Le Gosier</option><option>Le Moule</option>
+              <option>Morne-à-l'Eau</option><option>Petit-Canal</option>
+              <option>Pointe-à-Pitre</option><option>Port-Louis</option>
+              <option>Saint-François</option><option>Sainte-Anne</option>
+            </optgroup>
+            <optgroup label="Basse-Terre">
+              <option>Baie-Mahault</option><option>Baillif</option>
+              <option>Basse-Terre</option><option>Bouillante</option>
+              <option>Capesterre-Belle-Eau</option><option>Deshaies</option>
+              <option>Gourbeyre</option><option>Goyave</option>
+              <option>Lamentin</option><option>Petit-Bourg</option>
+              <option>Pointe-Noire</option><option>Saint-Claude</option>
+              <option>Sainte-Rose</option><option>Trois-Rivières</option>
+              <option>Vieux-Fort</option><option>Vieux-Habitants</option>
+            </optgroup>
+            <optgroup label="Marie-Galante">
+              <option>Capesterre-de-Marie-Galante</option>
+              <option>Grand-Bourg</option><option>Saint-Louis</option>
+            </optgroup>
+            <optgroup label="Les Saintes">
+              <option>Terre-de-Haut</option><option>Terre-de-Bas</option>
+            </optgroup>
+            <optgroup label="La Désirade">
+              <option>La Désirade</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="field"><label>Mot de passe</label><input type="password" class="inp" id="register-password" placeholder="Min. 6 caractères" minlength="6" required></div>
+        <div class="field"><label>Confirmer</label><input type="password" class="inp" id="register-password-confirm" placeholder="Confirmez le mot de passe" minlength="6" required></div>
+        <div class="aform__err" id="register-error" style="display:none"></div>
+        <button type="submit" class="btn btn--primary btn--full" id="btn-register-submit"><i class="fas fa-user-plus"></i> Créer mon compte</button>
+        <p class="aform__sw">Déjà un compte ? <a href="#" id="switch-to-login">Se connecter</a></p>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-profile">
+    <div class="modal__bg" data-close></div>
+    <div class="modal__box modal__box--sm">
+      <div class="modal__top"><h2><i class="fas fa-user"></i> Profil</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
+      <div id="profile-content"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-my-reports">
+    <div class="modal__bg" data-close></div>
+    <div class="modal__box modal__box--lg">
+      <div class="modal__top"><h2><i class="fas fa-flag"></i> Mes signalements</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
+      <div id="my-reports-content"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-wiki-edit">
+    <div class="modal__bg" data-close></div>
+    <div class="modal__box modal__box--lg">
+      <div class="modal__top"><h2><i class="fas fa-edit"></i> <span id="wiki-edit-title">Éditer l'article</span></h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
+      <div style="padding:16px">
+        <div class="field">
+          <label>Slug (URL)</label>
+          <input type="text" class="inp" id="wiki-edit-slug" placeholder="mon-article" maxlength="60">
+          <small>Lettres, chiffres et tirets uniquement</small>
+        </div>
+        <div class="field">
+          <label>Contenu (Markdown)</label>
+          <textarea class="inp" id="wiki-edit-content" rows="15" placeholder="# Mon article\n\nContenu en Markdown..." style="font-family:'JetBrains Mono',monospace;font-size:.78rem"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn--ghost" data-close>Annuler</button>
+          <button class="btn btn--primary" id="btn-wiki-save"><i class="fas fa-save"></i> Sauvegarder</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toasts" id="toast-container"></div>
+
+  <div class="loader" id="loading-overlay">
+    <div class="loader__in">
+      <div class="loader__grid">
+        <div class="loader__cell"></div><div class="loader__cell"></div><div class="loader__cell"></div>
+        <div class="loader__cell"></div><div class="loader__cell"></div><div class="loader__cell"></div>
+        <div class="loader__cell"></div><div class="loader__cell"></div><div class="loader__cell"></div>
+      </div>
+      <div class="loader__text">gwadloup<span>alèrt</span></div>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
