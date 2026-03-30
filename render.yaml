@@ -14,3 +14,17 @@ services:
         sync: false
       - key: IMGBB_API_KEY
         sync: false
+      - key: GROQ_KEY_1
+        sync: false
+      - key: GROQ_KEY_2
+        sync: false
+      - key: GROQ_KEY_3
+        sync: false
+      - key: GROQ_KEY_4
+        sync: false
+      - key: GROQ_KEY_5
+        sync: false
+      - key: GROQ_KEY_6
+        sync: false
+      - key: GROQ_KEY_7
+        sync: false
