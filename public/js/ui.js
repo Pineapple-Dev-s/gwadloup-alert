@@ -276,7 +276,7 @@ var UI = {
 
       html += '<div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--border);margin-bottom:16px">' +
         '<button class="vote-btn'+(hasVoted?' voted':'')+'" onclick="UI.toggleArticleVote(\''+id+'\')"><i class="fas fa-arrow-up"></i> <span id="article-vote-count">'+realVotes+'</span> Voter</button>' +
-        '<button class="btn btn--outline" onclick="Share.article({id:\''+id+'\',title:\''+App.esc(a.title).replace(/'/g,"\\'")+'\'})"><i class="fas fa-share-alt"></i> Partager</button>';
+        html += '<button class="btn btn--outline" onclick="Share.shareArticle(\'' + id + '\',\'' + App.esc(a.title).replace(/'/g,'') + '\')"><i class="fas fa-share-alt"></i> Partager</button>';
       if (isAdmin) html += '<button class="btn btn--outline" onclick="UI.togglePinArticle(\''+id+'\','+!a.pinned+')"><i class="fas fa-thumbtack"></i> '+(a.pinned?'Désépingler':'Épingler')+'</button>';
       if (isAdmin || isAuthor) html += '<button class="btn btn--danger" onclick="Auth.deleteWikiArticle(\''+id+'\')"><i class="fas fa-trash"></i> Supprimer</button>';
       html += '</div>';
@@ -578,28 +578,43 @@ var UI = {
     c.innerHTML = '<p class="wiki__load">Chargement...</p>';
     this.openModal('modal-public-profile');
     try {
-      var pr = await App.supabase.from('profiles').select('*').eq('id',userId).single(); if (pr.error) throw pr.error;
-      var p = pr.data, n = p.username||'Anonyme', ini = n.charAt(0).toUpperCase();
-      var rc = await App.supabase.from('reports').select('id',{count:'exact',head:true}).eq('user_id',userId);
-      var html = '<div style="padding:24px;text-align:center">' +
-        '<div class="umenu__av-lg" style="width:64px;height:64px;font-size:1.8rem;margin:0 auto 12px;background:var(--green2)">'+ini+'</div>' +
-        '<h2 style="font-size:1.1rem;margin-bottom:4px">'+App.esc(n)+'</h2>' +
-        '<div style="font-size:.75rem;color:var(--text2);margin-bottom:16px">'+(p.commune?'<i class="fas fa-map-pin"></i> '+App.esc(p.commune)+' • ':'')+App.ago(p.created_at)+'</div>' +
-        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px">' +
-        '<div class="sc"><div class="sc__v" style="font-size:1.2rem">'+(rc.count||0)+'</div><div class="sc__l">Signalements</div></div>' +
-        '<div class="sc"><div class="sc__v" style="font-size:1.2rem;color:var(--green)">'+(p.reputation||0)+'</div><div class="sc__l">Réputation</div></div>' +
-        '<div class="sc"><div class="sc__v" style="font-size:1.2rem;color:var(--yellow)" id="pub-badge-count">...</div><div class="sc__l">Badges</div></div></div>' +
-        '<div id="pub-badges-container"><p style="color:var(--text3);font-size:.78rem">Chargement badges...</p></div></div>';
+      var pr = await App.supabase.from('profiles').select('*').eq('id', userId).single();
+      if (pr.error) throw pr.error;
+      var p = pr.data, name = p.username || 'Anonyme', ini = name.charAt(0).toUpperCase();
+      var rc = await App.supabase.from('reports').select('id').eq('user_id', userId);
+      var reportCount = rc.data ? rc.data.length : 0;
+
+      var html = '<div class="pub-profile">' +
+        '<div class="pub-profile__avatar">' + ini + '</div>' +
+        '<div class="pub-profile__name">' + App.esc(name) + '</div>' +
+        '<div class="pub-profile__meta">' +
+        (p.commune ? '<i class="fas fa-map-pin"></i> ' + App.esc(p.commune) + ' · ' : '') +
+        '<i class="fas fa-calendar"></i> ' + new Date(p.created_at).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long' }) + '</div>' +
+
+        '<div class="pub-profile__stats">' +
+        '<div class="sc"><div class="sc__v" style="font-size:1.3rem">' + reportCount + '</div><div class="sc__l">Signalements</div></div>' +
+        '<div class="sc"><div class="sc__v" style="font-size:1.3rem;color:var(--green)">' + (p.reputation || 0) + '</div><div class="sc__l">Réputation</div></div>' +
+        '<div class="sc"><div class="sc__v" style="font-size:1.3rem;color:var(--yellow)" id="pub-badge-num">...</div><div class="sc__l">Badges</div></div>' +
+        '</div>' +
+
+        '<div id="pub-badges-area" style="text-align:left"><div style="text-align:center;padding:16px;color:var(--text3)"><span class="spinner"></span></div></div>' +
+        '</div>';
+
       c.innerHTML = html;
+
+      // Load badges
       if (typeof Badges !== 'undefined') {
-        Badges.getUnlocked(p, userId).then(function(res) {
-          var bc = document.getElementById('pub-badges-container');
-          var bcc = document.getElementById('pub-badge-count');
-          if (bc) bc.innerHTML = Badges.renderBadges(res.unlocked, res.total, false);
-          if (bcc) bcc.textContent = res.unlocked.length;
+        Badges.getUnlocked(p, userId).then(function(result) {
+          var area = document.getElementById('pub-badges-area');
+          var num = document.getElementById('pub-badge-num');
+          if (area) area.innerHTML = Badges.renderGrid(result.unlocked, true);
+          if (num) num.textContent = result.unlocked.length;
         });
       }
-    } catch(e) { c.innerHTML = '<p style="color:var(--red);padding:20px">Erreur</p>'; }
+    } catch (e) {
+      console.error('Public profile:', e);
+      c.innerHTML = '<p style="color:var(--red);padding:20px;text-align:center">Profil introuvable</p>';
+    }
   },
 
   // === UTILITIES ===
