@@ -25,20 +25,36 @@ function getGroqKey() {
 // Banned words list for moderation
 const BANNED_WORDS = [
   // Insultes FR
-  'connard', 'connasse', 'salaud', 'salope', 'putain', 'pute', 'merde',
-  'enculé', 'enculer', 'nique', 'niquer', 'ntm', 'ntm', 'fdp', 'fils de pute',
-  'batard', 'bâtard', 'pd', 'tapette', 'gogol', 'mongol', 'débile',
-  'abruti', 'crétin', 'idiot', 'imbécile', 'con ', 'conne',
-  // Racisme
-  'nègre', 'négro', 'bougnoul', 'bougnoule', 'arabe', 'sale arabe',
-  'sale noir', 'sale blanc', 'racaille',
+  'connard', 'connasse', 'enculé', 'enculer', 'putain', 'pute', 'salope',
+  'salaud', 'batard', 'bâtard', 'ntm', 'nique', 'niquer', 'fdp', 'fils de pute',
+  'ta gueule', 'ferme ta gueule', 'va te faire', 'pd', 'pédé', 'tapette',
+  'gouine', 'trou du cul', 'trouduc', 'couille', 'branleur', 'branleuse',
+  'merde', 'bordel', 'enfoiré', 'enfoirée', 'abruti', 'abrutie', 'débile',
+  'crétin', 'crétine', 'idiot', 'idiote', 'imbécile', 'bouffon', 'bouffonne',
+  'con', 'conne', 'ducon', 'pouffiasse', 'grognasse', 'pétasse',
+  // Racisme / discrimination
+  'nègre', 'negre', 'negro', 'bougnoule', 'bougnoul', 'arabe de merde',
+  'sale arabe', 'sale noir', 'sale blanc', 'racaille', 'sous-race',
   // Menaces
-  'je vais te tuer', 'je vais te buter', 'crève', 'va mourir',
-  'je te retrouve', 'tu vas payer',
-  // Spam
-  'bitcoin', 'crypto monnaie', 'gagner argent', 'cliquez ici',
-  'offre gratuite', 'promotion exclusive'
+  'je vais te tuer', 'je vais te buter', 'crève', 'va crever', 'va mourir',
+  'suicide toi', 'suicidez-vous',
+  // Créole (insultes courantes)
+  'kouyon', 'couyon', 'kouyonad', 'manman ou', 'manman aw',
+  'lanmè manman', 'gro bonda', 'ti kal'
 ];
+
+function containsBannedWords(text) {
+  if (!text) return { found: false, words: [] };
+  const lower = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const found = [];
+  for (const word of BANNED_WORDS) {
+    const normalizedWord = word.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (lower.includes(normalizedWord)) {
+      found.push(word);
+    }
+  }
+  return { found: found.length > 0, words: found };
+}
 
 // Security headers
 app.use((req, res, next) => {
@@ -55,7 +71,7 @@ app.use((req, res, next) => {
 
 app.use(cors());
 app.use(compression());
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '1mb' }));
 
 // Rate limiter
 const hits = new Map();
@@ -65,14 +81,11 @@ function limit(max, ms) {
     const now = Date.now();
     const e = hits.get(k);
     if (!e || now - e.t > ms) { hits.set(k, { c: 1, t: now }); return next(); }
-    if (++e.c > max) return res.status(429).json({ error: 'Trop de requêtes, réessayez plus tard' });
+    if (++e.c > max) return res.status(429).json({ error: 'Rate limit' });
     next();
   };
 }
-setInterval(() => {
-  const n = Date.now();
-  for (const [k, v] of hits) if (n - v.t > 60000) hits.delete(k);
-}, 30000);
+setInterval(() => { const n = Date.now(); for (const [k, v] of hits) if (n - v.t > 60000) hits.delete(k); }, 30000);
 
 // Static
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '7d', etag: true }));
@@ -83,208 +96,265 @@ app.get('/api/config', limit(60, 60000), (req, res) => {
     supabaseUrl: process.env.SUPABASE_URL || '',
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
     imgbbApiKey: process.env.IMGBB_API_KEY || '',
-    hasGroq: GROQ_KEYS.length > 0,
     contactEmail: 'maxenceponche971@gmail.com'
   });
 });
 
-app.get('/api/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
+app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-// === MODERATION API ===
-
-// Check content for banned words
-app.post('/api/moderate', limit(30, 60000), (req, res) => {
-  const { title, description } = req.body;
-  if (!title && !description) return res.json({ ok: true, flags: [] });
-
-  const flags = [];
-  const combined = ((title || '') + ' ' + (description || '')).toLowerCase();
-
-  for (const word of BANNED_WORDS) {
-    if (combined.includes(word.toLowerCase())) {
-      flags.push(word);
-    }
-  }
-
-  // Check for excessive caps (more than 60% uppercase)
-  const alphaChars = combined.replace(/[^a-zA-ZÀ-ÿ]/g, '');
-  if (alphaChars.length > 10) {
-    const upperCount = (combined.match(/[A-ZÀ-Ÿ]/g) || []).length;
-    if (upperCount / alphaChars.length > 0.6) {
-      flags.push('MAJUSCULES_EXCESSIVES');
-    }
-  }
-
-  // Check for repeated characters (like "aaaaaaa")
-  if (/(.)\1{5,}/i.test(combined)) {
-    flags.push('CARACTERES_REPETES');
-  }
-
-  res.json({
-    ok: flags.length === 0,
-    flags: flags,
-    flagCount: flags.length
-  });
-});
-
-// Reformulate with Groq AI
-app.post('/api/reformulate', limit(20, 60000), async (req, res) => {
-  const { title, description } = req.body;
-  const key = getGroqKey();
-
-  if (!key) {
-    return res.json({ ok: false, error: 'Service IA indisponible' });
-  }
-
-  if (!title || !description) {
-    return res.json({ ok: false, error: 'Titre et description requis' });
-  }
-
+// Moderation endpoint
+app.post('/api/moderate', limit(30, 60000), async (req, res) => {
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${key}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        messages: [
-          {
-            role: 'system',
-            content: `Tu es un assistant qui reformule des signalements citoyens pour la Guadeloupe. 
-Tu dois:
-1. Corriger l'orthographe et la grammaire
-2. Rendre le texte professionnel et respectueux
-3. Garder le sens original et les détails importants
-4. Supprimer tout contenu inapproprié, insultes ou menaces
-5. Garder un ton factuel et descriptif
-6. Ne pas inventer d'informations
-7. Répondre UNIQUEMENT avec un JSON valide: {"title":"...","description":"..."}`
-          },
-          {
-            role: 'user',
-            content: `Reformule ce signalement:\nTitre: ${title}\nDescription: ${description}`
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 500
-      })
-    });
+    const { title, description } = req.body;
+    if (!title && !description) return res.status(400).json({ error: 'No content' });
 
-    if (!response.ok) {
-      console.error('Groq API error:', response.status);
-      return res.json({ ok: false, error: 'Erreur API IA' });
-    }
+    // Check banned words
+    const titleCheck = containsBannedWords(title);
+    const descCheck = containsBannedWords(description);
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '';
-
-    try {
-      // Try to parse JSON from response
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return res.json({
-          ok: true,
-          title: parsed.title || title,
-          description: parsed.description || description
-        });
+    if (titleCheck.found || descCheck.found) {
+      const allBanned = [...titleCheck.words, ...descCheck.words];
+      // Try to reformulate with Groq
+      const key = getGroqKey();
+      if (key) {
+        try {
+          const reformulated = await reformulateWithGroq(key, title, description);
+          return res.json({
+            flagged: true,
+            reformulated: true,
+            original: { title, description },
+            cleaned: reformulated,
+            bannedWords: [...new Set(allBanned)]
+          });
+        } catch (e) {
+          console.error('Groq reformulation failed:', e.message);
+          return res.json({
+            flagged: true,
+            reformulated: false,
+            bannedWords: [...new Set(allBanned)],
+            error: 'Reformulation failed'
+          });
+        }
       }
-    } catch (parseErr) {
-      console.error('JSON parse error:', parseErr);
+      return res.json({
+        flagged: true,
+        reformulated: false,
+        bannedWords: [...new Set(allBanned)]
+      });
     }
 
-    // Fallback: return original
-    res.json({ ok: false, error: 'Reformulation impossible' });
-
-  } catch (err) {
-    console.error('Groq error:', err);
-    res.json({ ok: false, error: 'Erreur de connexion IA' });
+    // No banned words - optionally still reformulate for quality
+    res.json({ flagged: false, reformulated: false });
+  } catch (e) {
+    console.error('Moderation error:', e);
+    res.status(500).json({ error: 'Moderation failed' });
   }
 });
 
-// === WIKI API ===
+// Groq reformulation
+async function reformulateWithGroq(apiKey, title, description) {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'llama-3.1-8b-instant',
+      messages: [
+        {
+          role: 'system',
+          content: `Tu es un modérateur de contenu pour une plateforme citoyenne de signalement en Guadeloupe. 
+Tu dois reformuler les textes pour retirer tout langage inapproprié, insultes, menaces ou discriminations, 
+tout en gardant le sens et les informations utiles du signalement.
+Réponds UNIQUEMENT en JSON avec ce format exact: {"title": "titre reformulé", "description": "description reformulée"}
+Ne change pas le sens. Garde le même niveau de détail. Sois factuel et neutre.`
+        },
+        {
+          role: 'user',
+          content: `Reformule ce signalement:\nTitre: ${title}\nDescription: ${description}`
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 500
+    })
+  });
 
-const wikiDir = path.join(__dirname, 'wiki');
-
-// List wiki pages
-app.get('/api/wiki', limit(30, 60000), (req, res) => {
-  if (!fs.existsSync(wikiDir)) {
-    fs.mkdirSync(wikiDir, { recursive: true });
+  if (!response.ok) {
+    throw new Error(`Groq API error: ${response.status}`);
   }
-  const files = fs.readdirSync(wikiDir).filter(f => f.endsWith('.md'));
+
+  const data = await response.json();
+  const content = data.choices[0].message.content.trim();
+
+  // Parse JSON response
+  try {
+    const parsed = JSON.parse(content);
+    return {
+      title: parsed.title || title,
+      description: parsed.description || description
+    };
+  } catch {
+    // Try to extract from non-JSON response
+    return { title: title.replace(/[^\w\s.,!?éèêëàâäùûüôöîïç'-]/gi, ''), description: description.replace(/[^\w\s.,!?éèêëàâäùûüôöîïç'-]/gi, '') };
+  }
+}
+
+// Wiki - Read
+app.get('/api/wiki', limit(30, 60000), (req, res) => {
+  const dir = path.join(__dirname, 'wiki');
+  if (!fs.existsSync(dir)) { fs.mkdirSync(dir, { recursive: true }); }
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.md'));
   res.json(files.map(f => ({
     slug: f.replace('.md', ''),
-    title: f.replace('.md', '').replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-    modified: fs.statSync(path.join(wikiDir, f)).mtime
+    title: f.replace('.md', '').replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   })));
 });
 
-// Read wiki page
 app.get('/api/wiki/:page', limit(60, 60000), (req, res) => {
   const p = req.params.page.replace(/[^a-zA-Z0-9-_]/g, '');
-  const f = path.join(wikiDir, `${p}.md`);
-  if (fs.existsSync(f)) {
-    const content = fs.readFileSync(f, 'utf8');
-    const stats = fs.statSync(f);
-    res.json({
-      content: content,
-      modified: stats.mtime,
-      slug: p
-    });
-  } else {
-    res.status(404).json({ error: 'Page introuvable' });
+  const f = path.join(__dirname, 'wiki', `${p}.md`);
+  if (fs.existsSync(f)) res.type('text/plain').send(fs.readFileSync(f, 'utf8'));
+  else res.status(404).json({ error: 'Not found' });
+});
+
+// Wiki - Create/Edit (community)
+app.post('/api/wiki/:page', limit(10, 60000), async (req, res) => {
+  try {
+    const p = req.params.page.replace(/[^a-zA-Z0-9-_]/g, '');
+    if (!p || p.length < 2) return res.status(400).json({ error: 'Invalid page name' });
+    const { content, author } = req.body;
+    if (!content || content.length < 10) return res.status(400).json({ error: 'Content too short' });
+    if (content.length > 50000) return res.status(400).json({ error: 'Content too long' });
+
+    // Moderate content
+    const check = containsBannedWords(content);
+    if (check.found) {
+      return res.status(400).json({ error: 'Contenu inapproprié détecté', bannedWords: check.words });
+    }
+
+    const dir = path.join(__dirname, 'wiki');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+    // Add edit history comment at the top if file exists
+    const filePath = path.join(dir, `${p}.md`);
+    const isNew = !fs.existsSync(filePath);
+    const timestamp = new Date().toISOString();
+    const header = `<!-- Dernière modification: ${timestamp} par ${author || 'Anonyme'} -->\n`;
+
+    fs.writeFileSync(filePath, header + content, 'utf8');
+
+    // Log edit
+    const logDir = path.join(__dirname, 'wiki', '.history');
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    const logEntry = { page: p, author: author || 'Anonyme', timestamp, isNew, contentLength: content.length };
+    const logFile = path.join(logDir, 'edits.json');
+    let logs = [];
+    if (fs.existsSync(logFile)) {
+      try { logs = JSON.parse(fs.readFileSync(logFile, 'utf8')); } catch { logs = []; }
+    }
+    logs.push(logEntry);
+    if (logs.length > 1000) logs = logs.slice(-500);
+    fs.writeFileSync(logFile, JSON.stringify(logs, null, 2), 'utf8');
+
+    res.json({ ok: true, isNew, slug: p });
+  } catch (e) {
+    console.error('Wiki save error:', e);
+    res.status(500).json({ error: 'Save failed' });
   }
 });
 
-// Create/Update wiki page (authenticated users)
-app.post('/api/wiki/:page', limit(10, 60000), (req, res) => {
-  const p = req.params.page.replace(/[^a-zA-Z0-9-_]/g, '');
-  if (!p || p.length < 2 || p.length > 60) {
-    return res.status(400).json({ error: 'Nom de page invalide (2-60 caractères, lettres/chiffres/tirets)' });
-  }
-
-  const { content, author } = req.body;
-  if (!content || content.trim().length < 10) {
-    return res.status(400).json({ error: 'Contenu trop court (min 10 caractères)' });
-  }
-  if (content.length > 50000) {
-    return res.status(400).json({ error: 'Contenu trop long (max 50000 caractères)' });
-  }
-
-  // Add metadata header
-  const header = `<!-- Dernière modification par ${author || 'Anonyme'} le ${new Date().toLocaleDateString('fr-FR')} -->\n`;
-  const finalContent = header + content;
-
-  if (!fs.existsSync(wikiDir)) {
-    fs.mkdirSync(wikiDir, { recursive: true });
-  }
-
-  fs.writeFileSync(path.join(wikiDir, `${p}.md`), finalContent, 'utf8');
-  res.json({ ok: true, slug: p });
+// Wiki history
+app.get('/api/wiki-history', limit(30, 60000), (req, res) => {
+  const logFile = path.join(__dirname, 'wiki', '.history', 'edits.json');
+  if (!fs.existsSync(logFile)) return res.json([]);
+  try {
+    const logs = JSON.parse(fs.readFileSync(logFile, 'utf8'));
+    res.json(logs.reverse().slice(0, 50));
+  } catch { res.json([]); }
 });
 
-// Delete wiki page (admin only - checked client-side)
-app.delete('/api/wiki/:page', limit(10, 60000), (req, res) => {
-  const p = req.params.page.replace(/[^a-zA-Z0-9-_]/g, '');
-  const f = path.join(wikiDir, `${p}.md`);
+// Tag proposals
+const PROPOSALS_FILE = path.join(__dirname, 'data', 'tag-proposals.json');
 
-  // Protect default pages
-  const protectedPages = ['accueil', 'categories', 'communes', 'technologie'];
-  if (protectedPages.includes(p)) {
-    return res.status(403).json({ error: 'Page protégée, suppression impossible' });
-  }
+function loadProposals() {
+  if (!fs.existsSync(PROPOSALS_FILE)) return [];
+  try { return JSON.parse(fs.readFileSync(PROPOSALS_FILE, 'utf8')); } catch { return []; }
+}
 
-  if (fs.existsSync(f)) {
-    fs.unlinkSync(f);
-    res.json({ ok: true });
-  } else {
-    res.status(404).json({ error: 'Page introuvable' });
+function saveProposals(proposals) {
+  const dir = path.dirname(PROPOSALS_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(PROPOSALS_FILE, JSON.stringify(proposals, null, 2), 'utf8');
+}
+
+app.get('/api/tag-proposals', limit(30, 60000), (req, res) => {
+  res.json(loadProposals());
+});
+
+app.post('/api/tag-proposals', limit(5, 60000), (req, res) => {
+  try {
+    const { name, icon, description, author } = req.body;
+    if (!name || name.length < 2 || name.length > 50) return res.status(400).json({ error: 'Nom invalide (2-50 car.)' });
+    if (!description || description.length < 10) return res.status(400).json({ error: 'Description trop courte' });
+
+    // Moderate
+    const nameCheck = containsBannedWords(name);
+    const descCheck = containsBannedWords(description);
+    if (nameCheck.found || descCheck.found) {
+      return res.status(400).json({ error: 'Contenu inapproprié' });
+    }
+
+    const proposals = loadProposals();
+
+    // Check duplicate
+    const exists = proposals.some(p => p.name.toLowerCase() === name.toLowerCase());
+    if (exists) return res.status(400).json({ error: 'Ce tag a déjà été proposé' });
+
+    const proposal = {
+      id: Date.now().toString(36) + Math.random().toString(36).substr(2, 6),
+      name, icon: icon || 'fa-tag', description,
+      author: author || 'Anonyme',
+      votes: 0, voters: [],
+      status: 'pending',
+      created_at: new Date().toISOString()
+    };
+
+    proposals.push(proposal);
+    saveProposals(proposals);
+    res.json({ ok: true, proposal });
+  } catch (e) {
+    console.error('Tag proposal error:', e);
+    res.status(500).json({ error: 'Failed' });
   }
 });
 
-// SPA fallback
+app.post('/api/tag-proposals/:id/vote', limit(20, 60000), (req, res) => {
+  try {
+    const { voter } = req.body;
+    if (!voter) return res.status(400).json({ error: 'Voter required' });
+
+    const proposals = loadProposals();
+    const proposal = proposals.find(p => p.id === req.params.id);
+    if (!proposal) return res.status(404).json({ error: 'Not found' });
+
+    if (proposal.voters.includes(voter)) {
+      // Unvote
+      proposal.voters = proposal.voters.filter(v => v !== voter);
+      proposal.votes = Math.max(0, proposal.votes - 1);
+    } else {
+      proposal.voters.push(voter);
+      proposal.votes++;
+    }
+
+    saveProposals(proposals);
+    res.json({ ok: true, votes: proposal.votes });
+  } catch (e) {
+    res.status(500).json({ error: 'Vote failed' });
+  }
+});
+
+// SPA
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(PORT, () => console.log(`Gwadloup Alert — Port ${PORT} — ${GROQ_KEYS.length} clés Groq chargées`));
+app.listen(PORT, () => console.log(`Port ${PORT}`));
