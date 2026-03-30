@@ -90,6 +90,8 @@ const App = {
 
       try { PWA.init(); } catch(e) { console.warn('PWA init failed'); }
 
+      try { Share.init(); } catch(e) {}
+
       UI.hideLoading();
     } catch (e) {
       console.error('Init:', e);
