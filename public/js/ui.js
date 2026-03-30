@@ -25,8 +25,8 @@ var UI = {
     this.form();
     this.burger();
     this.catGrid();
-    this.wikiEditor();
-    this.communityInit();
+    this.community();
+    this.wikiEdit();
     this.debug();
     ImageUpload.init();
   },
@@ -39,33 +39,47 @@ var UI = {
         console.log('Supabase client:', App.supabase ? 'OK' : 'MISSING');
         console.log('User:', App.currentUser ? App.currentUser.email : 'Not logged in');
         console.log('Profile:', App.currentProfile ? JSON.stringify(App.currentProfile) : 'None');
-        console.log('Reports:', App.reports.length);
+        console.log('Reports loaded:', App.reports.length);
         console.log('Map:', MapManager.map ? 'OK' : 'MISSING');
         console.log('Markers:', Object.keys(MapManager.markers).length);
-        console.log('Groq:', App.config && App.config.hasGroq ? 'AVAILABLE' : 'UNAVAILABLE');
+        console.log('Filters:', JSON.stringify(App.filters));
+        console.log('ImgBB key:', App.config && App.config.imgbbApiKey ? 'SET' : 'MISSING');
         console.log('Contact:', App.config ? App.config.contactEmail : 'N/A');
-        console.log('=== END ===');
-        return 'Debug printed';
+        var views = document.querySelectorAll('.view');
+        var activeView = 'none';
+        views.forEach(function(v) { if (v.classList.contains('active')) activeView = v.id; });
+        console.log('Active view:', activeView);
+        console.log('=== END DEBUG ===');
+        return 'Debug info printed above';
       },
       test: function() {
+        console.log('=== RUNNING TESTS ===');
         var pass = 0; var fail = 0;
-        function check(name, cond) { if (cond) { console.log('  ✅ ' + name); pass++; } else { console.log('  ❌ ' + name); fail++; } }
-        check('Config', !!App.config);
-        check('Supabase', !!App.supabase);
-        check('Map', !!MapManager.map);
-        check('Categories', Object.keys(App.categories).length >= 30);
-        check('DOM map', !!document.getElementById('map'));
-        check('DOM form', !!document.getElementById('report-form'));
-        check('DOM community', !!document.getElementById('view-community'));
-        check('ImageUpload', typeof ImageUpload.uploadAll === 'function');
-        check('Community', typeof Community !== 'undefined');
-        console.log('Result: ' + pass + '/' + (pass + fail));
-        return pass + '/' + (pass + fail);
+        function check(name, condition) {
+          if (condition) { console.log('  OK ' + name); pass++; }
+          else { console.log('  FAIL ' + name); fail++; }
+        }
+        check('Config loaded', !!App.config);
+        check('Supabase client', !!App.supabase);
+        check('Map initialized', !!MapManager.map);
+        check('Categories defined', Object.keys(App.categories).length > 20);
+        check('DOM: map container', !!document.getElementById('map'));
+        check('DOM: report form', !!document.getElementById('report-form'));
+        check('DOM: category grid', !!document.getElementById('category-grid'));
+        check('DOM: login form', !!document.getElementById('login-form'));
+        check('DOM: toast container', !!document.getElementById('toast-container'));
+        check('DOM: community view', !!document.getElementById('view-community'));
+        check('DOM: wiki edit form', !!document.getElementById('wiki-edit-form'));
+        check('ImageUpload ready', typeof ImageUpload.uploadAll === 'function');
+        console.log('Result: ' + pass + ' passed, ' + fail + ' failed');
+        return pass + '/' + (pass + fail) + ' tests passed';
       },
-      reload: function() { Reports.loadAll(); return 'Reloaded'; },
-      toast: function(msg) { UI.toast(msg || 'Test', 'info'); }
+      reload: function() { Reports.loadAll(); return 'Reports reloaded'; },
+      toast: function(msg) { UI.toast(msg || 'Test notification', 'info'); return 'Toast shown'; },
+      user: function() { return App.currentUser || 'Not logged in'; },
+      reports: function() { return App.reports; }
     };
-    console.log('🏝️ Gwadloup Alèrt — GA.status() | GA.test()');
+    console.log('gwadloup alert v4 - Type GA.status() or GA.test()');
   },
 
   catGrid: function() {
@@ -106,10 +120,12 @@ var UI = {
           var target = document.getElementById('view-' + view);
           if (target) target.classList.add('active');
 
-          if (view === 'map' && MapManager.map) setTimeout(function() { MapManager.map.invalidateSize(); }, 150);
+          if (view === 'map' && MapManager.map) {
+            setTimeout(function() { MapManager.map.invalidateSize(); }, 150);
+          }
           if (view === 'stats') Reports.updateStats();
           if (view === 'wiki') self.loadWiki();
-          if (view === 'community') Community.loadProposals();
+          if (view === 'community') self.loadTagProposals();
 
           var nav = document.getElementById('main-nav');
           if (nav) nav.classList.remove('open');
@@ -151,7 +167,10 @@ var UI = {
       var closeBtn = e.target.hasAttribute('data-close') ? e.target : e.target.closest('[data-close]');
       if (closeBtn) {
         var modal = closeBtn.closest('.modal');
-        if (modal) { modal.classList.remove('open'); document.body.style.overflow = ''; }
+        if (modal) {
+          modal.classList.remove('open');
+          document.body.style.overflow = '';
+        }
       }
     });
 
@@ -167,7 +186,7 @@ var UI = {
     if (reportBtn) {
       reportBtn.addEventListener('click', function() {
         if (!App.currentUser) {
-          UI.toast('Connectez-vous pour signaler un problème', 'warning');
+          UI.toast('Connectez-vous d\'abord', 'warning');
           UI.openModal('modal-login');
           return;
         }
@@ -181,16 +200,21 @@ var UI = {
         var s1 = document.getElementById('step-1');
         if (s1) s1.classList.add('active');
 
-        var allInd = document.querySelectorAll('.steps__i');
-        for (var i = 0; i < allInd.length; i++) allInd[i].classList.remove('active', 'done');
+        var allIndicators = document.querySelectorAll('.steps__i');
+        for (var i = 0; i < allIndicators.length; i++) {
+          allIndicators[i].classList.remove('active', 'done');
+        }
         var firstInd = document.querySelector('.steps__i[data-step="1"]');
         if (firstInd) firstInd.classList.add('active');
 
-        var b1 = document.getElementById('btn-step1-next'); if (b1) b1.disabled = true;
-        var b2 = document.getElementById('btn-step2-next'); if (b2) b2.disabled = true;
-        var li = document.getElementById('location-info'); if (li) li.style.display = 'none';
-        var dc = document.getElementById('desc-count'); if (dc) dc.textContent = '0';
-        var ai = document.getElementById('ai-reformulate'); if (ai) ai.style.display = 'none';
+        var b1 = document.getElementById('btn-step1-next');
+        if (b1) b1.disabled = true;
+        var b2 = document.getElementById('btn-step2-next');
+        if (b2) b2.disabled = true;
+        var li = document.getElementById('location-info');
+        if (li) li.style.display = 'none';
+        var dc = document.getElementById('desc-count');
+        if (dc) dc.textContent = '0';
 
         UI.openModal('modal-report');
         setTimeout(function() { MapManager.initMiniMap(); }, 400);
@@ -200,7 +224,10 @@ var UI = {
 
   openModal: function(id) {
     var m = document.getElementById(id);
-    if (m) { m.classList.add('open'); document.body.style.overflow = 'hidden'; }
+    if (m) {
+      m.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
   },
 
   closeModal: function(id) {
@@ -263,9 +290,9 @@ var UI = {
     var geoBtn = document.getElementById('btn-geolocate');
     if (geoBtn) {
       geoBtn.addEventListener('click', function() {
-        if (!navigator.geolocation) { UI.toast('Géolocalisation non supportée', 'error'); return; }
+        if (!navigator.geolocation) { UI.toast('Non supporte', 'error'); return; }
         geoBtn.disabled = true;
-        geoBtn.innerHTML = '<span class="spinner"></span> Localisation...';
+        geoBtn.textContent = 'Localisation...';
         navigator.geolocation.getCurrentPosition(
           function(pos) {
             var lat = pos.coords.latitude;
@@ -277,12 +304,12 @@ var UI = {
               MapManager.reverseGeo(lat, lng);
             }
             geoBtn.disabled = false;
-            geoBtn.innerHTML = '<i class="fas fa-crosshairs"></i> Me localiser';
+            geoBtn.innerHTML = '<i class="fas fa-crosshairs"></i> Localiser';
           },
           function() {
-            UI.toast('Impossible d\'obtenir votre position', 'warning');
+            UI.toast('Localisation impossible', 'warning');
             geoBtn.disabled = false;
-            geoBtn.innerHTML = '<i class="fas fa-crosshairs"></i> Me localiser';
+            geoBtn.innerHTML = '<i class="fas fa-crosshairs"></i> Localiser';
           },
           { enableHighAccuracy: true, timeout: 10000 }
         );
@@ -308,7 +335,8 @@ var UI = {
               searchResults.innerHTML = html;
               searchResults.classList.add('open');
             } else {
-              searchResults.classList.remove('open');
+              searchResults.innerHTML = '<div class="loc-r">Aucun résultat en Guadeloupe</div>';
+              searchResults.classList.add('open');
             }
           });
         }, 400);
@@ -319,6 +347,10 @@ var UI = {
         if (item && item.dataset.lat) {
           var lat = parseFloat(item.dataset.lat);
           var lon = parseFloat(item.dataset.lon);
+          if (!MapManager.isInGuadeloupe(lat, lon)) {
+            UI.toast('Ce lieu n\'est pas en Guadeloupe', 'warning');
+            return;
+          }
           MapManager.setPin(lat, lon);
           MapManager.reverseGeo(lat, lon);
           searchInput.value = item.textContent;
@@ -378,7 +410,6 @@ var UI = {
   },
 
   // === WIKI ===
-
   loadWiki: function() {
     var self = this;
     fetch('/api/wiki').then(function(r) { return r.json(); }).then(function(pages) {
@@ -400,9 +431,13 @@ var UI = {
       });
 
       if (pages.length > 0) self.loadWikiPage(pages[0].slug);
-      else document.getElementById('wiki-content').innerHTML = '<p>Aucune page wiki</p>';
+      else {
+        var content = document.getElementById('wiki-content');
+        if (content) content.innerHTML = '<p style="padding:24px;color:var(--text2)">Aucune page wiki. Connectez-vous pour créer la première !</p>';
+      }
     }).catch(function() {
-      document.getElementById('wiki-content').innerHTML = '<p>Erreur de chargement</p>';
+      var content = document.getElementById('wiki-content');
+      if (content) content.innerHTML = '<p>Erreur de chargement</p>';
     });
   },
 
@@ -410,149 +445,264 @@ var UI = {
     var el = document.getElementById('wiki-content');
     if (!el) return;
     el.innerHTML = '<p class="wiki__load">Chargement...</p>';
-
     fetch('/api/wiki/' + slug).then(function(r) {
       if (!r.ok) throw new Error();
-      return r.json();
-    }).then(function(data) {
+      return r.text();
+    }).then(function(md) {
+      // Remove history comment
+      md = md.replace(/^<!--[\s\S]*?-->\n?/, '');
       var editBtn = '';
       if (App.currentUser) {
-        editBtn = '<div style="display:flex;gap:8px;margin-bottom:16px;justify-content:flex-end">' +
-          '<button class="btn btn--ghost" onclick="UI.editWikiPage(\'' + slug + '\')"><i class="fas fa-edit"></i> Modifier</button>' +
-          (App.currentProfile && App.currentProfile.role === 'admin' ?
-            '<button class="btn btn--ghost" style="color:var(--red)" onclick="UI.deleteWikiPage(\'' + slug + '\')"><i class="fas fa-trash"></i> Supprimer</button>' : '') +
-        '</div>';
+        editBtn = '<div style="text-align:right;margin-bottom:12px"><button class="btn btn--ghost" onclick="UI.editWikiPage(\'' + slug + '\')"><i class="fas fa-edit"></i> Modifier</button></div>';
       }
-      el.innerHTML = editBtn + marked.parse(data.content);
+      el.innerHTML = editBtn + marked.parse(md);
     }).catch(function() {
       el.innerHTML = '<p>Page introuvable</p>';
     });
   },
 
-  wikiEditor: function() {
+  wikiEdit: function() {
     var self = this;
 
-    var newBtn = document.getElementById('btn-wiki-new');
+    var newBtn = document.getElementById('btn-new-wiki');
     if (newBtn) {
       newBtn.addEventListener('click', function() {
         if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
         document.getElementById('wiki-edit-title').textContent = 'Nouvel article';
         document.getElementById('wiki-edit-slug').value = '';
         document.getElementById('wiki-edit-slug').disabled = false;
-        document.getElementById('wiki-edit-content').value = '# Mon article\n\nContenu ici...';
+        document.getElementById('wiki-edit-content').value = '# Titre\n\nContenu de l\'article...';
+        document.getElementById('wiki-char-count').textContent = '0';
         UI.openModal('modal-wiki-edit');
       });
     }
 
-    var saveBtn = document.getElementById('btn-wiki-save');
-    if (saveBtn) {
-      saveBtn.addEventListener('click', function() {
+    var contentInput = document.getElementById('wiki-edit-content');
+    if (contentInput) {
+      contentInput.addEventListener('input', function() {
+        var c = document.getElementById('wiki-char-count');
+        if (c) c.textContent = contentInput.value.length;
+      });
+    }
+
+    var form = document.getElementById('wiki-edit-form');
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
         self.saveWikiPage();
       });
+    }
+
+    var historyBtn = document.getElementById('btn-wiki-history');
+    if (historyBtn) {
+      historyBtn.addEventListener('click', function() { self.showWikiHistory(); });
     }
   },
 
   editWikiPage: function(slug) {
+    if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
     document.getElementById('wiki-edit-title').textContent = 'Modifier: ' + slug;
     document.getElementById('wiki-edit-slug').value = slug;
     document.getElementById('wiki-edit-slug').disabled = true;
 
-    fetch('/api/wiki/' + slug).then(function(r) { return r.json(); }).then(function(data) {
-      // Remove metadata comment if present
-      var content = data.content.replace(/^<!--[\s\S]*?-->\n?/, '');
-      document.getElementById('wiki-edit-content').value = content;
+    fetch('/api/wiki/' + slug).then(function(r) { return r.text(); }).then(function(md) {
+      md = md.replace(/^<!--[\s\S]*?-->\n?/, '');
+      document.getElementById('wiki-edit-content').value = md;
+      document.getElementById('wiki-char-count').textContent = md.length;
       UI.openModal('modal-wiki-edit');
-    }).catch(function() {
-      UI.toast('Erreur de chargement', 'error');
     });
   },
 
-  async saveWikiPage() {
-    var slug = document.getElementById('wiki-edit-slug').value.trim().toLowerCase()
-      .replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  saveWikiPage: async function() {
+    var slug = document.getElementById('wiki-edit-slug').value.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
     var content = document.getElementById('wiki-edit-content').value;
+    var author = App.currentProfile ? App.currentProfile.username : 'Anonyme';
 
-    if (!slug || slug.length < 2) { UI.toast('Nom de page invalide (min 2 caractères)', 'warning'); return; }
-    if (!content || content.trim().length < 10) { UI.toast('Contenu trop court (min 10 caractères)', 'warning'); return; }
+    if (!slug || slug.length < 2) { UI.toast('Slug invalide', 'warning'); return; }
+    if (!content || content.length < 10) { UI.toast('Contenu trop court', 'warning'); return; }
 
-    // Moderate content
+    var btn = document.getElementById('btn-wiki-save');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Sauvegarde...';
+
     try {
-      var modResult = await fetch('/api/moderate', {
+      var resp = await fetch('/api/wiki/' + slug, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: content })
-      }).then(function(r) { return r.json(); });
+        body: JSON.stringify({ content: content, author: author })
+      });
+      var data = await resp.json();
 
-      if (!modResult.ok) {
-        UI.toast('Contenu inapproprié détecté. Merci de reformuler.', 'error');
+      if (!resp.ok) {
+        UI.toast(data.error || 'Erreur', 'error');
+      } else {
+        UI.closeModal('modal-wiki-edit');
+        UI.toast(data.isNew ? 'Article créé !' : 'Article mis à jour !', 'success');
+        this.loadWiki();
+      }
+    } catch (e) {
+      UI.toast('Erreur réseau', 'error');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save"></i> Publier';
+  },
+
+  showWikiHistory: async function() {
+    var container = document.getElementById('wiki-history-content');
+    if (!container) return;
+    container.innerHTML = '<p class="wiki__load">Chargement...</p>';
+    UI.openModal('modal-wiki-history');
+
+    try {
+      var resp = await fetch('/api/wiki-history');
+      var logs = await resp.json();
+
+      if (logs.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:var(--text3);padding:24px">Aucune modification enregistrée</p>';
         return;
       }
-    } catch (e) {}
+
+      var html = '';
+      for (var i = 0; i < logs.length; i++) {
+        var log = logs[i];
+        html += '<div class="adm" style="cursor:default">' +
+          '<div class="adm__info">' +
+          '<div class="adm__title">' + (log.isNew ? '📝 Créé' : '✏️ Modifié') + ': ' + App.esc(log.page) + '</div>' +
+          '<div class="adm__meta">Par ' + App.esc(log.author) + ' • ' + App.ago(log.timestamp) + ' • ' + log.contentLength + ' car.</div>' +
+          '</div></div>';
+      }
+      container.innerHTML = html;
+    } catch (e) {
+      container.innerHTML = '<p style="color:var(--red)">Erreur</p>';
+    }
+  },
+
+  // === COMMUNITY / TAG PROPOSALS ===
+  community: function() {
+    var self = this;
+    var proposeBtn = document.getElementById('btn-propose-tag');
+    var formContainer = document.getElementById('tag-proposal-form-container');
+    var cancelBtn = document.getElementById('tp-cancel');
+    var form = document.getElementById('tag-proposal-form');
+
+    if (proposeBtn) {
+      proposeBtn.addEventListener('click', function() {
+        if (!App.currentUser) { UI.toast('Connectez-vous pour proposer un tag', 'warning'); return; }
+        proposeBtn.style.display = 'none';
+        formContainer.style.display = 'block';
+      });
+    }
+
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function() {
+        formContainer.style.display = 'none';
+        proposeBtn.style.display = 'inline-flex';
+        form.reset();
+      });
+    }
+
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        self.submitTagProposal();
+      });
+    }
+  },
+
+  submitTagProposal: async function() {
+    var name = document.getElementById('tp-name').value.trim();
+    var icon = document.getElementById('tp-icon').value.trim();
+    var description = document.getElementById('tp-description').value.trim();
+    var author = App.currentProfile ? App.currentProfile.username : 'Anonyme';
 
     try {
-      var r = await fetch('/api/wiki/' + slug, {
+      var resp = await fetch('/api/tag-proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: content,
-          author: App.currentProfile ? App.currentProfile.username : 'Anonyme'
-        })
+        body: JSON.stringify({ name: name, icon: icon, description: description, author: author })
       });
-      var result = await r.json();
+      var data = await resp.json();
 
-      if (result.ok) {
-        UI.closeModal('modal-wiki-edit');
-        UI.toast('Article sauvegardé ! 📝', 'success');
-        this.loadWiki();
+      if (!resp.ok) {
+        UI.toast(data.error || 'Erreur', 'error');
       } else {
-        UI.toast(result.error || 'Erreur', 'error');
+        UI.toast('Tag proposé !', 'success');
+        document.getElementById('tag-proposal-form').reset();
+        document.getElementById('tag-proposal-form-container').style.display = 'none';
+        document.getElementById('btn-propose-tag').style.display = 'inline-flex';
+        this.loadTagProposals();
       }
     } catch (e) {
       UI.toast('Erreur réseau', 'error');
     }
   },
 
-  async deleteWikiPage(slug) {
-    if (!confirm('Supprimer cette page wiki ? Cette action est irréversible.')) return;
+  loadTagProposals: async function() {
+    var container = document.getElementById('tag-proposals-list');
+    if (!container) return;
 
     try {
-      var r = await fetch('/api/wiki/' + slug, { method: 'DELETE' });
-      var result = await r.json();
+      var resp = await fetch('/api/tag-proposals');
+      var proposals = await resp.json();
 
-      if (result.ok) {
-        UI.toast('Page supprimée', 'success');
-        this.loadWiki();
-      } else {
-        UI.toast(result.error || 'Erreur', 'error');
+      if (proposals.length === 0) {
+        container.innerHTML = '<p style="color:var(--text3);font-size:.8rem">Aucune proposition pour le moment</p>';
+        return;
       }
+
+      // Sort by votes
+      proposals.sort(function(a, b) { return (b.votes || 0) - (a.votes || 0); });
+
+      var html = '';
+      for (var i = 0; i < proposals.length; i++) {
+        var p = proposals[i];
+        var hasVoted = App.currentUser && p.voters && p.voters.includes(App.currentUser.id);
+        html += '<div class="adm" style="cursor:default">' +
+          '<div style="font-size:1.2rem;margin-right:6px"><i class="fas ' + (p.icon || 'fa-tag') + '"></i></div>' +
+          '<div class="adm__info">' +
+          '<div class="adm__title">' + App.esc(p.name) + '</div>' +
+          '<div class="adm__meta">' + App.esc(p.description) + '</div>' +
+          '<div class="adm__meta">Par ' + App.esc(p.author) + ' • ' + App.ago(p.created_at) + '</div>' +
+          '</div>' +
+          '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="UI.voteTagProposal(\'' + p.id + '\')">' +
+          '<i class="fas fa-arrow-up"></i> ' + (p.votes || 0) +
+          '</button></div>';
+      }
+      container.innerHTML = html;
     } catch (e) {
-      UI.toast('Erreur réseau', 'error');
+      container.innerHTML = '<p style="color:var(--text3)">Erreur</p>';
     }
   },
 
-  // === COMMUNITY ===
+  voteTagProposal: async function(id) {
+    if (!App.currentUser) { UI.toast('Connectez-vous pour voter', 'warning'); return; }
 
-  communityInit: function() {
-    var tagBtn = document.getElementById('btn-new-tag');
-    if (tagBtn) {
-      tagBtn.addEventListener('click', function() {
-        if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
-        document.getElementById('tag-proposal-form').style.display = 'block';
-        tagBtn.style.display = 'none';
+    try {
+      var resp = await fetch('/api/tag-proposals/' + id + '/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voter: App.currentUser.id })
       });
-    }
-
-    var submitTag = document.getElementById('btn-submit-tag');
-    if (submitTag) {
-      submitTag.addEventListener('click', function() {
-        Community.submitProposal();
-      });
+      var data = await resp.json();
+      if (resp.ok) {
+        this.loadTagProposals();
+      } else {
+        UI.toast(data.error || 'Erreur', 'error');
+      }
+    } catch (e) {
+      UI.toast('Erreur réseau', 'error');
     }
   },
 
   toast: function(msg, type) {
     type = type || 'info';
-    var icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+    var icons = {
+      success: 'fa-check-circle',
+      error: 'fa-exclamation-circle',
+      warning: 'fa-exclamation-triangle',
+      info: 'fa-info-circle'
+    };
     var container = document.getElementById('toast-container');
     if (!container) return;
     var t = document.createElement('div');
@@ -561,129 +711,21 @@ var UI = {
     container.appendChild(t);
     setTimeout(function() {
       if (t.parentElement) {
-        t.style.opacity = '0'; t.style.transform = 'translateX(60px)'; t.style.transition = '.2s';
+        t.style.opacity = '0';
+        t.style.transform = 'translateX(60px)';
+        t.style.transition = '.2s';
         setTimeout(function() { if (t.parentElement) t.remove(); }, 200);
       }
     }, 4000);
   },
 
-  showLoading: function() { var el = document.getElementById('loading-overlay'); if (el) el.classList.add('active'); },
-  hideLoading: function() { var el = document.getElementById('loading-overlay'); if (el) el.classList.remove('active'); }
-};
-
-// === COMMUNITY MODULE ===
-
-var Community = {
-  async loadProposals() {
-    var el = document.getElementById('tag-proposals-list');
-    if (!el) return;
-
-    try {
-      var { data } = await App.supabase.from('tag_proposals')
-        .select('*, profiles(username)')
-        .order('votes', { ascending: false });
-
-      if (!data || data.length === 0) {
-        el.innerHTML = '<p style="font-size:.8rem;color:var(--text3)">Aucune proposition pour le moment</p>';
-        return;
-      }
-
-      var html = '';
-      data.forEach(function(p) {
-        var authorName = (p.profiles && p.profiles.username) || 'Anonyme';
-        var statusBadge = p.status === 'approved' ? '<span class="badge badge--resolved">✅ Approuvé</span>' :
-                          p.status === 'rejected' ? '<span class="badge badge--rejected">❌ Rejeté</span>' :
-                          '<span class="badge badge--pending">⏳ En vote</span>';
-
-        html += '<div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg3);border-radius:var(--r);margin-bottom:4px">' +
-          '<div style="display:flex;flex-direction:column;align-items:center;gap:2px">' +
-            '<button class="btn btn--ghost" onclick="Community.voteProposal(\'' + p.id + '\')" style="padding:2px 6px;font-size:.85rem" title="Voter"><i class="fas fa-arrow-up"></i></button>' +
-            '<span style="font-weight:700;color:var(--orange)">' + (p.votes || 0) + '</span>' +
-          '</div>' +
-          '<div style="flex:1">' +
-            '<div style="font-weight:600;font-size:.85rem">' + App.esc(p.name) + ' ' + statusBadge + '</div>' +
-            '<div style="font-size:.75rem;color:var(--text2)">' + App.esc(p.reason || '') + '</div>' +
-            '<div style="font-size:.68rem;color:var(--text3)">par ' + App.esc(authorName) + ' · ' + App.ago(p.created_at) + '</div>' +
-          '</div>' +
-        '</div>';
-      });
-      el.innerHTML = html;
-    } catch (e) {
-      el.innerHTML = '<p style="font-size:.8rem;color:var(--text3)">Erreur de chargement</p>';
-    }
+  showLoading: function() {
+    var el = document.getElementById('loading-overlay');
+    if (el) el.classList.add('active');
   },
 
-  async submitProposal() {
-    if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
-
-    var name = document.getElementById('tag-name').value.trim();
-    var reason = document.getElementById('tag-reason').value.trim();
-
-    if (!name || name.length < 3) { UI.toast('Nom trop court (min 3 caractères)', 'warning'); return; }
-
-    // Moderate
-    try {
-      var modResult = await fetch('/api/moderate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: name, description: reason })
-      }).then(function(r) { return r.json(); });
-
-      if (!modResult.ok) {
-        UI.toast('Contenu inapproprié détecté', 'error');
-        return;
-      }
-    } catch (e) {}
-
-    try {
-      var { error } = await App.supabase.from('tag_proposals').insert({
-        name: name,
-        reason: reason,
-        user_id: App.currentUser.id,
-        status: 'pending',
-        votes: 1
-      });
-
-      if (error) throw error;
-
-      UI.toast('Proposition soumise ! La communauté peut voter 🗳️', 'success');
-      document.getElementById('tag-name').value = '';
-      document.getElementById('tag-reason').value = '';
-      document.getElementById('tag-proposal-form').style.display = 'none';
-      var tagBtn = document.getElementById('btn-new-tag');
-      if (tagBtn) tagBtn.style.display = 'inline-flex';
-      this.loadProposals();
-    } catch (e) {
-      UI.toast('Erreur: ' + e.message, 'error');
-    }
-  },
-
-  async voteProposal(id) {
-    if (!App.currentUser) { UI.toast('Connectez-vous pour voter', 'warning'); return; }
-
-    try {
-      // Check if already voted
-      var { data: existing } = await App.supabase.from('tag_proposal_votes')
-        .select('id').eq('proposal_id', id).eq('user_id', App.currentUser.id).single();
-
-      if (existing) {
-        UI.toast('Vous avez déjà voté pour cette proposition', 'info');
-        return;
-      }
-
-      // Insert vote
-      await App.supabase.from('tag_proposal_votes').insert({
-        proposal_id: id,
-        user_id: App.currentUser.id
-      });
-
-      // Increment count
-      await App.supabase.rpc('increment_tag_votes', { pid: id });
-
-      UI.toast('Vote enregistré ! 👍', 'success');
-      this.loadProposals();
-    } catch (e) {
-      UI.toast('Erreur: ' + e.message, 'error');
-    }
+  hideLoading: function() {
+    var el = document.getElementById('loading-overlay');
+    if (el) el.classList.remove('active');
   }
 };
