@@ -168,7 +168,8 @@ var Auth = {
         this._showError(errEl, msg);
       } else {
         UI.closeModal('modal-register');
-        UI.toast('Compte créé ! Vérifiez votre email.', 'success');
+        // Show confirmation message
+        UI._showEmailConfirmation(email);
       }
     } catch(e) { this._showError(errEl, 'Erreur lors de l\'inscription'); }
     btn.disabled = false; btn.innerHTML = 'Créer mon compte';
@@ -599,5 +600,30 @@ var Auth = {
       html += '</optgroup>';
     }
     return html;
-  }
+  },
+
+  _showEmailConfirmation: function(email) {
+    var overlay = document.createElement('div');
+    overlay.id = 'email-confirm-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.6);backdrop-filter:blur(6px)';
+
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:32px;max-width:420px;width:100%;text-align:center;box-shadow:var(--shadow-xl);animation:mslide .25s ease';
+
+    box.innerHTML = '<div style="width:64px;height:64px;border-radius:50%;background:var(--green-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.8rem"><i class="fas fa-envelope" style="color:var(--green)"></i></div>' +
+      '<h2 style="font-size:1.2rem;font-weight:700;margin-bottom:8px">Vérifiez votre email !</h2>' +
+      '<p style="color:var(--text2);font-size:.88rem;line-height:1.6;margin-bottom:16px">Un email de confirmation a été envoyé à :<br><strong style="color:var(--text)">' + App.esc(email) + '</strong></p>' +
+      '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:16px;text-align:left">' +
+        '<p style="font-size:.82rem;color:var(--text2);margin-bottom:8px"><strong style="color:var(--text)">📋 Étapes :</strong></p>' +
+        '<p style="font-size:.8rem;color:var(--text2);margin-bottom:4px">1. Ouvrez votre boîte mail (' + App.esc(email.split('@')[1]) + ')</p>' +
+        '<p style="font-size:.8rem;color:var(--text2);margin-bottom:4px">2. Cliquez sur le lien de confirmation</p>' +
+        '<p style="font-size:.8rem;color:var(--text2)">3. Revenez ici et connectez-vous !</p>' +
+      '</div>' +
+      '<p style="font-size:.75rem;color:var(--text3);margin-bottom:16px">💡 Vérifiez aussi vos spams/courrier indésirable</p>' +
+      '<button class="btn btn--primary btn--full btn--lg" onclick="document.getElementById(\'email-confirm-overlay\').remove()"><i class="fas fa-check"></i> J\'ai compris</button>';
+
+    overlay.appendChild(box);
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+  },
 };
