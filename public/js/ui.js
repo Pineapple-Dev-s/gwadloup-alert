@@ -379,6 +379,25 @@ var UI = {
     if (descCount) descCount.textContent = '0';
     var locInfo = document.getElementById('location-info');
     if (locInfo) locInfo.style.display = 'none';
+
+    // Show/hide anonymous button
+    var submitBtn = document.getElementById('btn-submit-report');
+    var anonBtn = document.getElementById('btn-submit-anonymous');
+    if (!anonBtn && submitBtn) {
+      anonBtn = document.createElement('button');
+      anonBtn.type = 'button';
+      anonBtn.id = 'btn-submit-anonymous';
+      anonBtn.className = 'btn btn--outline';
+      anonBtn.innerHTML = '<i class="fas fa-user-secret"></i> Envoyer anonymement';
+      anonBtn.addEventListener('click', function() {
+        if (typeof Reports !== 'undefined') Reports.submitReport(true);
+      });
+      submitBtn.parentNode.insertBefore(anonBtn, submitBtn);
+    }
+
+    // Show anonymous option only if NOT logged in OR always
+    if (anonBtn) anonBtn.style.display = 'inline-flex';
+
     this.openModal('modal-report');
   },
 
