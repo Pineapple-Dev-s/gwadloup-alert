@@ -707,6 +707,53 @@ app.post('/api/moderate', limit(60, 60000), async function(req, res) {
   }
 });
 
+// Anonymous report endpoint
+app.post('/api/report-anonymous', limit(10, 60000), async function(req, res) {
+  var body = req.body;
+  if (!body.title || !body.description || !body.latitude || !body.longitude || !body.category) {
+    return res.status(400).json({ error: 'Champs manquants' });
+  }
+  if (body.title.length < 5 || body.description.length < 10) {
+    return res.status(400).json({ error: 'Contenu trop court' });
+  }
+
+  // Moderation check
+  var check = containsBadWords(body.title + ' ' + body.description);
+  if (check.found && check.severity === 'hard') {
+    return res.status(400).json({ error: 'Contenu inapproprié' });
+  }
+
+  try {
+    if (!supabaseAdmin) return res.status(500).json({ error: 'Database unavailable' });
+
+    var result = await supabaseAdmin.from('reports').insert({
+      category: body.category,
+      title: body.title.substring(0, 150),
+      description: body.description.substring(0, 2000),
+      latitude: body.latitude,
+      longitude: body.longitude,
+      address: body.address || null,
+      commune: body.commune || null,
+      images: [],
+      priority: body.priority || 'medium',
+      status: 'pending',
+      upvotes: 0,
+      user_id: null // Anonymous — no user
+    }).select().single();
+
+    if (result.error) {
+      // If user_id NOT NULL constraint, we need a system user
+      // Try with a placeholder
+      return res.status(400).json({ error: 'Signalement anonyme non supporté par la base. Contactez l\'admin pour ajouter le support.' });
+    }
+
+    analytics.trackEvent('anonymous_report');
+    res.json({ ok: true, id: result.data.id });
+  } catch(e) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 app.all('/api/*', function(req, res) { res.status(404).json({ error: 'Route inconnue' }); });
 app.get('*', function(req, res) { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 app.use(function(err, req, res, next) { console.error(err); res.status(500).json({ error: 'Erreur serveur' }); });
