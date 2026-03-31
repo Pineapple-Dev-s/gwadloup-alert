@@ -1135,4 +1135,24 @@ var UI = {
     var loader = document.getElementById('loading-overlay');
     if (loader) loader.classList.remove('active');
   }
+
+  themeToggle: function() {
+    // Add theme toggle button to header
+    var right = document.querySelector('.hdr__right');
+    if (!right) return;
+
+    var btn = document.createElement('button');
+    btn.className = 'btn btn--ghost';
+    btn.id = 'btn-theme-toggle';
+    btn.title = 'Changer de thème';
+    btn.innerHTML = App.theme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    btn.style.cssText = 'font-size:.9rem;padding:6px 8px';
+    btn.addEventListener('click', function() {
+      App.toggleTheme();
+      this.innerHTML = App.theme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    });
+
+    // Insert before the first child (before report button)
+    right.insertBefore(btn, right.firstChild);
+  },
 };
