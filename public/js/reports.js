@@ -1,5 +1,6 @@
 var Reports = {
   viewMode: 'list',
+  statsLoaded: false,
 
   loadAll: async function() {
     try {
@@ -143,24 +144,67 @@ var Reports = {
     }
   },
 
-  updateStats: function() {
-    var total = App.pagination.total || App.reports.length, pending = 0, inProgress = 0, resolved = 0;
-    for (var i = 0; i < App.reports.length; i++) {
-      var s = App.reports[i].status;
-      if (s === 'pending') pending++;
-      else if (s === 'in_progress' || s === 'acknowledged') inProgress++;
-      else if (s === 'resolved') resolved++;
+  updateStats: async function() {
+    // Load ALL reports count from Supabase for accurate stats
+    var total = 0, pending = 0, inProgress = 0, resolved = 0;
+    
+    try {
+      // Get accurate counts from database
+      var allResult = await App.supabase
+        .from('reports')
+        .select('status', { count: 'exact' });
+      
+      if (allResult.data) {
+        total = allResult.data.length;
+        for (var i = 0; i < allResult.data.length; i++) {
+          var s = allResult.data[i].status;
+          if (s === 'pending') pending++;
+          else if (s === 'in_progress' || s === 'acknowledged') inProgress++;
+          else if (s === 'resolved') resolved++;
+        }
+      }
+    } catch(e) {
+      // Fallback to local data
+      total = App.pagination.total || App.reports.length;
+      for (var i = 0; i < App.reports.length; i++) {
+        var s = App.reports[i].status;
+        if (s === 'pending') pending++;
+        else if (s === 'in_progress' || s === 'acknowledged') inProgress++;
+        else if (s === 'resolved') resolved++;
+      }
     }
-    var ids = { 'stat-total': total, 'stat-pending': pending, 'stat-progress': inProgress, 'stat-resolved': resolved, 'stats-total': total, 'stats-pending': pending, 'stats-in-progress': inProgress, 'stats-resolved': resolved };
-    for (var id in ids) { var el = document.getElementById(id); if (el) el.textContent = ids[id]; }
-    var barPending = document.getElementById('bar-pending');
-    var barProgress = document.getElementById('bar-progress');
-    var barResolved = document.getElementById('bar-resolved');
+
+    // Update ALL stat elements
+    var statElements = {
+      'stat-total': total,
+      'stat-pending': pending,
+      'stat-progress': inProgress,
+      'stat-resolved': resolved,
+      'stats-total': total,
+      'stats-pending': pending,
+      'stats-in-progress': inProgress,
+      'stats-resolved': resolved
+    };
+    
+    for (var id in statElements) {
+      var el = document.getElementById(id);
+      if (el) {
+        el.textContent = statElements[id];
+        el.style.visibility = 'visible';
+      }
+    }
+
+    // Update progress bars
     if (total > 0) {
+      var barPending = document.getElementById('bar-pending');
+      var barProgress = document.getElementById('bar-progress');
+      var barResolved = document.getElementById('bar-resolved');
       if (barPending) barPending.style.width = Math.round((pending / total) * 100) + '%';
       if (barProgress) barProgress.style.width = Math.round((inProgress / total) * 100) + '%';
       if (barResolved) barResolved.style.width = Math.round((resolved / total) * 100) + '%';
     }
+
+    this.statsLoaded = true;
     this.renderCharts();
     this.renderLeaderboard();
     this.renderMairies();
@@ -308,10 +352,10 @@ var Reports = {
       html += '<div style="background:var(--bg3);border-radius:var(--r);padding:14px;margin-bottom:20px;border:1px solid var(--border)">' +
         '<div style="font-size:.78rem;font-weight:600;margin-bottom:8px;color:var(--text2)"><i class="fas fa-exchange-alt"></i> Mettre à jour le statut</div>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap">';
-      var statuses = ['pending', 'acknowledged', 'in_progress', 'resolved'];
+      var allStatuses = ['pending', 'acknowledged', 'in_progress', 'resolved'];
       var statusLabels = { pending: 'En attente', acknowledged: 'Vu', in_progress: 'En cours', resolved: 'Résolu' };
-      for (var i = 0; i < statuses.length; i++) {
-        html += '<button class="btn btn--outline' + (report.status === statuses[i] ? ' btn--primary' : '') + '" onclick="Reports.changeStatus(\'' + id + '\',\'' + statuses[i] + '\')" style="font-size:.75rem">' + statusLabels[statuses[i]] + '</button>';
+      for (var si = 0; si < allStatuses.length; si++) {
+        html += '<button class="btn btn--outline' + (report.status === allStatuses[si] ? ' btn--primary' : '') + '" onclick="Reports.changeStatus(\'' + id + '\',\'' + allStatuses[si] + '\')" style="font-size:.75rem">' + statusLabels[allStatuses[si]] + '</button>';
       }
       html += '</div></div>';
     }
@@ -335,38 +379,17 @@ var Reports = {
     var isOwner = App.currentUser && report.user_id === App.currentUser.id;
     var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
     if (!isOwner && !isAdmin) { UI.toast('Non autorisé', 'error'); return; }
-    if (!confirm('Supprimer ce signalement ? Les points associés seront retirés.')) return;
+    if (!confirm('Supprimer ce signalement ? Les points seront retirés.')) return;
     try {
-      // Mark delete for cooldown
       if (isOwner) {
         await fetch('/api/mark-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: App.currentUser.id }) });
       }
-
-      // Delete related data
       await App.supabase.from('comments').delete().eq('report_id', id);
       await App.supabase.from('votes').delete().eq('report_id', id);
-
-      // Delete the report
       var result = await App.supabase.from('reports').delete().eq('id', id);
       if (result.error) { UI.toast('Erreur: ' + result.error.message, 'error'); return; }
-
-      // REMOVE POINTS: -10 reputation and -1 reports_count for the owner
-      if (isOwner && App.currentProfile) {
-        var newRep = Math.max(0, (App.currentProfile.reputation || 0) - 10);
-        var newCount = Math.max(0, (App.currentProfile.reports_count || 0) - 1);
-        await App.supabase.from('profiles').update({
-          reputation: newRep,
-          reports_count: newCount
-        }).eq('id', App.currentUser.id);
-        App.currentProfile.reputation = newRep;
-        App.currentProfile.reports_count = newCount;
-
-        // Update UI display
-        if (typeof Auth !== 'undefined') Auth.updateUI(true);
-      }
-
-      // If admin deletes someone else's report, also remove their points
-      if (isAdmin && !isOwner && report.user_id) {
+      // Remove points
+      if (report.user_id) {
         try {
           var ownerProfile = await App.supabase.from('profiles').select('reputation, reports_count').eq('id', report.user_id).single();
           if (ownerProfile.data) {
@@ -375,19 +398,20 @@ var Reports = {
               reports_count: Math.max(0, (ownerProfile.data.reports_count || 0) - 1)
             }).eq('id', report.user_id);
           }
-        } catch(e) { console.warn('Could not remove points from report owner:', e); }
+          if (App.currentUser && report.user_id === App.currentUser.id && App.currentProfile) {
+            App.currentProfile.reputation = Math.max(0, (App.currentProfile.reputation || 0) - 10);
+            App.currentProfile.reports_count = Math.max(0, (App.currentProfile.reports_count || 0) - 1);
+            if (typeof Auth !== 'undefined') Auth.updateUI(true);
+          }
+        } catch(e) {}
       }
-
       UI.toast('Supprimé — points retirés', 'success');
       UI.closeModal('modal-detail');
       App.reports = App.reports.filter(function(r) { return r.id !== id; });
       MapManager.removeReport(id);
       this.renderList();
       this.updateStats();
-    } catch (e) {
-      console.error('Delete error:', e);
-      UI.toast('Erreur', 'error');
-    }
+    } catch (e) { UI.toast('Erreur', 'error'); }
   },
 
   loadComments: async function(reportId) {
@@ -487,22 +511,15 @@ var Reports = {
       var modData = await modResp.json();
       if (modData.flagged && modData.reformulated && modData.cleaned) { title = modData.cleaned.title; description = modData.cleaned.description; UI.toast('Contenu reformulé', 'info'); }
       var imageUrls = [];
-      if (!isAnonymous && typeof ImageUpload !== 'undefined') {
-        imageUrls = await ImageUpload.uploadAll();
-      }
+      if (!isAnonymous && typeof ImageUpload !== 'undefined') { imageUrls = await ImageUpload.uploadAll(); }
       var reportData = {
-        category: category.value,
-        title: title, description: description,
+        category: category.value, title: title, description: description,
         latitude: lat, longitude: lng, address: address, commune: commune,
         images: imageUrls, priority: priority ? priority.value : 'medium',
         status: 'pending', upvotes: 0
       };
       if (isAnonymous) {
-        var anonResp = await fetch('/api/report-anonymous', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(reportData)
-        });
+        var anonResp = await fetch('/api/report-anonymous', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reportData) });
         var anonData = await anonResp.json();
         if (anonData.error) throw new Error(anonData.error);
       } else {
