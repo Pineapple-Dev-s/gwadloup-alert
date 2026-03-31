@@ -286,7 +286,10 @@ var UI = {
     });
 
     var form = document.getElementById('report-form');
-    if (form) form.addEventListener('submit', function(e) { e.preventDefault(); if (typeof Reports !== 'undefined') Reports.submitReport(); });
+    if (form) form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (typeof Reports !== 'undefined') Reports.submitReport(false);
+    });
 
     var geoBtn = document.getElementById('btn-geolocate');
     if (geoBtn) geoBtn.addEventListener('click', function() {
@@ -1134,7 +1137,7 @@ var UI = {
   hideLoading: function() {
     var loader = document.getElementById('loading-overlay');
     if (loader) loader.classList.remove('active');
-  }
+  },
 
   themeToggle: function() {
     // Add theme toggle button to header
