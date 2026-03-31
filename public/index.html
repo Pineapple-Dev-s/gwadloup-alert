@@ -18,7 +18,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="manifest" href="/manifest.json">
   <meta name="mobile-web-app-capable" content="yes">
@@ -36,7 +35,6 @@
         <button class="hdr__tab" data-view="community"><i class="fas fa-users"></i><span>Communauté</span></button>
       </nav>
       <div class="hdr__right">
-        <!-- ALWAYS VISIBLE report button -->
         <button class="btn btn--accent" id="btn-new-report"><i class="fas fa-plus"></i><span>Signaler</span></button>
         <div id="auth-buttons">
           <button class="btn btn--ghost" id="btn-login"><i class="fas fa-sign-in-alt"></i><span>Connexion</span></button>
@@ -70,7 +68,6 @@
   </header>
 
   <main class="main">
-    <!-- MAP -->
     <section class="view active" id="view-map">
       <div class="map-page">
         <div class="topbar">
@@ -118,7 +115,6 @@
       </div>
     </section>
 
-    <!-- LIST -->
     <section class="view" id="view-list">
       <div class="container">
         <div class="sec-head">
@@ -129,9 +125,7 @@
           </div>
         </div>
         <div class="list-header" id="list-header">
-          <div class="list-header__left">
-            <span class="list-header__count"><i class="fas fa-exclamation-circle"></i> <span id="list-count">0</span> signalements</span>
-          </div>
+          <div class="list-header__left"><span class="list-header__count"><i class="fas fa-exclamation-circle"></i> <span id="list-count">0</span> signalements</span></div>
           <div class="list-header__tabs">
             <button class="list-header__tab active" data-filter="">Tous</button>
             <button class="list-header__tab" data-filter="pending">En attente</button>
@@ -144,7 +138,6 @@
       </div>
     </section>
 
-    <!-- STATS -->
     <section class="view" id="view-stats">
       <div class="container">
         <div class="sec-head"><div><h1><i class="fas fa-chart-bar"></i> Tableau de bord</h1><p>Statistiques en temps réel de la plateforme</p></div></div>
@@ -173,7 +166,6 @@
       </div>
     </section>
 
-    <!-- WIKI -->
     <section class="view" id="view-wiki">
       <div class="container">
         <div class="sec-head">
@@ -192,7 +184,7 @@
         </div>
         <div class="wiki-panel" id="wpanel-community">
           <div class="wiki-filters">
-            <select class="sel" id="wiki-cat-filter"><option value="">Toutes catégories</option><option value="guide">📖 Guide</option><option value="info">ℹ️ Info</option><option value="discussion">💬 Discussion</option><option value="proposition">💡 Proposition</option><option value="general">📌 Général</option></select>
+            <select class="sel" id="wiki-cat-filter"><option value="">Toutes catégories</option><option value="guide">📖 Guide</option><option value="info">ℹ️ Info</option><option value="discussion">�� Discussion</option><option value="proposition">💡 Proposition</option><option value="general">📌 Général</option></select>
             <select class="sel" id="wiki-sort"><option value="newest">Plus récents</option><option value="popular">Plus populaires</option></select>
           </div>
           <div id="community-articles-list"><p class="wiki__load">Chargement...</p></div>
@@ -200,7 +192,6 @@
       </div>
     </section>
 
-    <!-- COMMUNITY -->
     <section class="view" id="view-community">
       <div class="container">
         <div class="sec-head"><div><h1><i class="fas fa-users"></i> Communauté</h1><p>Proposez des tags, contactez-nous, contribuez au code</p></div></div>
@@ -226,77 +217,51 @@
         <div class="cbox">
           <h3><i class="fab fa-github"></i> Open Source</h3>
           <p style="font-size:.85rem;color:var(--text2);line-height:1.7;margin-bottom:12px">Gwadloup Alert est <strong style="color:var(--green)">100% open source et gratuit</strong>. Contribuez, signalez des bugs, proposez des améliorations !</p>
-          <a href="https://github.com/MaxLananas-debug/gwadloup" target="_blank" rel="noopener" id="repo-link" style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);text-decoration:none;font-size:.85rem;font-weight:600;transition:all .15s ease">
-            <i class="fab fa-github" style="font-size:1.1rem"></i><span>MaxLananas-debug/gwadloup</span><i class="fas fa-external-link-alt" style="font-size:.65rem;color:var(--text3)"></i>
-          </a>
+          <a href="https://github.com/MaxLananas-debug/gwadloup" target="_blank" rel="noopener" id="repo-link" style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);text-decoration:none;font-size:.85rem;font-weight:600;transition:all .15s ease"><i class="fab fa-github" style="font-size:1.1rem"></i><span>MaxLananas-debug/gwadloup</span><i class="fas fa-external-link-alt" style="font-size:.65rem;color:var(--text3)"></i></a>
         </div>
-
-        <!-- MENTIONS LÉGALES -->
         <div class="cbox">
           <h3><i class="fas fa-gavel"></i> Mentions légales</h3>
           <div style="font-size:.82rem;color:var(--text2);line-height:1.8">
             <p><strong style="color:var(--text)">Éditeur :</strong> Gwadloup Alert — Projet citoyen open source</p>
             <p><strong style="color:var(--text)">Contact :</strong> <a href="mailto:maxenceponche971@gmail.com">maxenceponche971@gmail.com</a></p>
-            <p><strong style="color:var(--text)">Hébergement :</strong> Render.com (San Francisco, CA, USA) — <a href="https://render.com" target="_blank" rel="noopener">render.com</a></p>
+            <p><strong style="color:var(--text)">Hébergement :</strong> Render.com — <a href="https://render.com" target="_blank" rel="noopener">render.com</a></p>
             <p><strong style="color:var(--text)">Base de données :</strong> Supabase Inc. — <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a></p>
-            <p><strong style="color:var(--text)">Hébergement images :</strong> ImgBB — <a href="https://imgbb.com" target="_blank" rel="noopener">imgbb.com</a></p>
+            <p><strong style="color:var(--text)">Images :</strong> ImgBB — <a href="https://imgbb.com" target="_blank" rel="noopener">imgbb.com</a></p>
             <p><strong style="color:var(--text)">Cartographie :</strong> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors, © <a href="https://carto.com/" target="_blank" rel="noopener">CARTO</a></p>
-            <p style="margin-top:12px"><strong style="color:var(--text)">Code source :</strong> Ce projet est distribué sous licence open source. Le code est disponible sur <a href="https://github.com/MaxLananas-debug/gwadloup" target="_blank" rel="noopener">GitHub</a>.</p>
+            <p style="margin-top:12px"><strong style="color:var(--text)">Code source :</strong> Distribué sous licence open source sur <a href="https://github.com/MaxLananas-debug/gwadloup" target="_blank" rel="noopener">GitHub</a>.</p>
           </div>
         </div>
-
-        <!-- CONFIDENTIALITÉ -->
         <div class="cbox">
           <h3><i class="fas fa-shield-alt"></i> Politique de confidentialité</h3>
           <div style="font-size:.82rem;color:var(--text2);line-height:1.8">
             <p><strong style="color:var(--text)">Données collectées :</strong></p>
             <ul style="margin:8px 0 12px 20px">
-              <li><strong>Compte utilisateur :</strong> email, pseudo, commune (optionnel). Mot de passe hashé par Supabase (bcrypt).</li>
+              <li><strong>Compte :</strong> email, pseudo, commune (optionnel). Mot de passe hashé (bcrypt).</li>
               <li><strong>Signalements :</strong> titre, description, localisation GPS, photos, catégorie, priorité.</li>
-              <li><strong>Analytics :</strong> pages visitées, appareil, navigateur, pays (déduit de la langue). <strong>Aucun cookie</strong> n'est utilisé. L'identifiant de session est un hash anonyme (IP + User-Agent + date), non réversible.</li>
-              <li><strong>Signalements anonymes :</strong> aucune donnée personnelle n'est associée. Le champ user_id est NULL.</li>
+              <li><strong>Analytics :</strong> pages visitées, appareil, navigateur, pays. <strong>Aucun cookie</strong>. Identifiant session = hash anonyme non réversible.</li>
+              <li><strong>Anonyme :</strong> aucune donnée personnelle associée (user_id = NULL).</li>
             </ul>
-            <p><strong style="color:var(--text)">Utilisation des données :</strong></p>
-            <ul style="margin:8px 0 12px 20px">
-              <li>Affichage des signalements sur la carte publique</li>
-              <li>Statistiques agrégées (nombre de signalements par commune, catégorie, etc.)</li>
-              <li>Modération automatique du contenu (détection d'insultes, reformulation via IA)</li>
-              <li>Classement des contributeurs (pseudo + score)</li>
-            </ul>
-            <p><strong style="color:var(--text)">Partage des données :</strong></p>
-            <ul style="margin:8px 0 12px 20px">
-              <li>Les signalements sont <strong>publics par nature</strong> (carte collaborative).</li>
-              <li>Les données ne sont <strong>jamais vendues</strong> à des tiers.</li>
-              <li>Les images sont hébergées sur ImgBB (service tiers).</li>
-              <li>La modération IA utilise l'API Groq (les textes modérés sont envoyés pour reformulation).</li>
-            </ul>
-            <p><strong style="color:var(--text)">Vos droits (RGPD) :</strong></p>
-            <ul style="margin:8px 0 12px 20px">
-              <li><strong>Accès :</strong> consultez vos signalements dans votre profil.</li>
-              <li><strong>Rectification :</strong> modifiez votre pseudo et commune dans les paramètres.</li>
-              <li><strong>Suppression :</strong> supprimez vos signalements individuellement. Pour supprimer votre compte, contactez-nous par email.</li>
-              <li><strong>Portabilité :</strong> contactez-nous pour obtenir une copie de vos données.</li>
-            </ul>
-            <p><strong style="color:var(--text)">Durée de conservation :</strong> les données sont conservées tant que le service est actif. Les signalements résolus restent visibles pour l'historique.</p>
+            <p><strong style="color:var(--text)">Utilisation :</strong> affichage carte publique, statistiques agrégées, modération IA, classement contributeurs.</p>
+            <p><strong style="color:var(--text)">Partage :</strong> signalements publics, données jamais vendues, images sur ImgBB, modération via API Groq.</p>
+            <p><strong style="color:var(--text)">RGPD :</strong> accès via profil, rectification dans paramètres, suppression par signalement ou email, portabilité sur demande.</p>
+            <p><strong style="color:var(--text)">Conservation :</strong> tant que le service est actif.</p>
             <p style="margin-top:8px"><strong style="color:var(--text)">Contact DPO :</strong> <a href="mailto:maxenceponche971@gmail.com">maxenceponche971@gmail.com</a></p>
           </div>
         </div>
-
-        <!-- CONDITIONS D'UTILISATION -->
         <div class="cbox">
           <h3><i class="fas fa-file-contract"></i> Conditions d'utilisation</h3>
           <div style="font-size:.82rem;color:var(--text2);line-height:1.8">
-            <p>En utilisant Gwadloup Alert, vous acceptez les conditions suivantes :</p>
+            <p>En utilisant Gwadloup Alert, vous acceptez :</p>
             <ul style="margin:8px 0 12px 20px">
-              <li><strong>Contenu :</strong> les signalements doivent concerner des problèmes réels en Guadeloupe. Tout contenu diffamatoire, injurieux, discriminatoire ou illégal sera modéré automatiquement ou supprimé.</li>
-              <li><strong>Véracité :</strong> vous vous engagez à ne pas publier de faux signalements.</li>
-              <li><strong>Photos :</strong> les images uploadées ne doivent pas contenir de données personnelles identifiables (visages, plaques d'immatriculation) sauf si nécessaire au signalement.</li>
-              <li><strong>Respect :</strong> les commentaires doivent rester courtois et constructifs.</li>
-              <li><strong>Responsabilité :</strong> Gwadloup Alert est un outil de signalement citoyen. Nous ne sommes pas responsables des actions (ou inactions) des autorités compétentes.</li>
-              <li><strong>Modération :</strong> un système automatique filtre les contenus inappropriés. Les administrateurs peuvent supprimer tout contenu jugé non conforme.</li>
-              <li><strong>Gratuité :</strong> le service est et restera 100% gratuit.</li>
+              <li>Les signalements doivent concerner des problèmes réels en Guadeloupe.</li>
+              <li>Contenu diffamatoire, injurieux ou illégal modéré automatiquement ou supprimé.</li>
+              <li>Pas de faux signalements.</li>
+              <li>Photos sans données personnelles identifiables sauf nécessité.</li>
+              <li>Commentaires courtois et constructifs.</li>
+              <li>Nous ne sommes pas responsables des actions des autorités.</li>
+              <li>Le service est et restera 100% gratuit.</li>
             </ul>
-            <p style="margin-top:8px;font-size:.75rem;color:var(--text3)">Dernière mise à jour : Janvier 2025</p>
+            <p style="font-size:.75rem;color:var(--text3)">Dernière mise à jour : Janvier 2025</p>
           </div>
         </div>
       </div>
@@ -309,9 +274,8 @@
     <div class="modal__box modal__box--lg">
       <div class="modal__top"><h2>Nouveau signalement</h2><button class="modal__x" data-close><i class="fas fa-times"></i></button></div>
       <form id="report-form">
-        <!-- Anonymous toggle for non-logged users -->
         <div id="anon-notice" style="display:none;padding:12px 20px;background:var(--blue-bg);border-bottom:1px solid rgba(88,166,255,.2);font-size:.82rem;color:var(--blue)">
-          <i class="fas fa-user-secret"></i> Vous n'êtes pas connecté. Votre signalement sera envoyé <strong>anonymement</strong>.
+          <i class="fas fa-user-secret"></i> Vous n'êtes pas connecté — signalement <strong>anonyme</strong>.
           <a href="#" id="anon-login-link" style="margin-left:8px;color:var(--green);font-weight:600">Se connecter</a> pour gagner des points !
         </div>
         <div class="steps">
@@ -342,10 +306,7 @@
           <div class="field"><label>Description *</label><textarea class="inp" id="report-description" placeholder="Décrivez le problème..." minlength="10" maxlength="2000" rows="3" required></textarea><small><span id="desc-count">0</span>/2000</small></div>
           <div class="field" id="photo-field"><label>Photos (max 4)</label><div class="dropzone" id="photo-dropzone"><i class="fas fa-cloud-upload-alt"></i><p>Glissez ou <u>parcourir</u></p><input type="file" id="photo-input" accept="image/*" multiple hidden></div><div class="thumbs" id="photo-preview"></div></div>
           <div class="field"><label>Priorité</label><div class="prios"><label class="prio"><input type="radio" name="priority" value="low"><em style="background:#00875A"></em>Faible</label><label class="prio active"><input type="radio" name="priority" value="medium" checked><em style="background:#FFAB00"></em>Moyenne</label><label class="prio"><input type="radio" name="priority" value="high"><em style="background:#FF8B00"></em>Haute</label><label class="prio"><input type="radio" name="priority" value="critical"><em style="background:#DE350B"></em>Critique</label></div></div>
-          <div class="fstep__ft">
-            <button type="button" class="btn btn--ghost" data-prev="2">Retour</button>
-            <button type="submit" class="btn btn--primary" id="btn-submit-report"><i class="fas fa-paper-plane"></i> Envoyer</button>
-          </div>
+          <div class="fstep__ft"><button type="button" class="btn btn--ghost" data-prev="2">Retour</button><button type="submit" class="btn btn--primary" id="btn-submit-report"><i class="fas fa-paper-plane"></i> Envoyer</button></div>
         </div>
       </form>
     </div>
