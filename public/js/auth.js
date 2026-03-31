@@ -12,7 +12,6 @@ var Auth = {
           Auth.updateUI(false);
         }
       });
-      // Check existing session
       App.supabase.auth.getSession().then(function(result) {
         if (result.data && result.data.session) {
           App.currentUser = result.data.session.user;
@@ -28,47 +27,26 @@ var Auth = {
 
   bind: function() {
     var self = this;
-
-    // Login button
     var btnLogin = document.getElementById('btn-login');
     if (btnLogin) btnLogin.addEventListener('click', function() { UI.openModal('modal-login'); });
-
-    // Register button
     var btnRegister = document.getElementById('btn-register');
     if (btnRegister) btnRegister.addEventListener('click', function() { UI.openModal('modal-register'); });
-
-    // Logout
     var btnLogout = document.getElementById('btn-logout');
     if (btnLogout) btnLogout.addEventListener('click', function() { self.logout(); });
-
-    // Profile
     var btnProfile = document.getElementById('btn-profile');
     if (btnProfile) btnProfile.addEventListener('click', function() { self.showProfile(); });
-
-    // My reports
     var btnMyReports = document.getElementById('btn-my-reports');
     if (btnMyReports) btnMyReports.addEventListener('click', function() { self.showMyReports(); });
-
-    // Admin
     var btnAdmin = document.getElementById('btn-admin');
     if (btnAdmin) btnAdmin.addEventListener('click', function() { self.showAdmin(); });
-
-    // Switch between login/register
     var switchToRegister = document.getElementById('switch-to-register');
     if (switchToRegister) switchToRegister.addEventListener('click', function(e) { e.preventDefault(); UI.closeModal('modal-login'); UI.openModal('modal-register'); });
-
     var switchToLogin = document.getElementById('switch-to-login');
     if (switchToLogin) switchToLogin.addEventListener('click', function(e) { e.preventDefault(); UI.closeModal('modal-register'); UI.openModal('modal-login'); });
-
-    // Login form
     var loginForm = document.getElementById('login-form');
     if (loginForm) loginForm.addEventListener('submit', function(e) { e.preventDefault(); self.login(); });
-
-    // Register form
     var registerForm = document.getElementById('register-form');
     if (registerForm) registerForm.addEventListener('submit', function(e) { e.preventDefault(); self.register(); });
-
-    // User menu toggle
     var userMenuBtn = document.getElementById('user-menu-btn');
     if (userMenuBtn) {
       userMenuBtn.addEventListener('click', function(e) {
@@ -77,16 +55,12 @@ var Auth = {
         if (dropdown) dropdown.classList.toggle('open');
       });
     }
-
-    // Close dropdown on outside click
     document.addEventListener('click', function(e) {
       if (!e.target.closest('.umenu')) {
         var dropdown = document.getElementById('user-dropdown');
         if (dropdown) dropdown.classList.remove('open');
       }
     });
-
-    // Anon login link in report form
     var anonLink = document.getElementById('anon-login-link');
     if (anonLink) {
       anonLink.addEventListener('click', function(e) {
@@ -104,7 +78,6 @@ var Auth = {
       if (result.data) {
         App.currentProfile = result.data;
       } else {
-        // Create profile
         var meta = App.currentUser.user_metadata || {};
         var newProfile = {
           id: App.currentUser.id,
@@ -131,34 +104,23 @@ var Auth = {
     var btnNewArticle = document.getElementById('btn-new-article');
     var adminSection = document.getElementById('admin-section');
 
-    // IMPORTANT: btn-new-report is ALWAYS visible — NEVER hide it
-    // It's always in the DOM and always shown
-
     if (loggedIn && App.currentProfile) {
       if (authButtons) authButtons.style.display = 'none';
       if (userMenu) userMenu.style.display = '';
-
-      // Update display
       var initial = App.currentProfile.username ? App.currentProfile.username.charAt(0).toUpperCase() : 'C';
       var name = App.currentProfile.username || 'Citoyen';
       var rep = (App.currentProfile.reputation || 0) + ' pts';
-
       var avatarEl = document.getElementById('user-avatar');
       var nameEl = document.getElementById('user-display-name');
       var dropAvatar = document.getElementById('dropdown-avatar');
       var dropName = document.getElementById('dropdown-name');
       var dropRep = document.getElementById('dropdown-rep');
-
       if (avatarEl) avatarEl.textContent = initial;
       if (nameEl) nameEl.textContent = name;
       if (dropAvatar) dropAvatar.textContent = initial;
       if (dropName) dropName.textContent = name;
       if (dropRep) dropRep.textContent = rep;
-
-      // Show article button for logged in users
       if (btnNewArticle) btnNewArticle.style.display = '';
-
-      // Admin
       if (adminSection) {
         adminSection.style.display = App.currentProfile.role === 'admin' ? '' : 'none';
       }
@@ -168,12 +130,8 @@ var Auth = {
       if (btnNewArticle) btnNewArticle.style.display = 'none';
       if (adminSection) adminSection.style.display = 'none';
     }
-
-    // Update anon notice in report form
     var anonNotice = document.getElementById('anon-notice');
     if (anonNotice) anonNotice.style.display = loggedIn ? 'none' : 'block';
-
-    // Hide photo upload for anonymous users
     var photoField = document.getElementById('photo-field');
     if (photoField) photoField.style.display = loggedIn ? '' : 'none';
   },
@@ -183,17 +141,14 @@ var Auth = {
     var password = document.getElementById('login-password').value;
     var errorEl = document.getElementById('login-error');
     var btn = document.getElementById('btn-login-submit');
-
     if (!email || !password) { this._showError(errorEl, 'Remplissez tous les champs'); return; }
-
     btn.disabled = true; btn.textContent = 'Connexion...';
-
     try {
       var result = await App.supabase.auth.signInWithPassword({ email: email, password: password });
       if (result.error) {
         var msg = result.error.message;
         if (msg.indexOf('Invalid login') !== -1) msg = 'Email ou mot de passe incorrect';
-        else if (msg.indexOf('Email not confirmed') !== -1) msg = 'Confirmez votre email d\'abord (vérifiez vos spams)';
+        else if (msg.indexOf('Email not confirmed') !== -1) msg = 'Confirmez votre email (vérifiez vos spams)';
         this._showError(errorEl, msg);
       } else {
         UI.closeModal('modal-login');
@@ -202,7 +157,6 @@ var Auth = {
     } catch(e) {
       this._showError(errorEl, 'Erreur de connexion');
     }
-
     btn.disabled = false; btn.textContent = 'Se connecter';
   },
 
@@ -214,21 +168,17 @@ var Auth = {
     var confirm = document.getElementById('register-password-confirm').value;
     var errorEl = document.getElementById('register-error');
     var btn = document.getElementById('btn-register-submit');
-
     if (!username || username.length < 3) { this._showError(errorEl, 'Pseudo : min 3 caractères'); return; }
     if (!email) { this._showError(errorEl, 'Email requis'); return; }
     if (!password || password.length < 6) { this._showError(errorEl, 'Mot de passe : min 6 caractères'); return; }
     if (password !== confirm) { this._showError(errorEl, 'Les mots de passe ne correspondent pas'); return; }
-
     btn.disabled = true; btn.textContent = 'Création...';
-
     try {
       var result = await App.supabase.auth.signUp({
         email: email,
         password: password,
         options: { data: { username: username, commune: commune } }
       });
-
       if (result.error) {
         var msg = result.error.message;
         if (msg.indexOf('already registered') !== -1) msg = 'Cet email est déjà utilisé';
@@ -240,7 +190,6 @@ var Auth = {
     } catch(e) {
       this._showError(errorEl, 'Erreur d\'inscription');
     }
-
     btn.disabled = false; btn.textContent = 'Créer mon compte';
   },
 
@@ -259,7 +208,6 @@ var Auth = {
   showProfile: function() {
     var dropdown = document.getElementById('user-dropdown');
     if (dropdown) dropdown.classList.remove('open');
-
     if (!App.currentProfile) return;
     var p = App.currentProfile;
     var level = this._getLevel(p.reputation || 0);
@@ -269,10 +217,8 @@ var Auth = {
     for (var i = 0; i < App.reports.length; i++) {
       if (App.reports[i].user_id === p.id && App.reports[i].status === 'resolved') resolved++;
     }
-
     var container = document.getElementById('profile-content');
     if (!container) return;
-
     var html = '<div class="profile">' +
       '<div class="profile__header">' +
         '<div class="profile__banner"></div>' +
@@ -291,39 +237,34 @@ var Auth = {
         '<div class="profile__stat profile__stat--purple"><div class="profile__stat-value">' + level.name + '</div><div class="profile__stat-icon"><i class="fas fa-medal"></i></div><div class="profile__stat-label">Niveau</div></div>' +
         '<div class="profile__stat profile__stat--yellow"><div class="profile__stat-value">' + (p.reputation || 0) + '</div><div class="profile__stat-icon"><i class="fas fa-star"></i></div><div class="profile__stat-label">Réputation</div></div>' +
       '</div>';
-
-    // Badges section
     if (typeof Badges !== 'undefined') {
-      html += '<div class="profile__section"><div class="profile__section-title"><i class="fas fa-award"></i> Badges</div>';
-      Badges.computeStats().then(function(stats) {
-        var badgesHtml = Badges.renderGrid(p, stats);
-        var badgeSection = container.querySelector('.profile__section');
-        if (badgeSection) badgeSection.innerHTML = '<div class="profile__section-title"><i class="fas fa-award"></i> Badges</div>' + badgesHtml;
-      });
-      html += '<p style="color:var(--text3);font-size:.8rem">Chargement badges...</p></div>';
+      html += '<div class="profile__section" id="profile-badges-section"><div class="profile__section-title"><i class="fas fa-award"></i> Badges</div><p style="color:var(--text3);font-size:.8rem">Chargement...</p></div>';
     }
-
-    // Settings
     html += '<div class="profile__section"><div class="profile__section-title"><i class="fas fa-cog"></i> Paramètres</div>' +
       '<div class="profile__setting"><label>Commune</label><select class="inp" id="profile-commune" onchange="Auth.updateCommune(this.value)">' + this._getCommuneOptions(p.commune) + '</select></div>' +
       '<div class="profile__setting"><label>Thème</label><button class="btn btn--outline" onclick="App.toggleTheme()"><i class="fas fa-moon"></i> Changer de thème</button></div>' +
       '<div class="profile__setting"><label>Mot de passe</label><button class="btn btn--outline" onclick="Auth.changePassword()"><i class="fas fa-key"></i> Changer</button></div>' +
       '</div></div>';
-
     container.innerHTML = html;
     UI.openModal('modal-profile');
+    // Load badges async
+    if (typeof Badges !== 'undefined') {
+      Badges.computeStats().then(function(stats) {
+        var section = document.getElementById('profile-badges-section');
+        if (section) {
+          section.innerHTML = '<div class="profile__section-title"><i class="fas fa-award"></i> Badges</div>' + Badges.renderGrid(p, stats);
+        }
+      });
+    }
   },
 
   showMyReports: function() {
     var dropdown = document.getElementById('user-dropdown');
     if (dropdown) dropdown.classList.remove('open');
-
     if (!App.currentUser) return;
     var container = document.getElementById('my-reports-content');
     if (!container) return;
-
     var myReports = App.reports.filter(function(r) { return r.user_id === App.currentUser.id; });
-
     if (myReports.length === 0) {
       container.innerHTML = '<div class="empty"><i class="fas fa-inbox"></i><h3>Aucun signalement</h3><p>Vous n\'avez pas encore créé de signalement</p></div>';
     } else {
@@ -339,16 +280,13 @@ var Auth = {
       html += '</div>';
       container.innerHTML = html;
     }
-
     UI.openModal('modal-my-reports');
   },
 
   showAdmin: function() {
     var dropdown = document.getElementById('user-dropdown');
     if (dropdown) dropdown.classList.remove('open');
-
     if (!App.currentProfile || App.currentProfile.role !== 'admin') return;
-
     var container = document.getElementById('admin-reports-list');
     if (!container) return;
 
@@ -360,7 +298,6 @@ var Auth = {
     html += '<h3 style="margin:16px 0 12px;font-size:.9rem"><i class="fas fa-flag" style="color:var(--orange);margin-right:6px"></i> Signalements (' + App.reports.length + ')</h3>';
 
     var sorted = App.reports.slice().sort(function(a, b) { return new Date(b.created_at) - new Date(a.created_at); });
-
     for (var i = 0; i < Math.min(sorted.length, 50); i++) {
       var r = sorted[i];
       var cat = App.categories[r.category] || App.categories.other;
@@ -383,6 +320,13 @@ var Auth = {
 
     container.innerHTML = html;
     UI.openModal('modal-admin');
+
+    // FIX: Re-update stats after opening admin (they don't disappear anymore)
+    setTimeout(function() {
+      if (typeof Reports !== 'undefined') {
+        Reports.updateStats();
+      }
+    }, 100);
   },
 
   updateStatus: async function(id, status) {
@@ -413,11 +357,32 @@ var Auth = {
   deleteReport: async function(id) {
     if (!confirm('Supprimer ce signalement ?')) return;
     try {
+      var report = App.reports.find(function(r) { return r.id === id; });
       await App.supabase.from('comments').delete().eq('report_id', id);
       await App.supabase.from('votes').delete().eq('report_id', id);
       var result = await App.supabase.from('reports').delete().eq('id', id);
       if (result.error) throw result.error;
-      UI.toast('Supprimé', 'success');
+
+      // Remove points from owner
+      if (report && report.user_id) {
+        try {
+          var ownerProfile = await App.supabase.from('profiles').select('reputation, reports_count').eq('id', report.user_id).single();
+          if (ownerProfile.data) {
+            await App.supabase.from('profiles').update({
+              reputation: Math.max(0, (ownerProfile.data.reputation || 0) - 10),
+              reports_count: Math.max(0, (ownerProfile.data.reports_count || 0) - 1)
+            }).eq('id', report.user_id);
+          }
+          // Update local profile if it's the current user
+          if (App.currentUser && report.user_id === App.currentUser.id && App.currentProfile) {
+            App.currentProfile.reputation = Math.max(0, (App.currentProfile.reputation || 0) - 10);
+            App.currentProfile.reports_count = Math.max(0, (App.currentProfile.reports_count || 0) - 1);
+            this.updateUI(true);
+          }
+        } catch(e) {}
+      }
+
+      UI.toast('Supprimé — points retirés', 'success');
       App.reports = App.reports.filter(function(r) { return r.id !== id; });
       MapManager.removeReport(id);
       Reports.renderList(); Reports.updateStats();
