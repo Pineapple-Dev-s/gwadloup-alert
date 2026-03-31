@@ -100,6 +100,7 @@ var Reports = {
       var cat = App.categories[r.category] || App.categories.other;
       var status = App.statuses[r.status] || App.statuses.pending;
       var fa = MapManager.getFaForCat(r.category);
+      var isAnon = !r.user_id;
       if (isCards) {
         var imgHtml = (r.images && r.images.length > 0)
           ? '<img class="card__img" src="' + r.images[0] + '" alt="" loading="lazy" onerror="this.onerror=null;this.parentNode.innerHTML=\'<div class=card__ph><i class=fas&#32;' + fa + '></i></div>\'">'
@@ -110,7 +111,7 @@ var Reports = {
           '<span class="badge badge--' + r.status + '">' + status.label + '</span></div>' +
           '<div class="card__title">' + App.esc(r.title) + '</div>' +
           '<div class="card__addr"><i class="fas fa-map-pin"></i> ' + (r.address ? App.esc(r.address.substring(0, 45)) : r.commune || 'Guadeloupe') + '</div>' +
-          (r.user_id === null ? '<div style="font-size:.65rem;color:var(--text3);margin-top:2px"><i class="fas fa-user-secret"></i> Anonyme</div>' : '') +
+          (isAnon ? '<div style="font-size:.65rem;color:var(--text3);margin-top:2px"><i class="fas fa-user-secret"></i> Anonyme</div>' : '') +
           '<div class="card__foot"><span class="card__votes"><i class="fas fa-arrow-up"></i> ' + (r.upvotes || 0) + '</span>' +
           '<span class="card__date"><i class="fas fa-clock"></i> ' + App.ago(r.created_at) + '</span></div></div></div>';
       } else {
@@ -120,7 +121,7 @@ var Reports = {
           '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">' +
           '<span class="badge badge--cat"><i class="fas ' + fa + '"></i> ' + cat.label + '</span>' +
           '<span class="card__title" style="margin:0">' + App.esc(r.title) + '</span>' +
-          (r.user_id === null ? '<span style="font-size:.6rem;color:var(--text3)" title="Anonyme"><i class="fas fa-user-secret"></i></span>' : '') +
+          (isAnon ? '<span style="font-size:.6rem;color:var(--text3)" title="Anonyme"><i class="fas fa-user-secret"></i></span>' : '') +
           '</div>' +
           '<span class="badge badge--' + r.status + '">' + status.label + '</span></div>' +
           '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">' +
@@ -137,7 +138,7 @@ var Reports = {
       moreDiv.id = 'load-more-container';
       moreDiv.style.cssText = 'text-align:center;padding:20px';
       moreDiv.innerHTML = '<button class="btn btn--outline btn--lg" id="btn-load-more" onclick="Reports.loadMore()"><i class="fas fa-chevron-down"></i> Charger plus</button>' +
-        '<p style="font-size:.72rem;color:var(--text3);margin-top:6px">' + sorted.length + ' sur ' + (App.pagination.total || '?') + ' signalements</p>';
+        '<p style="font-size:.72rem;color:var(--text3);margin-top:6px">' + App.reports.length + ' sur ' + (App.pagination.total || '?') + '</p>';
       grid.parentNode.appendChild(moreDiv);
     }
   },
@@ -162,7 +163,7 @@ var Reports = {
     }
     this.renderCharts();
     this.renderLeaderboard();
-    if (typeof this.renderMairies === 'function') this.renderMairies();
+    this.renderMairies();
   },
 
   renderCharts: function() {
@@ -334,19 +335,59 @@ var Reports = {
     var isOwner = App.currentUser && report.user_id === App.currentUser.id;
     var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
     if (!isOwner && !isAdmin) { UI.toast('Non autorisé', 'error'); return; }
-    if (!confirm('Supprimer ce signalement ?')) return;
+    if (!confirm('Supprimer ce signalement ? Les points associés seront retirés.')) return;
     try {
-      if (isOwner) await fetch('/api/mark-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: App.currentUser.id }) });
+      // Mark delete for cooldown
+      if (isOwner) {
+        await fetch('/api/mark-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: App.currentUser.id }) });
+      }
+
+      // Delete related data
       await App.supabase.from('comments').delete().eq('report_id', id);
       await App.supabase.from('votes').delete().eq('report_id', id);
+
+      // Delete the report
       var result = await App.supabase.from('reports').delete().eq('id', id);
       if (result.error) { UI.toast('Erreur: ' + result.error.message, 'error'); return; }
-      UI.toast('Supprimé', 'success');
+
+      // REMOVE POINTS: -10 reputation and -1 reports_count for the owner
+      if (isOwner && App.currentProfile) {
+        var newRep = Math.max(0, (App.currentProfile.reputation || 0) - 10);
+        var newCount = Math.max(0, (App.currentProfile.reports_count || 0) - 1);
+        await App.supabase.from('profiles').update({
+          reputation: newRep,
+          reports_count: newCount
+        }).eq('id', App.currentUser.id);
+        App.currentProfile.reputation = newRep;
+        App.currentProfile.reports_count = newCount;
+
+        // Update UI display
+        if (typeof Auth !== 'undefined') Auth.updateUI(true);
+      }
+
+      // If admin deletes someone else's report, also remove their points
+      if (isAdmin && !isOwner && report.user_id) {
+        try {
+          var ownerProfile = await App.supabase.from('profiles').select('reputation, reports_count').eq('id', report.user_id).single();
+          if (ownerProfile.data) {
+            await App.supabase.from('profiles').update({
+              reputation: Math.max(0, (ownerProfile.data.reputation || 0) - 10),
+              reports_count: Math.max(0, (ownerProfile.data.reports_count || 0) - 1)
+            }).eq('id', report.user_id);
+          }
+        } catch(e) { console.warn('Could not remove points from report owner:', e); }
+      }
+
+      UI.toast('Supprimé — points retirés', 'success');
       UI.closeModal('modal-detail');
       App.reports = App.reports.filter(function(r) { return r.id !== id; });
       MapManager.removeReport(id);
-      this.renderList(); this.updateStats();
-    } catch (e) { UI.toast('Erreur', 'error'); }
+      this.renderList();
+      this.updateStats();
+    } catch (e) {
+      console.error('Delete error:', e);
+      UI.toast('Erreur', 'error');
+    }
   },
 
   loadComments: async function(reportId) {
@@ -372,7 +413,7 @@ var Reports = {
     if (result.error) { UI.toast('Erreur', 'error'); } else {
       UI.toast('Statut mis à jour', 'success');
       var report = App.reports.find(function(r) { return r.id === reportId; });
-      if (report) { report.status = newStatus; }
+      if (report) report.status = newStatus;
       this.renderList(); this.updateStats(); this.openDetail(reportId);
     }
   },
@@ -420,9 +461,7 @@ var Reports = {
   },
 
   submitReport: async function(anonymous) {
-    // Determine if anonymous: explicitly passed OR user not logged in
     var isAnonymous = anonymous === true || !App.currentUser;
-
     var category = document.querySelector('input[name="category"]:checked');
     var title = document.getElementById('report-title').value.trim();
     var description = document.getElementById('report-description').value.trim();
@@ -431,35 +470,26 @@ var Reports = {
     var address = document.getElementById('report-address').value;
     var commune = document.getElementById('report-commune').value;
     var priority = document.querySelector('input[name="priority"]:checked');
-
     if (!category) { UI.toast('Choisissez une catégorie', 'warning'); return; }
     if (!title || title.length < 5) { UI.toast('Titre trop court (min 5)', 'warning'); return; }
     if (!description || description.length < 10) { UI.toast('Description trop courte (min 10)', 'warning'); return; }
     if (!lat || !lng) { UI.toast('Sélectionnez un emplacement', 'warning'); return; }
     if (!MapManager.isInGuadeloupe(lat, lng)) { UI.toast('Hors Guadeloupe', 'error'); return; }
-
     var btn = document.getElementById('btn-submit-report');
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Envoi...';
-
     try {
-      // Anti-farm (only for logged in)
       if (!isAnonymous) {
         var farmResp = await fetch('/api/check-farm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: App.currentUser.id }) });
         var farmData = await farmResp.json();
         if (!farmData.allowed) { UI.toast(farmData.reason || 'Limite', 'warning'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Envoyer'; return; }
       }
-
-      // Moderation
       var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title, description: description }) });
       var modData = await modResp.json();
       if (modData.flagged && modData.reformulated && modData.cleaned) { title = modData.cleaned.title; description = modData.cleaned.description; UI.toast('Contenu reformulé', 'info'); }
-
-      // Upload images (only if logged in)
       var imageUrls = [];
       if (!isAnonymous && typeof ImageUpload !== 'undefined') {
         imageUrls = await ImageUpload.uploadAll();
       }
-
       var reportData = {
         category: category.value,
         title: title, description: description,
@@ -467,9 +497,7 @@ var Reports = {
         images: imageUrls, priority: priority ? priority.value : 'medium',
         status: 'pending', upvotes: 0
       };
-
       if (isAnonymous) {
-        // Anonymous: use server endpoint
         var anonResp = await fetch('/api/report-anonymous', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -490,7 +518,6 @@ var Reports = {
           App.currentProfile.reputation = (App.currentProfile.reputation || 0) + 10;
         }
       }
-
       UI.closeModal('modal-report');
       UI.toast(isAnonymous ? 'Signalement anonyme envoyé ! 🎉' : 'Signalement créé ! +10 pts 🎉', 'success');
       App.trackEvent('report_created');
