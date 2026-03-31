@@ -31,47 +31,35 @@ function initSupabaseAdmin() {
 }
 
 const analytics = {
-  // In-memory buffer for batch inserts (performance)
   buffer: [],
   bufferEvents: [],
   flushInterval: null,
-  liveVisitors: new Map(), // sessionId -> { lastSeen, page, device }
+  liveVisitors: new Map(),
   peakConcurrent: 0,
 
   init: function() {
     initSupabaseAdmin();
     var self = this;
-
-    // Flush buffer to Supabase every 15 seconds
     this.flushInterval = setInterval(function() { self.flush(); }, 15000);
-
-    // Clean stale live visitors every 60s
     setInterval(function() {
       var now = Date.now();
       for (var [k, v] of self.liveVisitors) {
         if (now - v.lastSeen > 120000) self.liveVisitors.delete(k);
       }
     }, 60000);
-
-    // Aggregate daily stats every 10 minutes
     setInterval(function() { self.aggregateDaily(); }, 600000);
-
-    // Load peak from DB on startup
     this.loadPeak();
   },
 
   loadPeak: async function() {
     if (!supabaseAdmin) return;
     try {
-      // We store peak in a simple way — check current daily record
       var today = new Date().toISOString().split('T')[0];
-      var result = await supabaseAdmin.from('analytics_daily').select('*').eq('date', today).maybeSingle();
-      // Peak is tracked in memory only, reset per server instance
+      await supabaseAdmin.from('analytics_daily').select('*').eq('date', today).maybeSingle();
     } catch(e) {}
   },
 
   track: function(data) {
-    // data: { sessionId, page, referrer, device, browser, country, isNew }
     this.buffer.push({
       session_id: data.sessionId || 'unknown',
       page: data.page || '/',
@@ -81,8 +69,6 @@ const analytics = {
       country: data.country || 'Inconnu',
       is_new_visitor: data.isNew !== false
     });
-
-    // Update live visitors
     this.liveVisitors.set(data.sessionId, {
       lastSeen: Date.now(),
       page: data.page,
@@ -91,7 +77,6 @@ const analytics = {
       country: data.country,
       referrer: data.referrer
     });
-
     var concurrent = this.liveVisitors.size;
     if (concurrent > this.peakConcurrent) this.peakConcurrent = concurrent;
   },
@@ -105,20 +90,15 @@ const analytics = {
 
   flush: async function() {
     if (!supabaseAdmin) return;
-
-    // Flush pageview events
     if (this.buffer.length > 0) {
       var batch = this.buffer.splice(0, this.buffer.length);
       try {
         await supabaseAdmin.from('analytics_events').insert(batch);
       } catch(e) {
         console.warn('Analytics flush error:', e.message);
-        // Put back in buffer if failed
         this.buffer = batch.concat(this.buffer);
       }
     }
-
-    // Flush custom events
     if (this.bufferEvents.length > 0) {
       var batchE = this.bufferEvents.splice(0, this.bufferEvents.length);
       try {
@@ -133,18 +113,14 @@ const analytics = {
   aggregateDaily: async function() {
     if (!supabaseAdmin) return;
     var today = new Date().toISOString().split('T')[0];
-
     try {
-      // Get today's raw events
       var result = await supabaseAdmin
         .from('analytics_events')
         .select('*')
         .gte('created_at', today + 'T00:00:00')
         .lt('created_at', today + 'T23:59:59.999');
-
       if (!result.data) return;
       var events = result.data;
-
       var sessions = new Set();
       var newSessions = new Set();
       var pages = {};
@@ -153,48 +129,31 @@ const analytics = {
       var countries = {};
       var hourly = {};
       var mobile = 0, desktop = 0, tablet = 0;
-
       for (var i = 0; i < events.length; i++) {
         var ev = events[i];
         sessions.add(ev.session_id);
         if (ev.is_new_visitor) newSessions.add(ev.session_id);
-
-        // Pages
         if (!pages[ev.page]) pages[ev.page] = 0;
         pages[ev.page]++;
-
-        // Referrers
         if (ev.referrer) {
           if (!referrers[ev.referrer]) referrers[ev.referrer] = 0;
           referrers[ev.referrer]++;
         }
-
-        // Browsers
         if (!browsers[ev.browser]) browsers[ev.browser] = 0;
         browsers[ev.browser]++;
-
-        // Countries
         if (!countries[ev.country]) countries[ev.country] = 0;
         countries[ev.country]++;
-
-        // Hourly
         var h = new Date(ev.created_at).getHours().toString();
         if (!hourly[h]) hourly[h] = 0;
         hourly[h]++;
-
-        // Devices
         if (ev.device === 'mobile') mobile++;
         else if (ev.device === 'tablet') tablet++;
         else desktop++;
       }
-
-      // Sort and limit top entries
       var topPages = this._topN(pages, 20);
       var topReferrers = this._topN(referrers, 15);
       var topBrowsers = this._topN(browsers, 10);
       var topCountries = this._topN(countries, 15);
-
-      // Upsert daily record
       var dailyData = {
         date: today,
         pageviews: events.length,
@@ -210,7 +169,6 @@ const analytics = {
         hourly: hourly,
         updated_at: new Date().toISOString()
       };
-
       await supabaseAdmin.from('analytics_daily').upsert(dailyData, { onConflict: 'date' });
     } catch(e) {
       console.warn('Aggregate error:', e.message);
@@ -227,29 +185,22 @@ const analytics = {
   getStats: async function(days) {
     if (!supabaseAdmin) return { error: 'No database' };
     days = days || 30;
-
     try {
       var now = new Date();
       var startDate = new Date(now);
       startDate.setDate(startDate.getDate() - days);
       var startStr = startDate.toISOString().split('T')[0];
       var todayStr = now.toISOString().split('T')[0];
-
-      // Get daily aggregates
       var dailyResult = await supabaseAdmin
         .from('analytics_daily')
         .select('*')
         .gte('date', startStr)
         .order('date', { ascending: true });
-
       var daily = dailyResult.data || [];
-
-      // Calculate totals
       var totalPageviews = 0, totalVisitors = 0, totalNewVisitors = 0;
       var totalMobile = 0, totalDesktop = 0, totalTablet = 0;
       var allPages = {}, allReferrers = {}, allBrowsers = {}, allCountries = {};
       var allHourly = {};
-
       for (var i = 0; i < daily.length; i++) {
         var d = daily[i];
         totalPageviews += d.pageviews || 0;
@@ -258,28 +209,20 @@ const analytics = {
         totalMobile += d.mobile || 0;
         totalDesktop += d.desktop || 0;
         totalTablet += d.tablet || 0;
-
         this._mergeObj(allPages, d.top_pages || {});
         this._mergeObj(allReferrers, d.top_referrers || {});
         this._mergeObj(allBrowsers, d.top_browsers || {});
         this._mergeObj(allCountries, d.top_countries || {});
         this._mergeObj(allHourly, d.hourly || {});
       }
-
-      // Today's live data (from buffer + recent DB)
       var todayData = daily.find(function(d) { return d.date === todayStr; });
       var todayPV = todayData ? todayData.pageviews : 0;
       var todayV = todayData ? todayData.visitors : 0;
-
-      // Add buffered (not yet flushed) data for today
       todayPV += this.buffer.length;
-
-      // Get recent custom events
       var eventsResult = await supabaseAdmin
         .from('analytics_custom_events')
         .select('event_name')
         .gte('created_at', startStr + 'T00:00:00');
-
       var eventCounts = {};
       if (eventsResult.data) {
         for (var i = 0; i < eventsResult.data.length; i++) {
@@ -288,13 +231,10 @@ const analytics = {
           eventCounts[name]++;
         }
       }
-
-      // All-time totals
       var allTimeResult = await supabaseAdmin
         .from('analytics_daily')
         .select('pageviews, visitors, new_visitors')
         .order('date', { ascending: true });
-
       var allTimePV = 0, allTimeV = 0, allTimeNew = 0;
       if (allTimeResult.data) {
         for (var i = 0; i < allTimeResult.data.length; i++) {
@@ -303,8 +243,6 @@ const analytics = {
           allTimeNew += allTimeResult.data[i].new_visitors || 0;
         }
       }
-
-      // Build live visitors list
       var liveList = [];
       for (var [sid, info] of this.liveVisitors) {
         liveList.push({
@@ -317,14 +255,10 @@ const analytics = {
         });
       }
       liveList.sort(function(a, b) { return new Date(b.time) - new Date(a.time); });
-
-      // Calculate averages
       var avgDailyPV = daily.length > 0 ? Math.round(totalPageviews / daily.length) : 0;
       var avgDailyV = daily.length > 0 ? Math.round(totalVisitors / daily.length) : 0;
       var bounceEstimate = totalVisitors > 0 ? Math.round(Math.max(20, 100 - (totalPageviews / totalVisitors - 1) * 30)) : 0;
       var avgPagesPerVisit = totalVisitors > 0 ? (totalPageviews / totalVisitors).toFixed(1) : '0';
-
-      // Best day
       var bestDay = null, bestDayPV = 0;
       for (var i = 0; i < daily.length; i++) {
         if (daily[i].pageviews > bestDayPV) {
@@ -332,8 +266,6 @@ const analytics = {
           bestDay = daily[i].date;
         }
       }
-
-      // Growth (compare last 7 days vs previous 7 days)
       var last7pv = 0, prev7pv = 0;
       for (var i = 0; i < daily.length; i++) {
         var dayDiff = Math.floor((now - new Date(daily[i].date)) / 86400000);
@@ -341,58 +273,35 @@ const analytics = {
         else if (dayDiff < 14) prev7pv += daily[i].pageviews || 0;
       }
       var growthPct = prev7pv > 0 ? Math.round(((last7pv - prev7pv) / prev7pv) * 100) : (last7pv > 0 ? 100 : 0);
-
       return {
         period: days + ' jours',
-
-        // Totals
         allTimePageviews: allTimePV + this.buffer.length,
         allTimeVisitors: allTimeV,
         allTimeNewVisitors: allTimeNew,
         periodPageviews: totalPageviews,
         periodVisitors: totalVisitors,
-
-        // Today
         todayPageviews: todayPV,
         todayVisitors: todayV,
-
-        // Live
         currentConcurrent: this.liveVisitors.size,
         peakConcurrent: this.peakConcurrent,
-
-        // Averages
         avgDailyPageviews: avgDailyPV,
         avgDailyVisitors: avgDailyV,
         avgPagesPerVisit: avgPagesPerVisit,
         bounceRate: bounceEstimate + '%',
-
-        // Growth
         growthPercent: growthPct,
         last7daysPageviews: last7pv,
-
-        // Best
         bestDay: bestDay,
         bestDayPageviews: bestDayPV,
-
-        // Daily breakdown
         daily: daily.map(function(d) {
           return { date: d.date, pageviews: d.pageviews, visitors: d.visitors, newVisitors: d.new_visitors || 0 };
         }),
-
-        // Tops
         topPages: this._sortObj(allPages, 20),
         topReferrers: this._sortObj(allReferrers, 15),
         browsers: this._sortObj(allBrowsers, 10),
         countries: this._sortObj(allCountries, 15),
         hourly: allHourly,
-
-        // Devices
         devices: { mobile: totalMobile, desktop: totalDesktop, tablet: totalTablet },
-
-        // Events
         events: eventCounts,
-
-        // Live
         live: liveList.slice(0, 30)
       };
     } catch(e) {
@@ -424,11 +333,7 @@ function parseTrackingData(req) {
   var ref = req.headers['referer'] || req.headers['referrer'] || '';
   var lang = req.headers['accept-language'] || '';
   var ip = req.ip || req.connection.remoteAddress || 'unknown';
-
-  // Session ID: hash of IP + UA (privacy-friendly, no cookies)
   var sessionId = hashStr(ip + ua.substring(0, 80) + new Date().toISOString().split('T')[0]);
-
-  // Clean referrer — remove self-referrals
   var referrer = null;
   if (ref) {
     try {
@@ -439,21 +344,15 @@ function parseTrackingData(req) {
       }
     } catch(e) {}
   }
-
-  // Device
   var device = 'desktop';
   if (/iPad|tablet|Tab/i.test(ua)) device = 'tablet';
   else if (/Mobile|Android|iPhone|iPod/i.test(ua)) device = 'mobile';
-
-  // Browser
   var browser = 'Autre';
   if (/Edg\//i.test(ua)) browser = 'Edge';
   else if (/OPR|Opera/i.test(ua)) browser = 'Opera';
   else if (/Firefox/i.test(ua)) browser = 'Firefox';
   else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
   else if (/Chrome/i.test(ua)) browser = 'Chrome';
-
-  // Country from Accept-Language
   var country = 'Inconnu';
   if (lang) {
     var primary = lang.split(',')[0].trim();
@@ -468,7 +367,6 @@ function parseTrackingData(req) {
     };
     country = countryMap[region] || (region || 'Inconnu');
   }
-
   return { sessionId: sessionId, referrer: referrer, device: device, browser: browser, country: country };
 }
 
@@ -482,9 +380,7 @@ function hashStr(str) {
   return 'v' + Math.abs(hash).toString(36);
 }
 
-// Pages to EXCLUDE from tracking
 var EXCLUDED_PATHS = ['/api/', '/js/', '/css/', '/icons/', '/sw.js', '/manifest.json', '/favicon.ico'];
-
 function shouldTrack(path) {
   for (var i = 0; i < EXCLUDED_PATHS.length; i++) {
     if (path.startsWith(EXCLUDED_PATHS[i]) || path === EXCLUDED_PATHS[i]) return false;
@@ -566,7 +462,6 @@ app.use(function(req, res, next) {
   next();
 });
 
-// Rate limiting
 var hits = new Map();
 function limit(max, ms) {
   return function(req, res, next) {
@@ -601,16 +496,12 @@ app.get('/api/health', function(req, res) {
 // ═══════════════ ANALYTICS API ═══════════════
 app.post('/api/analytics/track', limit(180, 60000), function(req, res) {
   var page = req.body.page || '/';
-
-  // Filter out API calls and static assets from page tracking
   if (page.startsWith('/api/') || page.startsWith('/js/') || page.startsWith('/css/')) {
     return res.json({ ok: true });
   }
-
   var trackData = parseTrackingData(req);
   trackData.page = page;
-  trackData.isNew = true; // Client-side tracking = always a real visit
-
+  trackData.isNew = true;
   analytics.track(trackData);
   res.json({ ok: true });
 });
@@ -662,14 +553,12 @@ app.post('/api/moderate', limit(60, 60000), async function(req, res) {
   var isWiki = context === 'wiki';
   var check = containsBadWords(title + ' ' + description);
   if (!check.found) return res.json({ flagged: false });
-
   var key = getGroqKey();
   if (!key) {
     var ct = title, cd = description;
     for (var i = 0; i < check.words.length; i++) { var w = check.words[i]; if (w === '[insulte]') continue; var r = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'); ct = ct.replace(r, '...'); cd = cd.replace(r, '...'); }
     return res.json({ flagged: true, reformulated: true, cleaned: { title: ct, description: cd } });
   }
-
   var mdNote = isWiki ? '\n\nIMPORTANT: CONSERVE tout le formatage Markdown existant (##, -, **, *, etc).' : '';
   try {
     var ctrl = new AbortController();
@@ -707,7 +596,7 @@ app.post('/api/moderate', limit(60, 60000), async function(req, res) {
   }
 });
 
-// Anonymous report endpoint
+// ═══════════════ ANONYMOUS REPORT ═══════════════
 app.post('/api/report-anonymous', limit(10, 60000), async function(req, res) {
   var body = req.body;
   if (!body.title || !body.description || !body.latitude || !body.longitude || !body.category) {
@@ -717,10 +606,57 @@ app.post('/api/report-anonymous', limit(10, 60000), async function(req, res) {
     return res.status(400).json({ error: 'Contenu trop court' });
   }
 
-  // Moderation check
   var check = containsBadWords(body.title + ' ' + body.description);
   if (check.found && check.severity === 'hard') {
     return res.status(400).json({ error: 'Contenu inapproprié' });
+  }
+
+  // Moderation with Groq if available
+  var title = body.title.substring(0, 150);
+  var description = body.description.substring(0, 2000);
+
+  if (check.found) {
+    var key = getGroqKey();
+    if (key) {
+      try {
+        var ctrl = new AbortController();
+        var to = setTimeout(function() { ctrl.abort(); }, 10000);
+        var resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST', headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [
+            { role: 'system', content: 'Tu es un filtre de modération. Reformule poliment sans insultes ni noms politiques. Réponds UNIQUEMENT en JSON: {"title":"...","description":"..."}' },
+            { role: 'user', content: 'Titre: ' + title + '\nDescription: ' + description }
+          ], temperature: 0.3, max_tokens: 600 }),
+          signal: ctrl.signal
+        });
+        clearTimeout(to);
+        if (resp.ok) {
+          var data = await resp.json();
+          var txt = data.choices[0].message.content.trim();
+          var s = txt.indexOf('{'), e = txt.lastIndexOf('}');
+          if (s >= 0 && e > s) {
+            var parsed = JSON.parse(txt.substring(s, e + 1));
+            if (parsed.title) title = parsed.title.substring(0, 150);
+            if (parsed.description) description = parsed.description.substring(0, 2000);
+          }
+        }
+      } catch(e) {
+        // Fallback: simple word replacement
+        for (var i = 0; i < check.words.length; i++) {
+          var w = check.words[i]; if (w === '[insulte]') continue;
+          var r = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+          title = title.replace(r, '...');
+          description = description.replace(r, '...');
+        }
+      }
+    } else {
+      for (var i = 0; i < check.words.length; i++) {
+        var w = check.words[i]; if (w === '[insulte]') continue;
+        var r = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        title = title.replace(r, '...');
+        description = description.replace(r, '...');
+      }
+    }
   }
 
   try {
@@ -728,8 +664,8 @@ app.post('/api/report-anonymous', limit(10, 60000), async function(req, res) {
 
     var result = await supabaseAdmin.from('reports').insert({
       category: body.category,
-      title: body.title.substring(0, 150),
-      description: body.description.substring(0, 2000),
+      title: title,
+      description: description,
       latitude: body.latitude,
       longitude: body.longitude,
       address: body.address || null,
@@ -738,18 +674,18 @@ app.post('/api/report-anonymous', limit(10, 60000), async function(req, res) {
       priority: body.priority || 'medium',
       status: 'pending',
       upvotes: 0,
-      user_id: null // Anonymous — no user
+      user_id: null
     }).select().single();
 
     if (result.error) {
-      // If user_id NOT NULL constraint, we need a system user
-      // Try with a placeholder
-      return res.status(400).json({ error: 'Signalement anonyme non supporté par la base. Contactez l\'admin pour ajouter le support.' });
+      console.error('Anonymous report insert error:', result.error);
+      return res.status(400).json({ error: 'Erreur insertion: ' + result.error.message });
     }
 
     analytics.trackEvent('anonymous_report');
     res.json({ ok: true, id: result.data.id });
   } catch(e) {
+    console.error('Anonymous report error:', e);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -758,10 +694,8 @@ app.all('/api/*', function(req, res) { res.status(404).json({ error: 'Route inco
 app.get('*', function(req, res) { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 app.use(function(err, req, res, next) { console.error(err); res.status(500).json({ error: 'Erreur serveur' }); });
 
-// Flush analytics before shutdown
 process.on('SIGTERM', function() { analytics.flush().then(function() { process.exit(0); }); });
 process.on('SIGINT', function() { analytics.flush().then(function() { process.exit(0); }); });
 
-// Init analytics then start server
 analytics.init();
-app.listen(PORT, function() { console.log('Gwadloup Alert v14 — port ' + PORT + ' — ' + GROQ_KEYS.length + ' Groq — Analytics Supabase ON'); });
+app.listen(PORT, function() { console.log('Gwadloup Alert v15 — port ' + PORT + ' — ' + GROQ_KEYS.length + ' Groq — Analytics ON — Anonymous reports ON'); });
