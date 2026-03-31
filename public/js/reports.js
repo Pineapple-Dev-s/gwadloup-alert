@@ -1,23 +1,83 @@
 var Reports = {
-  viewMode: 'list', // 'list' or 'cards'
+  viewMode: 'list',
 
   loadAll: async function() {
     try {
-      var query = App.supabase.from('reports').select('*').order('created_at', { ascending: false });
-      if (App.filters.category) query = query.eq('category', App.filters.category);
-      if (App.filters.status) query = query.eq('status', App.filters.status);
-      if (App.filters.commune) query = query.eq('commune', App.filters.commune);
-      var result = await query;
-      if (result.error) throw result.error;
-      App.reports = result.data || [];
+      App.pagination.page = 0;
+      App.pagination.hasMore = true;
+      App.reports = [];
+
+      await this._loadPage(0);
       MapManager.clear();
       for (var i = 0; i < App.reports.length; i++) MapManager.addReport(App.reports[i]);
       this.renderList();
       this.updateStats();
+
+      // Load ALL for map (background, no pagination)
+      this._loadAllForMap();
     } catch (e) {
       console.error('Load reports error:', e);
-      UI.toast('Erreur de chargement', 'error');
+      if (typeof UI !== 'undefined') UI.toast('Erreur de chargement', 'error');
     }
+  },
+
+  _loadPage: async function(page) {
+    var limit = App.pagination.limit;
+    var from = page * limit;
+    var to = from + limit - 1;
+
+    var query = App.supabase.from('reports').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(from, to);
+    if (App.filters.category) query = query.eq('category', App.filters.category);
+    if (App.filters.status) query = query.eq('status', App.filters.status);
+    if (App.filters.commune) query = query.eq('commune', App.filters.commune);
+
+    var result = await query;
+    if (result.error) throw result.error;
+
+    var newReports = result.data || [];
+    if (page === 0) {
+      App.reports = newReports;
+    } else {
+      App.reports = App.reports.concat(newReports);
+    }
+
+    App.pagination.page = page;
+    App.pagination.hasMore = newReports.length === limit;
+    App.pagination.total = result.count || App.reports.length;
+    App.pagination.loading = false;
+  },
+
+  loadMore: async function() {
+    if (App.pagination.loading || !App.pagination.hasMore) return;
+    App.pagination.loading = true;
+
+    var btn = document.getElementById('btn-load-more');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Chargement...'; }
+
+    try {
+      await this._loadPage(App.pagination.page + 1);
+      this.renderList();
+    } catch(e) {
+      if (typeof UI !== 'undefined') UI.toast('Erreur', 'error');
+    }
+
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-chevron-down"></i> Charger plus'; }
+  },
+
+  _loadAllForMap: async function() {
+    // Load all reports for map markers (no pagination, background)
+    try {
+      var query = App.supabase.from('reports').select('id,category,title,latitude,longitude,address,commune,upvotes,status').order('created_at', { ascending: false });
+      if (App.filters.category) query = query.eq('category', App.filters.category);
+      if (App.filters.status) query = query.eq('status', App.filters.status);
+      if (App.filters.commune) query = query.eq('commune', App.filters.commune);
+
+      var result = await query;
+      if (result.data) {
+        MapManager.clear();
+        for (var i = 0; i < result.data.length; i++) MapManager.addReport(result.data[i]);
+      }
+    } catch(e) {}
   },
 
   renderList: function() {
@@ -27,7 +87,6 @@ var Reports = {
     var header = document.getElementById('list-header');
     if (!grid) return;
 
-    // Sort
     var sorted = App.reports.slice();
     var sortEl = document.getElementById('sort-reports');
     var sortVal = sortEl ? sortEl.value : 'newest';
@@ -40,11 +99,14 @@ var Reports = {
       if (empty) empty.style.display = 'block';
       if (header) header.style.display = 'none';
       if (countEl) countEl.textContent = '0';
+      // Remove load more
+      var oldMore = document.getElementById('load-more-container');
+      if (oldMore) oldMore.remove();
       return;
     }
     if (empty) empty.style.display = 'none';
     if (header) header.style.display = 'flex';
-    if (countEl) countEl.textContent = sorted.length;
+    if (countEl) countEl.textContent = (App.pagination.total || sorted.length);
 
     var isCards = this.viewMode === 'cards';
     grid.className = isCards ? 'grid--cards' : 'grid';
@@ -57,61 +119,58 @@ var Reports = {
       var fa = MapManager.getFaForCat(r.category);
 
       if (isCards) {
-        // Card view
         var imgHtml = (r.images && r.images.length > 0)
-          ? '<img class="card__img" src="' + r.images[0] + '" alt="" loading="lazy">'
+          ? '<img class="card__img" src="' + r.images[0] + '" alt="" loading="lazy" onerror="this.onerror=null;this.parentNode.innerHTML=\'<div class=card__ph><i class=fas&#32;' + fa + '></i></div>\'">'
           : '<div class="card__ph"><i class="fas ' + fa + '"></i></div>';
         html += '<div class="card" onclick="Reports.openDetail(\'' + r.id + '\')">' + imgHtml +
-          '<div class="card__body">' +
-            '<div class="card__row">' +
-              '<span class="badge badge--cat"><i class="fas ' + fa + '"></i> ' + cat.label + '</span>' +
-              '<span class="badge badge--' + r.status + '">' + status.label + '</span>' +
-            '</div>' +
-            '<div class="card__title">' + App.esc(r.title) + '</div>' +
-            '<div class="card__addr"><i class="fas fa-map-pin"></i> ' + (r.address ? App.esc(r.address.substring(0, 45)) : r.commune || 'Guadeloupe') + '</div>' +
-            '<div class="card__foot">' +
-              '<span class="card__votes"><i class="fas fa-arrow-up"></i> ' + (r.upvotes || 0) + '</span>' +
-              '<span class="card__date"><i class="fas fa-clock"></i> ' + App.ago(r.created_at) + '</span>' +
-            '</div>' +
-          '</div></div>';
+          '<div class="card__body"><div class="card__row">' +
+          '<span class="badge badge--cat"><i class="fas ' + fa + '"></i> ' + cat.label + '</span>' +
+          '<span class="badge badge--' + r.status + '">' + status.label + '</span></div>' +
+          '<div class="card__title">' + App.esc(r.title) + '</div>' +
+          '<div class="card__addr"><i class="fas fa-map-pin"></i> ' + (r.address ? App.esc(r.address.substring(0, 45)) : r.commune || 'Guadeloupe') + '</div>' +
+          '<div class="card__foot"><span class="card__votes"><i class="fas fa-arrow-up"></i> ' + (r.upvotes || 0) + '</span>' +
+          '<span class="card__date"><i class="fas fa-clock"></i> ' + App.ago(r.created_at) + '</span></div></div></div>';
       } else {
-        // List view (GitHub Issues style)
         html += '<div class="card" onclick="Reports.openDetail(\'' + r.id + '\')">' +
           '<div class="card__indicator card__indicator--' + r.status + '"></div>' +
-          '<div class="card__body">' +
-            '<div class="card__row">' +
-              '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">' +
-                '<span class="badge badge--cat"><i class="fas ' + fa + '"></i> ' + cat.label + '</span>' +
-                '<span class="card__title" style="margin:0">' + App.esc(r.title) + '</span>' +
-              '</div>' +
-              '<span class="badge badge--' + r.status + '">' + status.label + '</span>' +
-            '</div>' +
-            '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">' +
-              '<span class="card__addr"><i class="fas fa-map-pin"></i> ' + (r.commune || 'Guadeloupe') + '</span>' +
-              '<span class="card__votes"><i class="fas fa-arrow-up"></i> ' + (r.upvotes || 0) + '</span>' +
-              '<span class="card__date">' + App.ago(r.created_at) + '</span>' +
-            '</div>' +
-          '</div></div>';
+          '<div class="card__body"><div class="card__row">' +
+          '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">' +
+          '<span class="badge badge--cat"><i class="fas ' + fa + '"></i> ' + cat.label + '</span>' +
+          '<span class="card__title" style="margin:0">' + App.esc(r.title) + '</span></div>' +
+          '<span class="badge badge--' + r.status + '">' + status.label + '</span></div>' +
+          '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">' +
+          '<span class="card__addr"><i class="fas fa-map-pin"></i> ' + (r.commune || 'Guadeloupe') + '</span>' +
+          '<span class="card__votes"><i class="fas fa-arrow-up"></i> ' + (r.upvotes || 0) + '</span>' +
+          '<span class="card__date">' + App.ago(r.created_at) + '</span></div></div></div>';
       }
     }
     grid.innerHTML = html;
+
+    // Load more button
+    var oldMore = document.getElementById('load-more-container');
+    if (oldMore) oldMore.remove();
+
+    if (App.pagination.hasMore) {
+      var moreDiv = document.createElement('div');
+      moreDiv.id = 'load-more-container';
+      moreDiv.style.cssText = 'text-align:center;padding:20px';
+      moreDiv.innerHTML = '<button class="btn btn--outline btn--lg" id="btn-load-more" onclick="Reports.loadMore()"><i class="fas fa-chevron-down"></i> Charger plus</button>' +
+        '<p style="font-size:.72rem;color:var(--text3);margin-top:6px">' + sorted.length + ' sur ' + (App.pagination.total || '?') + ' signalements</p>';
+      grid.parentNode.appendChild(moreDiv);
+    }
   },
 
   updateStats: function() {
-    var total = App.reports.length, pending = 0, inProgress = 0, resolved = 0;
+    var total = App.pagination.total || App.reports.length, pending = 0, inProgress = 0, resolved = 0;
     for (var i = 0; i < App.reports.length; i++) {
       var s = App.reports[i].status;
       if (s === 'pending') pending++;
       else if (s === 'in_progress' || s === 'acknowledged') inProgress++;
       else if (s === 'resolved') resolved++;
     }
-
-    // Topbar stats
-    var ids = { 'stat-total': total, 'stat-pending': pending, 'stat-progress': inProgress, 'stat-resolved': resolved,
-      'stats-total': total, 'stats-pending': pending, 'stats-in-progress': inProgress, 'stats-resolved': resolved };
+    var ids = { 'stat-total': total, 'stat-pending': pending, 'stat-progress': inProgress, 'stat-resolved': resolved, 'stats-total': total, 'stats-pending': pending, 'stats-in-progress': inProgress, 'stats-resolved': resolved };
     for (var id in ids) { var el = document.getElementById(id); if (el) el.textContent = ids[id]; }
 
-    // Progress bars
     var barPending = document.getElementById('bar-pending');
     var barProgress = document.getElementById('bar-progress');
     var barResolved = document.getElementById('bar-resolved');
@@ -123,7 +182,7 @@ var Reports = {
 
     this.renderCharts();
     this.renderLeaderboard();
-    this.renderMairies();
+    if (typeof this.renderMairies === 'function') this.renderMairies();
   },
 
   renderCharts: function() {
@@ -152,44 +211,25 @@ var Reports = {
   renderMairies: function() {
     var grid = document.getElementById('mairie-grid');
     if (!grid) return;
-
-    // Calculate per-commune stats
     var communeStats = {};
     for (var i = 0; i < App.reports.length; i++) {
-      var r = App.reports[i];
-      var c = r.commune || 'Non défini';
+      var r = App.reports[i], c = r.commune || 'Non défini';
       if (!communeStats[c]) communeStats[c] = { total: 0, resolved: 0, pending: 0, inProgress: 0 };
       communeStats[c].total++;
       if (r.status === 'resolved') communeStats[c].resolved++;
       else if (r.status === 'pending') communeStats[c].pending++;
       else communeStats[c].inProgress++;
     }
-
-    // Sort by total reports
     var communes = Object.keys(communeStats).sort(function(a, b) { return communeStats[b].total - communeStats[a].total; });
-
-    if (communes.length === 0) {
-      grid.innerHTML = '<p style="color:var(--text3);font-size:.82rem">Aucune donnée par commune</p>';
-      return;
-    }
-
-    var html = '';
-    var maxToShow = Math.min(communes.length, 12);
+    if (communes.length === 0) { grid.innerHTML = '<p style="color:var(--text3);font-size:.82rem">Aucune donnée</p>'; return; }
+    var html = '', maxToShow = Math.min(communes.length, 12);
     for (var i = 0; i < maxToShow; i++) {
-      var name = communes[i];
-      var s = communeStats[name];
+      var name = communes[i], s = communeStats[name];
       var rate = s.total > 0 ? Math.round((s.resolved / s.total) * 100) : 0;
-
-      html += '<div class="mairie-card">' +
-        '<div class="mairie-card__name"><i class="fas fa-landmark"></i> ' + App.esc(name) + '</div>' +
-        '<div class="mairie-card__stats">' +
-          '<span><i class="fas fa-flag" style="color:var(--blue)"></i> ' + s.total + '</span>' +
-          '<span><i class="fas fa-clock" style="color:var(--orange)"></i> ' + s.pending + '</span>' +
-          '<span><i class="fas fa-check" style="color:var(--green)"></i> ' + s.resolved + '</span>' +
-        '</div>' +
+      html += '<div class="mairie-card"><div class="mairie-card__name"><i class="fas fa-landmark"></i> ' + App.esc(name) + '</div>' +
+        '<div class="mairie-card__stats"><span><i class="fas fa-flag" style="color:var(--blue)"></i> ' + s.total + '</span><span><i class="fas fa-clock" style="color:var(--orange)"></i> ' + s.pending + '</span><span><i class="fas fa-check" style="color:var(--green)"></i> ' + s.resolved + '</span></div>' +
         '<div class="mairie-card__bar"><div class="mairie-card__bar-fill" style="width:' + rate + '%"></div></div>' +
-        '<div class="mairie-card__rate">' + rate + '% résolu</div>' +
-      '</div>';
+        '<div class="mairie-card__rate">' + rate + '% résolu</div></div>';
     }
     grid.innerHTML = html;
   },
@@ -215,7 +255,15 @@ var Reports = {
 
   openDetail: async function(id) {
     var report = App.reports.find(function(r) { return r.id === id; });
+    if (!report) {
+      // Report not in local cache, fetch it
+      try {
+        var result = await App.supabase.from('reports').select('*').eq('id', id).single();
+        if (result.data) report = result.data;
+      } catch(e) {}
+    }
     if (!report) return;
+
     var container = document.getElementById('report-detail');
     if (!container) return;
     var cat = App.categories[report.category] || App.categories.other;
@@ -223,16 +271,33 @@ var Reports = {
     var priority = App.priorities[report.priority] || App.priorities.medium;
     var fa = MapManager.getFaForCat(report.category);
 
-    var galHtml = (report.images && report.images.length > 0)
-      ? '<div class="det__gal"><img src="' + report.images[0] + '" alt=""></div>'
-      : '<div class="det__gal det__gal--ph"><i class="fas ' + fa + '"></i></div>';
+    // Image with fallback
+    var galHtml;
+    if (report.images && report.images.length > 0) {
+      galHtml = '<div class="det__gal">';
+      if (report.images.length === 1) {
+        galHtml += '<img src="' + report.images[0] + '" alt="" onerror="this.onerror=null;this.style.display=\'none\'">';
+      } else {
+        // Multiple images gallery
+        galHtml += '<div style="display:flex;overflow-x:auto;gap:4px;scroll-snap-type:x mandatory">';
+        for (var gi = 0; gi < report.images.length; gi++) {
+          galHtml += '<img src="' + report.images[gi] + '" alt="" style="min-width:100%;height:300px;object-fit:cover;scroll-snap-align:start" onerror="this.onerror=null;this.style.display=\'none\'">';
+        }
+        galHtml += '</div>';
+      }
+      galHtml += '</div>';
+    } else {
+      galHtml = '<div class="det__gal det__gal--ph"><i class="fas ' + fa + '"></i></div>';
+    }
 
-    var authorName = 'Citoyen';
+    var authorName = report.anonymous ? 'Anonyme' : 'Citoyen';
     var authorId = report.user_id;
-    try {
-      var profileResult = await App.supabase.from('profiles').select('username').eq('id', report.user_id).single();
-      if (profileResult.data) authorName = profileResult.data.username;
-    } catch (e) {}
+    if (!report.anonymous && report.user_id) {
+      try {
+        var profileResult = await App.supabase.from('profiles').select('username').eq('id', report.user_id).single();
+        if (profileResult.data) authorName = profileResult.data.username;
+      } catch (e) {}
+    }
 
     var hasVoted = false;
     if (App.currentUser) {
@@ -248,11 +313,19 @@ var Reports = {
     var html = galHtml + '<div class="det__body">' +
       '<div class="det__badges"><span class="badge badge--cat"><i class="fas ' + fa + '"></i> ' + cat.label + '</span>' +
       '<span class="badge badge--' + report.status + '">' + status.label + '</span>' +
-      '<span class="badge" style="background:' + priority.color + '18;color:' + priority.color + '">' + priority.label + '</span></div>' +
+      '<span class="badge" style="background:' + priority.color + '18;color:' + priority.color + '">' + priority.label + '</span>' +
+      (report.anonymous ? '<span class="badge" style="background:var(--bg4);color:var(--text3)"><i class="fas fa-user-secret"></i> Anonyme</span>' : '') +
+      '</div>' +
       '<h2 class="det__title">' + App.esc(report.title) + '</h2>' +
-      '<div class="det__meta">' +
-      '<span style="cursor:pointer;text-decoration:underline dotted" onclick="UI.openPublicProfile(\'' + authorId + '\')"><i class="fas fa-user"></i> ' + App.esc(authorName) + '</span>' +
-      '<span><i class="fas fa-map-pin"></i> ' + (report.commune || 'Guadeloupe') + '</span>' +
+      '<div class="det__meta">';
+
+    if (report.anonymous) {
+      html += '<span><i class="fas fa-user-secret"></i> Signalement anonyme</span>';
+    } else {
+      html += '<span style="cursor:pointer;text-decoration:underline dotted" onclick="UI.openPublicProfile(\'' + authorId + '\')"><i class="fas fa-user"></i> ' + App.esc(authorName) + '</span>';
+    }
+
+    html += '<span><i class="fas fa-map-pin"></i> ' + (report.commune || 'Guadeloupe') + '</span>' +
       '<span><i class="fas fa-clock"></i> ' + App.ago(report.created_at) + '</span></div>' +
       '<p class="det__desc">' + App.esc(report.description) + '</p>';
 
@@ -262,7 +335,8 @@ var Reports = {
         '<p style="font-size:.85rem;color:var(--text);line-height:1.7">' + App.esc(report.admin_response) + '</p></div>';
     }
 
-    if (App.currentUser) {
+    // Status update — only for owner or admin
+    if (App.currentUser && (isOwner || isAdmin)) {
       html += '<div style="background:var(--bg3);border-radius:var(--r);padding:14px;margin-bottom:20px;border:1px solid var(--border)">' +
         '<div style="font-size:.78rem;font-weight:600;margin-bottom:8px;color:var(--text2)"><i class="fas fa-exchange-alt"></i> Mettre à jour le statut</div>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap">';
@@ -275,7 +349,7 @@ var Reports = {
     }
 
     html += '<div class="det__actions">' +
-      '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="Reports.toggleVote(\'' + id + '\')"><i class="fas fa-arrow-up"></i> <span id="vote-count-' + id + '">' + (report.upvotes || 0) + '</span> Soutenir</button>' +
+      '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="Reports.toggleVote(\'' + id + '\')"><i class="fas fa-arrow-up"></i> <span>' + (report.upvotes || 0) + '</span> Soutenir</button>' +
       '<button class="btn btn--outline" onclick="Share.shareReport(\'' + id + '\')"><i class="fas fa-share-alt"></i> Partager</button>' +
       '<button class="btn btn--outline" onclick="UI.closeModal(\'modal-detail\');MapManager.flyTo(' + report.latitude + ',' + report.longitude + ')"><i class="fas fa-map"></i> Carte</button>';
     if (isOwner || isAdmin) html += '<button class="btn btn--danger" onclick="Reports.deleteFromDetail(\'' + id + '\')"><i class="fas fa-trash"></i> Supprimer</button>';
@@ -298,9 +372,7 @@ var Reports = {
     if (!isOwner && !isAdmin) { UI.toast('Non autorisé', 'error'); return; }
     if (!confirm('Supprimer ce signalement ?')) return;
     try {
-      if (isOwner) {
-        await fetch('/api/mark-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: App.currentUser.id }) });
-      }
+      if (isOwner) await fetch('/api/mark-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: App.currentUser.id }) });
       await App.supabase.from('comments').delete().eq('report_id', id);
       await App.supabase.from('votes').delete().eq('report_id', id);
       var result = await App.supabase.from('reports').delete().eq('id', id);
@@ -336,13 +408,13 @@ var Reports = {
     if (result.error) { UI.toast('Erreur', 'error'); } else {
       UI.toast('Statut mis à jour', 'success');
       var report = App.reports.find(function(r) { return r.id === reportId; });
-      if (report) { report.status = newStatus; if (newStatus === 'resolved') report.resolved_at = updates.resolved_at; }
+      if (report) { report.status = newStatus; }
       this.renderList(); this.updateStats(); this.openDetail(reportId);
     }
   },
 
   toggleVote: async function(id) {
-    if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
+    if (!App.currentUser) { UI.toast('Connectez-vous pour voter', 'warning'); return; }
     try {
       var existResult = await App.supabase.from('votes').select('id').eq('report_id', id).eq('user_id', App.currentUser.id).maybeSingle();
       if (existResult.data) {
@@ -352,6 +424,7 @@ var Reports = {
         var ins = await App.supabase.from('votes').insert({ report_id: id, user_id: App.currentUser.id });
         if (ins.error) throw ins.error;
         UI.toast('Merci !', 'success');
+        App.trackEvent('report_voted');
       }
       var allVotes = await App.supabase.from('votes').select('id').eq('report_id', id);
       var realCount = (allVotes.data && allVotes.data.length) || 0;
@@ -359,10 +432,7 @@ var Reports = {
       var report = App.reports.find(function(r) { return r.id === id; });
       if (report) report.upvotes = realCount;
       this.openDetail(id);
-    } catch (e) {
-      console.error('Vote error:', e);
-      UI.toast('Erreur', 'error');
-    }
+    } catch (e) { UI.toast('Erreur', 'error'); }
   },
 
   addComment: async function(reportId) {
@@ -375,20 +445,21 @@ var Reports = {
     try {
       var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: '', description: content }) });
       var modData = await modResp.json();
-      if (modData.flagged && modData.reformulated && modData.cleaned) {
-        content = modData.cleaned.description;
-        UI.toast('Commentaire reformulé', 'info');
-      }
+      if (modData.flagged && modData.reformulated && modData.cleaned) { content = modData.cleaned.description; UI.toast('Commentaire reformulé', 'info'); }
       var result = await App.supabase.from('comments').insert({ report_id: reportId, user_id: App.currentUser.id, content: content });
       if (result.error) throw result.error;
       input.value = '';
       UI.toast('Commentaire ajouté', 'success');
+      App.trackEvent('comment_added');
       this.loadComments(reportId);
     } catch (e) { UI.toast('Erreur', 'error'); }
   },
 
-  submitReport: async function() {
-    if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
+  submitReport: async function(anonymous) {
+    var isAnonymous = anonymous === true;
+
+    if (!isAnonymous && !App.currentUser) { UI.toast('Connectez-vous ou signalez en anonyme', 'warning'); return; }
+
     var category = document.querySelector('input[name="category"]:checked');
     var title = document.getElementById('report-title').value.trim();
     var description = document.getElementById('report-description').value.trim();
@@ -399,8 +470,8 @@ var Reports = {
     var priority = document.querySelector('input[name="priority"]:checked');
 
     if (!category) { UI.toast('Choisissez une catégorie', 'warning'); return; }
-    if (!title || title.length < 5) { UI.toast('Titre trop court', 'warning'); return; }
-    if (!description || description.length < 10) { UI.toast('Description trop courte', 'warning'); return; }
+    if (!title || title.length < 5) { UI.toast('Titre trop court (min 5)', 'warning'); return; }
+    if (!description || description.length < 10) { UI.toast('Description trop courte (min 10)', 'warning'); return; }
     if (!lat || !lng) { UI.toast('Sélectionnez un emplacement', 'warning'); return; }
     if (!MapManager.isInGuadeloupe(lat, lng)) { UI.toast('Hors Guadeloupe', 'error'); return; }
 
@@ -408,39 +479,61 @@ var Reports = {
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Envoi...';
 
     try {
-      var farmResp = await fetch('/api/check-farm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: App.currentUser.id }) });
-      var farmData = await farmResp.json();
-      if (!farmData.allowed) { UI.toast(farmData.reason || 'Limite', 'warning'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Envoyer'; return; }
+      // Anti-farm (only for logged in)
+      if (!isAnonymous) {
+        var farmResp = await fetch('/api/check-farm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: App.currentUser.id }) });
+        var farmData = await farmResp.json();
+        if (!farmData.allowed) { UI.toast(farmData.reason || 'Limite', 'warning'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Envoyer'; return; }
+      }
 
+      // Moderation
       var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title, description: description }) });
       var modData = await modResp.json();
       if (modData.flagged && modData.reformulated && modData.cleaned) { title = modData.cleaned.title; description = modData.cleaned.description; UI.toast('Contenu reformulé', 'info'); }
 
-      var imageUrls = await ImageUpload.uploadAll();
+      // Upload images (only if logged in)
+      var imageUrls = [];
+      if (!isAnonymous && typeof ImageUpload !== 'undefined') {
+        imageUrls = await ImageUpload.uploadAll();
+      }
 
-      var result = await App.supabase.from('reports').insert({
-        user_id: App.currentUser.id, category: category.value,
+      var reportData = {
+        category: category.value,
         title: title, description: description,
         latitude: lat, longitude: lng, address: address, commune: commune,
         images: imageUrls, priority: priority ? priority.value : 'medium',
         status: 'pending', upvotes: 0
-      }).select().single();
-      if (result.error) throw result.error;
+      };
 
-      if (App.currentProfile) {
-        await App.supabase.from('profiles').update({
-          reports_count: (App.currentProfile.reports_count || 0) + 1,
-          reputation: (App.currentProfile.reputation || 0) + 10
-        }).eq('id', App.currentUser.id);
-        App.currentProfile.reports_count = (App.currentProfile.reports_count || 0) + 1;
-        App.currentProfile.reputation = (App.currentProfile.reputation || 0) + 10;
+      if (isAnonymous) {
+        // Anonymous: use server endpoint
+        var anonResp = await fetch('/api/report-anonymous', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(reportData)
+        });
+        var anonData = await anonResp.json();
+        if (anonData.error) throw new Error(anonData.error);
+      } else {
+        reportData.user_id = App.currentUser.id;
+        var result = await App.supabase.from('reports').insert(reportData).select().single();
+        if (result.error) throw result.error;
+
+        if (App.currentProfile) {
+          await App.supabase.from('profiles').update({
+            reports_count: (App.currentProfile.reports_count || 0) + 1,
+            reputation: (App.currentProfile.reputation || 0) + 10
+          }).eq('id', App.currentUser.id);
+          App.currentProfile.reports_count = (App.currentProfile.reports_count || 0) + 1;
+          App.currentProfile.reputation = (App.currentProfile.reputation || 0) + 10;
+        }
       }
 
       UI.closeModal('modal-report');
-      UI.toast('Signalement créé ! +10 pts', 'success');
-      ImageUpload.reset();
+      UI.toast(isAnonymous ? 'Signalement anonyme envoyé !' : 'Signalement créé ! +10 pts', 'success');
+      App.trackEvent('report_created');
+      if (typeof ImageUpload !== 'undefined') ImageUpload.reset();
       await this.loadAll();
-      if (result.data) MapManager.flyTo(result.data.latitude, result.data.longitude);
     } catch (e) {
       console.error('Submit error:', e);
       UI.toast('Erreur: ' + (e.message || 'Échec'), 'error');
