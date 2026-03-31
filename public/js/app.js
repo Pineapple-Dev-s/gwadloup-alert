@@ -6,6 +6,8 @@ var App = {
   reports: [],
   filters: { category: '', status: '', commune: '' },
   banner: null,
+  theme: 'dark',
+  pagination: { page: 0, limit: 20, hasMore: true, loading: false },
 
   categories: {
     pothole:           { icon: 'road',      label: 'Nid de poule' },
@@ -61,39 +63,40 @@ var App = {
     if (loader) loader.classList.add('active');
 
     try {
-      // 1. Load config from server
+      // Load saved theme
+      this.theme = localStorage.getItem('gwadloup-theme') || 'dark';
+      this.applyTheme(this.theme);
+
+      // Load config
       var configResp = await fetch('/api/config');
       this.config = await configResp.json();
 
-      // 2. Init Supabase client
-      this.supabase = window.supabase.createClient(
-        this.config.supabaseUrl,
-        this.config.supabaseAnonKey
-      );
+      // Init Supabase
+      this.supabase = window.supabase.createClient(this.config.supabaseUrl, this.config.supabaseAnonKey);
 
-      // 3. Handle auth URL fragments (email confirm, errors)
+      // Handle auth fragments
       this._handleAuthFragments();
 
-      // 4. Init modules in order (auth first, then UI, then data)
+      // Init modules
       if (typeof Auth !== 'undefined') await Auth.init();
       if (typeof MapManager !== 'undefined') MapManager.init();
       if (typeof UI !== 'undefined') UI.init();
       if (typeof Reports !== 'undefined') await Reports.loadAll();
 
-      // 5. Load site banner
+      // Banner
       this.loadBanner();
 
-      // 6. Setup realtime subscriptions
+      // Realtime
       this._initRealtime();
 
-      // 7. Auto refresh (every 120s when tab visible)
+      // Auto refresh
       this._initAutoRefresh();
 
-      // 8. Optional modules
+      // Optional modules
       if (typeof Share !== 'undefined' && Share.init) Share.init();
       if (typeof PWA !== 'undefined' && PWA.init) PWA.init();
 
-      // 9. Client-side analytics tracking
+      // Client tracking
       this._initClientTracking();
 
     } catch(e) {
@@ -101,119 +104,74 @@ var App = {
       if (typeof UI !== 'undefined') UI.toast('Erreur de chargement', 'error');
     }
 
-    // Always hide loader
     if (loader) loader.classList.remove('active');
   },
 
-  // ═══════════════ AUTH FRAGMENTS ═══════════════
   _handleAuthFragments: function() {
     var hash = window.location.hash;
     if (!hash) return;
-
     if (hash.indexOf('access_token') !== -1) {
-      // Email confirmed — wait for Supabase to process, then clean URL
       setTimeout(function() {
         history.replaceState(null, '', window.location.pathname);
-        if (typeof UI !== 'undefined') UI.toast('Email confirmé !', 'success');
+        if (typeof UI !== 'undefined') UI.toast('Email confirmé ! Vous pouvez maintenant vous connecter.', 'success');
       }, 1000);
     } else if (hash.indexOf('error') !== -1) {
-      // Auth error — clean URL silently
       history.replaceState(null, '', window.location.pathname);
     }
-    // Note: deep link hashes (#report/xxx, #article/xxx) are handled by Share.init()
   },
 
-  // ═══════════════ REALTIME ═══════════════
   _initRealtime: function() {
-    var self = this;
-
     this.supabase.channel('rt-reports')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'reports'
-      }, function(payload) {
-        if (typeof Reports !== 'undefined') Reports.handleNew(payload.new);
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'reports'
-      }, function(payload) {
-        if (typeof Reports !== 'undefined') Reports.handleUpdate(payload.new);
-      })
-      .on('postgres_changes', {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'reports'
-      }, function(payload) {
-        if (typeof Reports !== 'undefined') Reports.handleDelete(payload.old);
-      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports' }, function(p) { if (typeof Reports !== 'undefined') Reports.handleNew(p.new); })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'reports' }, function(p) { if (typeof Reports !== 'undefined') Reports.handleUpdate(p.new); })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'reports' }, function(p) { if (typeof Reports !== 'undefined') Reports.handleDelete(p.old); })
       .subscribe();
   },
 
-  // ═══════════════ AUTO REFRESH ═══════════════
   _initAutoRefresh: function() {
     setInterval(function() {
-      if (document.visibilityState === 'visible' && typeof Reports !== 'undefined') {
-        Reports.loadAll();
-      }
+      if (document.visibilityState === 'visible' && typeof Reports !== 'undefined') Reports.loadAll();
     }, 120000);
   },
 
-  // ═══════════════ CLIENT TRACKING ═══════════════
   _initClientTracking: function() {
     var lastTracked = '';
-
     function trackPage() {
       var page = window.location.pathname + window.location.hash;
       if (page === lastTracked) return;
       lastTracked = page;
-      fetch('/api/analytics/track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ page: page })
-      }).catch(function() {});
+      fetch('/api/analytics/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: page }) }).catch(function() {});
     }
-
-    // Track initial page load
     trackPage();
-
-    // Track SPA hash navigation
     window.addEventListener('hashchange', trackPage);
   },
 
-  // ═══════════════ TRACK EVENT ═══════════════
   trackEvent: function(name) {
-    if (!name || typeof name !== 'string') return;
-    fetch('/api/analytics/event', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: name })
-    }).catch(function() {});
+    if (!name) return;
+    fetch('/api/analytics/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ event: name }) }).catch(function() {});
   },
 
-  // ═══════════════ BANNER ═══════════════
   loadBanner: async function() {
     try {
-      var result = await this.supabase
-        .from('site_banners')
-        .select('*')
-        .eq('active', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (result.data) {
-        this.banner = result.data;
-        if (typeof UI !== 'undefined') UI.renderBanner(result.data);
-      }
-    } catch(e) {
-      // Table might not exist yet — silently ignore
-    }
+      var result = await this.supabase.from('site_banners').select('*').eq('active', true).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (result.data) { this.banner = result.data; if (typeof UI !== 'undefined') UI.renderBanner(result.data); }
+    } catch(e) {}
   },
 
-  // ═══════════════ UTILITIES ═══════════════
+  // Theme system
+  applyTheme: function(theme) {
+    this.theme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('gwadloup-theme', theme);
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = theme === 'light' ? '#ffffff' : '#161b22';
+  },
+
+  toggleTheme: function() {
+    this.applyTheme(this.theme === 'dark' ? 'light' : 'dark');
+    if (typeof UI !== 'undefined') UI.toast(this.theme === 'light' ? 'Mode clair activé' : 'Mode sombre activé', 'info');
+  },
+
   ago: function(d) {
     if (!d) return '';
     var now = Date.now();
@@ -234,7 +192,4 @@ var App = {
   }
 };
 
-// ═══════════════ BOOTSTRAP ═══════════════
-document.addEventListener('DOMContentLoaded', function() {
-  App.init();
-});
+document.addEventListener('DOMContentLoaded', function() { App.init(); });
