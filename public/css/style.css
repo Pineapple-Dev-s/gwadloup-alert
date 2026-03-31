@@ -607,15 +607,16 @@ textarea.inp{resize:vertical;min-height:80px}
 
 
 /* ═══════════════════════════════════════════════════════
-   FAB — Floating Action Button (AU-DESSUS de tout)
+   FAB — Floating Action Button
+   Positionné en bas à droite, AU-DESSUS du layer switcher
    ═══════════════════════════════════════════════════════ */
-.fab-report{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--green2);border:none;color:#fff;font-size:1.3rem;cursor:pointer;box-shadow:0 4px 20px rgba(63,185,80,.4);z-index:1100;display:flex;align-items:center;justify-content:center;transition:all .2s ease;animation:fabIn .4s ease}
+.fab-report{position:fixed;bottom:90px;right:14px;width:52px;height:52px;border-radius:50%;background:var(--green2);border:none;color:#fff;font-size:1.2rem;cursor:pointer;box-shadow:0 4px 20px rgba(63,185,80,.4);z-index:1100;display:flex;align-items:center;justify-content:center;transition:all .2s ease;animation:fabIn .4s ease}
 .fab-report:hover{background:var(--green3);transform:scale(1.1);box-shadow:0 6px 28px rgba(63,185,80,.5)}
 .fab-report:active{transform:scale(.95)}
 @keyframes fabIn{from{transform:scale(0) rotate(-180deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
 
 @media(max-width:768px){
-  .fab-report{bottom:16px;right:16px;width:52px;height:52px;font-size:1.2rem}
+  .fab-report{bottom:80px;right:10px;width:48px;height:48px;font-size:1.1rem}
 }
 
 /* ═══════════════════════════════════════════════════════
