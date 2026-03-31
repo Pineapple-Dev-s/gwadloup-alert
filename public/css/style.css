@@ -701,3 +701,6 @@ textarea.inp{resize:vertical;min-height:80px}
   .profile__stats{grid-template-columns:1fr 1fr}
   .hdr__logo{font-size:.88rem}
 }
+
+
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
