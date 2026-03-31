@@ -148,7 +148,9 @@ var Auth = {
       if (result.error) {
         var msg = result.error.message;
         if (msg.indexOf('Invalid login') !== -1) msg = 'Email ou mot de passe incorrect';
-        else if (msg.indexOf('Email not confirmed') !== -1) msg = 'Confirmez votre email (vérifiez vos spams)';
+        // "Email not confirmed" ne peut plus arriver si la confirmation est désactivée côté Supabase,
+        // mais on garde un fallback lisible au cas où.
+        else if (msg.indexOf('Email not confirmed') !== -1) msg = 'Email non confirmé — contactez l\'administrateur';
         this._showError(errorEl, msg);
       } else {
         UI.closeModal('modal-login');
@@ -184,8 +186,9 @@ var Auth = {
         if (msg.indexOf('already registered') !== -1) msg = 'Cet email est déjà utilisé';
         this._showError(errorEl, msg);
       } else {
+        // Connexion automatique après inscription (pas de confirmation email)
         UI.closeModal('modal-register');
-        UI.toast('Compte créé ! Vérifiez votre email pour confirmer 📧', 'success');
+        UI.toast('Compte créé ! Bienvenue 🎉', 'success');
       }
     } catch(e) {
       this._showError(errorEl, 'Erreur d\'inscription');
@@ -247,7 +250,6 @@ var Auth = {
       '</div></div>';
     container.innerHTML = html;
     UI.openModal('modal-profile');
-    // Load badges async
     if (typeof Badges !== 'undefined') {
       Badges.computeStats().then(function(stats) {
         var section = document.getElementById('profile-badges-section');
@@ -321,7 +323,6 @@ var Auth = {
     container.innerHTML = html;
     UI.openModal('modal-admin');
 
-    // FIX: Re-update stats after opening admin (they don't disappear anymore)
     setTimeout(function() {
       if (typeof Reports !== 'undefined') {
         Reports.updateStats();
@@ -363,7 +364,6 @@ var Auth = {
       var result = await App.supabase.from('reports').delete().eq('id', id);
       if (result.error) throw result.error;
 
-      // Remove points from owner
       if (report && report.user_id) {
         try {
           var ownerProfile = await App.supabase.from('profiles').select('reputation, reports_count').eq('id', report.user_id).single();
@@ -373,7 +373,6 @@ var Auth = {
               reports_count: Math.max(0, (ownerProfile.data.reports_count || 0) - 1)
             }).eq('id', report.user_id);
           }
-          // Update local profile if it's the current user
           if (App.currentUser && report.user_id === App.currentUser.id && App.currentProfile) {
             App.currentProfile.reputation = Math.max(0, (App.currentProfile.reputation || 0) - 10);
             App.currentProfile.reports_count = Math.max(0, (App.currentProfile.reports_count || 0) - 1);
