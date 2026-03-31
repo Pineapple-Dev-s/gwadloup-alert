@@ -26,6 +26,7 @@ var UI = {
     this.contactEmail();
     this.keyboardShortcuts();
     this.networkStatus();
+    this.themeToggle();
     this.listControls();
   },
 
