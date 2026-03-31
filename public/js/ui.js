@@ -356,6 +356,14 @@ var UI = {
   catGrid: function() {
     var grid = document.getElementById('category-grid');
     if (!grid) return;
+
+    // AI search bar
+    var searchHtml = '<div style="margin-bottom:10px;position:relative" id="cat-search-wrap">' +
+      '<i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:.72rem;z-index:1"></i>' +
+      '<input type="text" class="inp" id="cat-search" placeholder="Décrivez le problème... (ex: trou dans la route)" style="padding-left:30px;font-size:.78rem">' +
+      '<div id="cat-search-suggest" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px;box-shadow:var(--shadow-lg);z-index:10;font-size:.78rem"></div>' +
+    '</div>';
+
     var html = '';
     var keys = Object.keys(App.categories);
     for (var i = 0; i < keys.length; i++) {
@@ -367,7 +375,9 @@ var UI = {
         '<span class="catc__ico"><i class="fas ' + fa + '"></i></span>' +
         '<span class="catc__name">' + cat.label + '</span></label>';
     }
-    grid.innerHTML = html;
+    grid.innerHTML = searchHtml + '<div id="cat-grid-items" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px">' + html + '</div>';
+
+    // Selection handling
     grid.querySelectorAll('.catc').forEach(function(catEl) {
       catEl.addEventListener('click', function() {
         grid.querySelectorAll('.catc').forEach(function(c) { c.classList.remove('selected'); });
@@ -376,6 +386,79 @@ var UI = {
         if (step1Next) step1Next.disabled = false;
       });
     });
+
+    // AI search
+    var searchInput = document.getElementById('cat-search');
+    var suggestEl = document.getElementById('cat-search-suggest');
+    var searchTimeout = null;
+
+    if (searchInput && suggestEl) {
+      searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        var q = searchInput.value.trim();
+
+        if (q.length < 3) {
+          suggestEl.style.display = 'none';
+          // Show all categories
+          grid.querySelectorAll('.catc').forEach(function(c) { c.style.display = ''; });
+          return;
+        }
+
+        // Local filter first (instant)
+        var lower = q.toLowerCase();
+        grid.querySelectorAll('.catc').forEach(function(c) {
+          var label = c.querySelector('.catc__name').textContent.toLowerCase();
+          c.style.display = label.indexOf(lower) !== -1 ? '' : 'none';
+        });
+
+        // AI suggestion (debounced)
+        searchTimeout = setTimeout(function() {
+          if (!App.config.groqAvailable) return;
+          suggestEl.style.display = 'block';
+          suggestEl.innerHTML = '<div style="display:flex;align-items:center;gap:6px;color:var(--text3)"><span class="spinner"></span> Analyse IA...</div>';
+
+          fetch('/api/ai-category', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: q })
+          }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.category && App.categories[data.category]) {
+              var cat = App.categories[data.category];
+              var fa = UI.catIcons[cat.icon] || 'fa-map-pin';
+              suggestEl.innerHTML =
+                '<div style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:6px;border-radius:var(--r);transition:background .15s" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'none\'" onclick="UI.selectCategory(\'' + data.category + '\')">' +
+                  '<div style="width:36px;height:36px;border-radius:8px;background:var(--green-bg);display:flex;align-items:center;justify-content:center"><i class="fas ' + fa + '" style="color:var(--green)"></i></div>' +
+                  '<div><div style="font-weight:600;font-size:.82rem">' + cat.label + '</div><div style="font-size:.65rem;color:var(--text3)">Suggestion IA basée sur votre description</div></div>' +
+                  '<i class="fas fa-magic" style="color:var(--purple);margin-left:auto"></i>' +
+                '</div>';
+            } else {
+              suggestEl.style.display = 'none';
+            }
+          }).catch(function() { suggestEl.style.display = 'none'; });
+        }, 600);
+      });
+    }
+  },
+
+  selectCategory: function(catKey) {
+    var grid = document.getElementById('category-grid');
+    if (!grid) return;
+    grid.querySelectorAll('.catc').forEach(function(c) {
+      c.classList.remove('selected');
+      c.style.display = '';
+      if (c.getAttribute('data-cat') === catKey) {
+        c.classList.add('selected');
+        var input = c.querySelector('input');
+        if (input) input.checked = true;
+      }
+    });
+    var step1Next = document.getElementById('btn-step1-next');
+    if (step1Next) step1Next.disabled = false;
+    var suggest = document.getElementById('cat-search-suggest');
+    if (suggest) suggest.style.display = 'none';
+    var searchInput = document.getElementById('cat-search');
+    if (searchInput) searchInput.value = '';
+    UI.toast('Catégorie sélectionnée : ' + (App.categories[catKey] || {}).label, 'success');
   },
 
   burger: function() {
