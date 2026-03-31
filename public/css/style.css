@@ -704,3 +704,93 @@ textarea.inp{resize:vertical;min-height:80px}
 
 
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+
+/* ═══════════════════════════════════════════════════════
+   LIGHT THEME
+   ═══════════════════════════════════════════════════════ */
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg2: #f6f8fa;
+  --bg3: #f0f2f5;
+  --bg4: #e4e7eb;
+  --card: #ffffff;
+  --border: #d1d5db;
+  --border2: #e5e7eb;
+  --text: #1f2937;
+  --text2: #6b7280;
+  --text3: #9ca3af;
+  --green: #16a34a;
+  --green2: #15803d;
+  --green3: #166534;
+  --green-bg: rgba(22,163,74,.08);
+  --blue: #2563eb;
+  --blue-bg: rgba(37,99,235,.08);
+  --orange: #d97706;
+  --orange-bg: rgba(217,119,6,.08);
+  --red: #dc2626;
+  --red-bg: rgba(220,38,38,.08);
+  --purple: #7c3aed;
+  --purple-bg: rgba(124,58,237,.08);
+  --yellow: #ca8a04;
+  --yellow-bg: rgba(202,138,4,.08);
+  --cyan: #0891b2;
+  --cyan-bg: rgba(8,145,178,.08);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,.12);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,.15);
+}
+
+[data-theme="light"] .hdr {
+  background: rgba(246,248,250,.92);
+}
+
+[data-theme="light"] .modal__bg {
+  background: rgba(0,0,0,.3);
+}
+
+[data-theme="light"] .custom-marker {
+  border-color: #fff;
+}
+
+[data-theme="light"] .leaflet-popup-content-wrapper {
+  background: #fff !important;
+  color: var(--text) !important;
+  border-color: var(--border);
+}
+
+[data-theme="light"] .leaflet-popup-tip {
+  background: #fff !important;
+  border-color: var(--border);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-track {
+  background: var(--bg2);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-color: var(--bg2);
+}
+
+[data-theme="light"] .loader {
+  background: var(--bg);
+}
+
+[data-theme="light"] .profile__banner {
+  background: linear-gradient(135deg, #16a34a, #2563eb, #7c3aed);
+}
+
+[data-theme="light"] .umenu__av,
+[data-theme="light"] .umenu__av-lg,
+[data-theme="light"] .lb__av,
+[data-theme="light"] .cmt__av,
+[data-theme="light"] .profile__avatar,
+[data-theme="light"] .pub-profile__avatar {
+  background: linear-gradient(135deg, #16a34a, #2563eb);
+}
+
+[data-theme="light"] ::selection {
+  background: rgba(37,99,235,.2);
+}
