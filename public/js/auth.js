@@ -287,9 +287,15 @@ var Auth = {
     var container = document.getElementById('admin-reports-list');
     if (!container) return;
 
-    // Banner admin section
+    // Banner admin
     var html = UI.showBannerAdmin();
 
+    // Analytics section
+    html += '<div style="border-top:1px solid var(--border);margin:16px 0;padding-top:16px"></div>';
+    html += '<h3 style="margin-bottom:14px;font-size:.9rem;display:flex;align-items:center;gap:6px"><i class="fas fa-chart-line" style="color:var(--blue)"></i> Analytics <button class="btn btn--ghost" onclick="Auth.loadAnalytics()" style="font-size:.7rem"><i class="fas fa-sync"></i></button></h3>';
+    html += '<div id="admin-analytics"><p style="color:var(--text3);font-size:.8rem">Chargement...</p></div>';
+
+    // Reports management
     html += '<div style="border-top:1px solid var(--border);margin:16px 0;padding-top:16px"></div>';
     html += '<h3 style="margin-bottom:12px;font-size:.9rem;display:flex;align-items:center;gap:6px"><i class="fas fa-shield-alt" style="color:var(--purple)"></i> Gestion des signalements (' + App.reports.length + ')</h3>';
 
@@ -311,6 +317,152 @@ var Auth = {
     }
     container.innerHTML = html;
     UI.openModal('modal-admin');
+
+    // Load analytics
+    this.loadAnalytics();
+  },
+
+  loadAnalytics: async function() {
+    var el = document.getElementById('admin-analytics');
+    if (!el) return;
+    el.innerHTML = '<p style="color:var(--text3);font-size:.8rem"><span class="spinner"></span> Chargement analytics...</p>';
+
+    try {
+      var resp = await fetch('/api/analytics?days=30');
+      var data = await resp.json();
+
+      var html = '';
+
+      // Hero stats
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:16px">';
+      html += '<div class="sc sc--b" style="padding:12px"><div class="sc__v" style="font-size:1.5rem">' + (data.totalPageviews || 0).toLocaleString() + '</div><div class="sc__l">Pages vues (total)</div></div>';
+      html += '<div class="sc sc--g" style="padding:12px"><div class="sc__v" style="font-size:1.5rem">' + (data.totalVisitors || 0).toLocaleString() + '</div><div class="sc__l">Visiteurs uniques</div></div>';
+      html += '<div class="sc sc--o" style="padding:12px"><div class="sc__v" style="font-size:1.5rem">' + (data.todayPageviews || 0) + '</div><div class="sc__l">Aujourd\'hui</div></div>';
+      html += '<div class="sc sc--p" style="padding:12px"><div class="sc__v" style="font-size:1.5rem">' + (data.todayVisitors || 0) + '</div><div class="sc__l">Visiteurs aujourd\'hui</div></div>';
+      html += '<div class="sc" style="padding:12px;border-color:var(--cyan)"><div class="sc__v" style="font-size:1.5rem;color:var(--cyan)">' + (data.currentConcurrent || 0) + '</div><div class="sc__l">En ligne maintenant</div></div>';
+      html += '<div class="sc" style="padding:12px;border-color:var(--yellow)"><div class="sc__v" style="font-size:1.5rem;color:var(--yellow)">' + (data.peakConcurrent || 0) + '</div><div class="sc__l">Pic concurrent</div></div>';
+      html += '</div>';
+
+      // Daily chart (simple ASCII bar chart)
+      if (data.daily && data.daily.length > 0) {
+        html += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:12px">';
+        html += '<h4 style="font-size:.8rem;margin-bottom:10px;color:var(--text2)"><i class="fas fa-chart-area" style="color:var(--blue)"></i> Visites 30 derniers jours</h4>';
+        var maxPv = 1;
+        for (var i = 0; i < data.daily.length; i++) { if (data.daily[i].pageviews > maxPv) maxPv = data.daily[i].pageviews; }
+        html += '<div style="display:flex;align-items:flex-end;gap:2px;height:80px">';
+        for (var i = 0; i < data.daily.length; i++) {
+          var d = data.daily[i];
+          var h = Math.max(2, Math.round((d.pageviews / maxPv) * 70));
+          var dayLabel = d.date.split('-')[2];
+          html += '<div title="' + d.date + ': ' + d.pageviews + ' vues, ' + d.visitors + ' visiteurs" style="flex:1;min-width:4px;height:' + h + 'px;background:var(--blue);border-radius:2px 2px 0 0;cursor:pointer;transition:opacity .1s" onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1"></div>';
+        }
+        html += '</div>';
+        html += '<div style="display:flex;justify-content:space-between;font-size:.6rem;color:var(--text3);margin-top:4px"><span>' + data.daily[0].date + '</span><span>' + data.daily[data.daily.length - 1].date + '</span></div>';
+        html += '</div>';
+      }
+
+      // Two columns
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+
+      // Top pages
+      html += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px">';
+      html += '<h4 style="font-size:.8rem;margin-bottom:8px;color:var(--text2)"><i class="fas fa-file" style="color:var(--green)"></i> Pages populaires</h4>';
+      if (data.topPages) {
+        for (var i = 0; i < Math.min(data.topPages.length, 8); i++) {
+          var p = data.topPages[i];
+          html += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:.72rem"><span style="color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">' + App.esc(p.path) + '</span><span style="color:var(--text2);font-weight:600">' + p.views + '</span></div>';
+        }
+      }
+      html += '</div>';
+
+      // Top referrers
+      html += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px">';
+      html += '<h4 style="font-size:.8rem;margin-bottom:8px;color:var(--text2)"><i class="fas fa-external-link-alt" style="color:var(--orange)"></i> Sources de trafic</h4>';
+      if (data.topReferrers && data.topReferrers.length > 0) {
+        for (var i = 0; i < Math.min(data.topReferrers.length, 8); i++) {
+          var r = data.topReferrers[i];
+          html += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:.72rem"><span style="color:var(--text)">' + App.esc(r.source) + '</span><span style="color:var(--text2);font-weight:600">' + r.visits + '</span></div>';
+        }
+      } else {
+        html += '<p style="color:var(--text3);font-size:.72rem">Trafic direct uniquement</p>';
+      }
+      html += '</div>';
+      html += '</div>';
+
+      // Devices + Browsers + Countries
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">';
+
+      // Devices
+      html += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px">';
+      html += '<h4 style="font-size:.8rem;margin-bottom:8px;color:var(--text2)"><i class="fas fa-mobile-alt" style="color:var(--purple)"></i> Appareils</h4>';
+      var devTotal = (data.devices.mobile || 0) + (data.devices.tablet || 0) + (data.devices.desktop || 0);
+      if (devTotal > 0) {
+        var devItems = [
+          { name: '📱 Mobile', count: data.devices.mobile || 0 },
+          { name: '💻 Desktop', count: data.devices.desktop || 0 },
+          { name: '📋 Tablet', count: data.devices.tablet || 0 }
+        ];
+        for (var i = 0; i < devItems.length; i++) {
+          var pct = Math.round((devItems[i].count / devTotal) * 100);
+          html += '<div style="margin-bottom:4px"><div style="display:flex;justify-content:space-between;font-size:.7rem;margin-bottom:2px"><span>' + devItems[i].name + '</span><span style="color:var(--text2)">' + pct + '%</span></div><div style="height:4px;background:var(--bg4);border-radius:2px"><div style="height:100%;width:' + pct + '%;background:var(--purple);border-radius:2px"></div></div></div>';
+        }
+      }
+      html += '</div>';
+
+      // Browsers
+      html += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px">';
+      html += '<h4 style="font-size:.8rem;margin-bottom:8px;color:var(--text2)"><i class="fas fa-globe" style="color:var(--blue)"></i> Navigateurs</h4>';
+      if (data.browsers) {
+        for (var i = 0; i < Math.min(data.browsers.length, 5); i++) {
+          html += '<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:.7rem"><span>' + App.esc(data.browsers[i].name) + '</span><span style="color:var(--text2)">' + data.browsers[i].count + '</span></div>';
+        }
+      }
+      html += '</div>';
+
+      // Countries
+      html += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px">';
+      html += '<h4 style="font-size:.8rem;margin-bottom:8px;color:var(--text2)"><i class="fas fa-flag" style="color:var(--green)"></i> Pays/Régions</h4>';
+      if (data.countries) {
+        for (var i = 0; i < Math.min(data.countries.length, 5); i++) {
+          html += '<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:.7rem"><span>' + App.esc(data.countries[i].name) + '</span><span style="color:var(--text2)">' + data.countries[i].count + '</span></div>';
+        }
+      }
+      html += '</div>';
+
+      html += '</div>';
+
+      // Events
+      if (data.events && Object.keys(data.events).length > 0) {
+        html += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-top:12px">';
+        html += '<h4 style="font-size:.8rem;margin-bottom:8px;color:var(--text2)"><i class="fas fa-bolt" style="color:var(--yellow)"></i> Événements</h4>';
+        for (var ev in data.events) {
+          html += '<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:.72rem"><span style="color:var(--text)">' + App.esc(ev) + '</span><span style="color:var(--text2);font-weight:600">' + data.events[ev] + '</span></div>';
+        }
+        html += '</div>';
+      }
+
+      // Live visitors
+      if (data.live && data.live.length > 0) {
+        html += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-top:12px">';
+        html += '<h4 style="font-size:.8rem;margin-bottom:8px;color:var(--text2)"><i class="fas fa-circle" style="color:var(--green);font-size:.5rem;animation:blink 1s infinite"></i> Dernières visites en direct</h4>';
+        for (var i = data.live.length - 1; i >= Math.max(0, data.live.length - 10); i--) {
+          var v = data.live[i];
+          var t = new Date(v.time);
+          html += '<div style="display:flex;gap:8px;align-items:center;padding:3px 0;font-size:.68rem;color:var(--text2)">' +
+            '<span style="color:var(--text3);min-width:42px">' + t.getHours().toString().padStart(2, '0') + ':' + t.getMinutes().toString().padStart(2, '0') + ':' + t.getSeconds().toString().padStart(2, '0') + '</span>' +
+            '<span style="min-width:16px">' + (v.device === 'mobile' ? '📱' : v.device === 'tablet' ? '📋' : '💻') + '</span>' +
+            '<span style="color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + App.esc(v.page) + '</span>' +
+            (v.ref ? '<span style="color:var(--orange)">' + App.esc(v.ref) + '</span>' : '') +
+            (v.isNew ? '<span style="color:var(--green);font-weight:600">NEW</span>' : '') +
+          '</div>';
+        }
+        html += '</div>';
+      }
+
+      el.innerHTML = html;
+    } catch(e) {
+      el.innerHTML = '<p style="color:var(--red);font-size:.8rem">Erreur chargement analytics</p>';
+    }
   },
 
   updateStatus: async function(id, status) {
