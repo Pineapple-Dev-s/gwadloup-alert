@@ -604,3 +604,32 @@ textarea.inp{resize:vertical;min-height:80px}
 [data-theme="light"] .profile__banner{background:linear-gradient(135deg,#16a34a,#2563eb,#7c3aed)}
 [data-theme="light"] .umenu__av,[data-theme="light"] .umenu__av-lg,[data-theme="light"] .lb__av,[data-theme="light"] .cmt__av,[data-theme="light"] .profile__avatar,[data-theme="light"] .pub-profile__avatar{background:linear-gradient(135deg,#16a34a,#2563eb)}
 [data-theme="light"] ::selection{background:rgba(37,99,235,.2)}
+
+
+/* ═══════════════════════════════════════════════════════
+   FAB — Floating Action Button
+   ═══════════════════════════════════════════════════════ */
+.fab-report{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--green2);border:none;color:#fff;font-size:1.3rem;cursor:pointer;box-shadow:0 4px 20px rgba(63,185,80,.4);z-index:999;display:flex;align-items:center;justify-content:center;transition:all .2s ease;animation:fabIn .4s ease}
+.fab-report:hover{background:var(--green3);transform:scale(1.1);box-shadow:0 6px 28px rgba(63,185,80,.5)}
+.fab-report:active{transform:scale(.95)}
+@keyframes fabIn{from{transform:scale(0) rotate(-180deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
+
+@media(max-width:768px){
+  .fab-report{bottom:16px;right:16px;width:52px;height:52px;font-size:1.2rem}
+}
+
+/* ═══════════════════════════════════════════════════════
+   ONBOARDING
+   ═══════════════════════════════════════════════════════ */
+#onboarding-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:4000;display:flex;align-items:center;justify-content:center;padding:20px;animation:mfade .3s ease}
+.onb{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);max-width:400px;width:100%;overflow:hidden;box-shadow:var(--shadow-xl);position:relative}
+.onb__step{display:none;padding:40px 30px 30px;text-align:center;animation:fsin .3s ease}
+.onb__step.active{display:block}
+.onb__icon{font-size:3rem;margin-bottom:16px}
+.onb__step h2{font-size:1.1rem;font-weight:700;margin-bottom:12px;line-height:1.3}
+.onb__step p{font-size:.85rem;color:var(--text2);line-height:1.7;margin-bottom:20px}
+.onb__dots{display:flex;justify-content:center;gap:6px;margin-bottom:20px}
+.onb__dots span{width:8px;height:8px;border-radius:50%;background:var(--bg4)}
+.onb__dots span.active{background:var(--green);width:20px;border-radius:4px}
+.onb__skip{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--text3);cursor:pointer;font-family:inherit;font-size:.78rem;padding:4px 8px;transition:color var(--t)}
+.onb__skip:hover{color:var(--text)}
