@@ -12,7 +12,6 @@ var UI = {
     noise: 'fa-volume-high', animals: 'fa-paw', mosquito: 'fa-mosquito',
     other: 'fa-map-pin', graffiti: 'fa-spray-can'
   },
-
   init: function() {
     this.nav();
     this.modals();
@@ -379,6 +378,12 @@ var UI = {
     if (descCount) descCount.textContent = '0';
     var locInfo = document.getElementById('location-info');
     if (locInfo) locInfo.style.display = 'none';
+
+    // Show/hide anonymous notice and photo field
+    var anonNotice = document.getElementById('anon-notice');
+    var photoField = document.getElementById('photo-field');
+    if (anonNotice) anonNotice.style.display = App.currentUser ? 'none' : 'block';
+    if (photoField) photoField.style.display = App.currentUser ? 'block' : 'none';
 
     // Show/hide anonymous button
     var submitBtn = document.getElementById('btn-submit-report');
