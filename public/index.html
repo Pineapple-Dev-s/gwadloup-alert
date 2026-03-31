@@ -304,7 +304,16 @@
           <h3>Détails</h3>
           <div class="field"><label>Titre *</label><input type="text" class="inp" id="report-title" placeholder="Ex: Nid de poule route de Gosier" minlength="5" maxlength="150" required></div>
           <div class="field"><label>Description *</label><textarea class="inp" id="report-description" placeholder="Décrivez le problème..." minlength="10" maxlength="2000" rows="3" required></textarea><small><span id="desc-count">0</span>/2000</small></div>
-          <div class="field" id="photo-field"><label>Photos (max 4)</label><div class="dropzone" id="photo-dropzone"><i class="fas fa-cloud-upload-alt"></i><p>Glissez ou <u>parcourir</u></p><input type="file" id="photo-input" accept="image/*" multiple hidden></div><div class="thumbs" id="photo-preview"></div></div>
+          <div class="field" id="photo-field">
+            <label>📸 Photos (max 4) — <strong style="color:var(--green)">Les photos aident énormément !</strong></label>
+            <div class="dropzone" id="photo-dropzone">
+              <i class="fas fa-camera" style="font-size:2rem;color:var(--green)"></i>
+              <p><strong style="color:var(--green)">Prenez une photo</strong> ou glissez un fichier</p>
+              <p style="font-size:.7rem;color:var(--text3);margin-top:4px">Les signalements avec photos sont traités 3× plus vite</p>
+              <input type="file" id="photo-input" accept="image/*" multiple hidden>
+            </div>
+            <div class="thumbs" id="photo-preview"></div>
+          </div>
           <div class="field"><label>Priorité</label><div class="prios"><label class="prio"><input type="radio" name="priority" value="low"><em style="background:#00875A"></em>Faible</label><label class="prio active"><input type="radio" name="priority" value="medium" checked><em style="background:#FFAB00"></em>Moyenne</label><label class="prio"><input type="radio" name="priority" value="high"><em style="background:#FF8B00"></em>Haute</label><label class="prio"><input type="radio" name="priority" value="critical"><em style="background:#DE350B"></em>Critique</label></div></div>
           <div class="fstep__ft"><button type="button" class="btn btn--ghost" data-prev="2">Retour</button><button type="submit" class="btn btn--primary" id="btn-submit-report"><i class="fas fa-paper-plane"></i> Envoyer</button></div>
         </div>
