@@ -16,11 +16,11 @@ var MapManager = {
   GEO_BOUNDS: { latMin: 15.65, latMax: 16.75, lngMin: -62.05, lngMax: -60.75 },
 
   tileLayers: {
-    'Carte':     { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',  attr: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>', sub: 'abcd' },
-    'Sombre':    { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',             attr: '&copy; OSM &copy; CARTO', sub: 'abcd' },
-    'Satellite': { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attr: '&copy; Esri', sub: null },
-    'Terrain':   { url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',                         attr: '&copy; OpenTopoMap', sub: 'abc' },
-    'OSM':       { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                       attr: '&copy; OpenStreetMap', sub: 'abc' }
+    'Carte':     { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',  attr: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com">CARTO</a>', sub: 'abcd' },
+    'Sombre':    { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',             attr: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com">CARTO</a>', sub: 'abcd' },
+    'Satellite': { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attr: 'Powered by <a href="https://www.esri.com">Esri</a>', sub: null },
+    'Terrain':   { url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',                          attr: 'Carte &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Style &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)', sub: 'abc' },
+    'OSM':       { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                        attr: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', sub: 'abc' }
   },
   currentLayer: null,
 
