@@ -5,7 +5,7 @@ var App = {
   currentProfile: null,
   reports: [],
   banner: null,
-  theme: 'dark',
+  theme: 'light',
   filters: { category: '', status: '', commune: '' },
   pagination: { page: 0, limit: 50, hasMore: true, total: 0, loading: false },
 
@@ -52,22 +52,21 @@ var App = {
   },
 
   priorities: {
-    low: { label: 'Faible', color: '#3fb950' },
-    medium: { label: 'Moyenne', color: '#d29922' },
-    high: { label: 'Haute', color: '#FF8B00' },
-    critical: { label: 'Critique', color: '#f85149' }
+    low: { label: 'Faible', color: '#16a34a' },
+    medium: { label: 'Moyenne', color: '#d97706' },
+    high: { label: 'Haute', color: '#ea580c' },
+    critical: { label: 'Critique', color: '#dc2626' }
   },
 
   init: async function() {
     var loader = document.getElementById('loading-overlay');
     if (loader) loader.classList.add('active');
 
-    // Theme
-    var saved = localStorage.getItem('gwad-theme');
-    if (saved) { this.theme = saved; document.documentElement.setAttribute('data-theme', saved); }
+    this._applyTheme();
 
     try {
       var resp = await fetch('/api/config');
+      if (!resp.ok) throw new Error('Config fetch failed: ' + resp.status);
       this.config = await resp.json();
     } catch(e) {
       console.error('Config load error:', e);
@@ -75,54 +74,84 @@ var App = {
     }
 
     if (this.config.supabaseUrl && this.config.supabaseAnonKey) {
-      this.supabase = supabase.createClient(this.config.supabaseUrl, this.config.supabaseAnonKey);
+      try {
+        this.supabase = supabase.createClient(
+          this.config.supabaseUrl,
+          this.config.supabaseAnonKey
+        );
+      } catch(e) {
+        console.error('Supabase init error:', e);
+      }
     }
 
-    // Handle auth redirect fragments
     this._handleAuthFragments();
 
-    // Init modules
-    if (typeof Auth !== 'undefined') Auth.init();
-    if (typeof MapManager !== 'undefined') MapManager.init();
-    if (typeof UI !== 'undefined') UI.init();
-    if (typeof ImageUpload !== 'undefined') ImageUpload.init();
+    this._initModules([
+      'Auth',
+      'MapManager',
+      'UI',
+      'ImageUpload'
+    ]);
 
-    // Load data
     if (typeof Reports !== 'undefined') {
-      try { await Reports.loadAll(); } catch(e) { console.error('Reports load error:', e); }
+      try {
+        await Reports.loadAll();
+      } catch(e) {
+        console.error('Reports load error:', e);
+      }
     }
 
-    // Banner
-    this.loadBanner();
+    await this.loadBanner();
 
-    // Realtime
     this._initRealtime();
-
-    // Auto refresh
     this._initAutoRefresh();
+    this._initVisibilityHandler();
 
-    // Optional modules
-    if (typeof Share !== 'undefined') Share.init();
-    if (typeof PWA !== 'undefined') PWA.init();
+    this._initModules(['Share', 'PWA']);
 
-    // Client tracking
     this._initClientTracking();
 
-    // Hide loader
-    if (loader) { loader.classList.remove('active'); }
+    if (loader) loader.classList.remove('active');
+  },
+
+  _applyTheme: function() {
+    var saved = localStorage.getItem('gwad-theme');
+    if (saved && (saved === 'light' || saved === 'dark')) {
+      this.theme = saved;
+    } else {
+      this.theme = 'light';
+    }
+    document.documentElement.setAttribute('data-theme', this.theme);
+  },
+
+  _initModules: function(names) {
+    names.forEach(function(name) {
+      try {
+        if (typeof window[name] !== 'undefined' && typeof window[name].init === 'function') {
+          window[name].init();
+        }
+      } catch(e) {
+        console.warn('Module init error [' + name + ']:', e);
+      }
+    });
   },
 
   _handleAuthFragments: function() {
-    if (window.location.hash && window.location.hash.indexOf('access_token') !== -1) {
-      var clean = window.location.href.split('#')[0];
-      history.replaceState(null, '', clean);
+    try {
+      if (window.location.hash && window.location.hash.indexOf('access_token') !== -1) {
+        var clean = window.location.href.split('#')[0];
+        history.replaceState(null, '', clean);
+      }
+    } catch(e) {
+      console.warn('Auth fragment handling error:', e);
     }
   },
 
   _initRealtime: function() {
     if (!this.supabase) return;
     try {
-      this.supabase.channel('reports-changes')
+      this.supabase
+        .channel('reports-changes')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports' }, function(payload) {
           if (typeof Reports !== 'undefined') Reports.handleNew(payload.new);
         })
@@ -132,34 +161,70 @@ var App = {
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'reports' }, function(payload) {
           if (typeof Reports !== 'undefined') Reports.handleDelete(payload.old);
         })
-        .subscribe();
-    } catch(e) { console.warn('Realtime error:', e); }
+        .subscribe(function(status) {
+          if (status === 'SUBSCRIBED') {
+            console.info('Realtime connected');
+          }
+        });
+    } catch(e) {
+      console.warn('Realtime init error:', e);
+    }
   },
 
+  _autoRefreshTimer: null,
+
   _initAutoRefresh: function() {
-    setInterval(function() {
+    var self = this;
+    if (self._autoRefreshTimer) clearInterval(self._autoRefreshTimer);
+    self._autoRefreshTimer = setInterval(function() {
       if (!document.hidden && typeof Reports !== 'undefined') {
-        Reports.loadAll();
+        Reports.loadAll().catch(function(e) {
+          console.warn('Auto-refresh error:', e);
+        });
       }
     }, 120000);
   },
+
+  _initVisibilityHandler: function() {
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden && typeof Reports !== 'undefined') {
+        var lastRefresh = App._lastRefresh || 0;
+        var now = Date.now();
+        if (now - lastRefresh > 60000) {
+          Reports.loadAll().catch(function() {});
+          App._lastRefresh = now;
+        }
+      }
+    });
+  },
+
+  _lastRefresh: 0,
 
   _initClientTracking: function() {
     try {
       fetch('/api/analytics/track', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ page: window.location.pathname + window.location.hash })
+        body: JSON.stringify({
+          page: window.location.pathname + window.location.hash,
+          theme: this.theme,
+          ts: Date.now()
+        })
       }).catch(function() {});
     } catch(e) {}
   },
 
   trackEvent: function(event, metadata) {
+    if (!event) return;
     try {
       fetch('/api/analytics/event', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: event, metadata: metadata || null })
+        body: JSON.stringify({
+          event: String(event),
+          metadata: metadata || null,
+          ts: Date.now()
+        })
       }).catch(function() {});
     } catch(e) {}
   },
@@ -167,39 +232,135 @@ var App = {
   loadBanner: async function() {
     if (!this.supabase) return;
     try {
-      var result = await this.supabase.from('site_banners').select('*').eq('active', true).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      var result = await this.supabase
+        .from('site_banners')
+        .select('*')
+        .eq('active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
       if (result.data) {
         this.banner = result.data;
-        if (typeof UI !== 'undefined' && UI.renderBanner) UI.renderBanner(result.data);
+        if (typeof UI !== 'undefined' && typeof UI.renderBanner === 'function') {
+          UI.renderBanner(result.data);
+        }
       }
-    } catch(e) {}
+    } catch(e) {
+      console.warn('Banner load error:', e);
+    }
   },
 
   toggleTheme: function() {
     this.theme = this.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', this.theme);
     localStorage.setItem('gwad-theme', this.theme);
+    this.trackEvent('theme_toggle', { theme: this.theme });
+  },
+
+  setFilter: function(key, value) {
+    if (!Object.prototype.hasOwnProperty.call(this.filters, key)) return;
+    this.filters[key] = value || '';
+    this.pagination.page = 0;
+    this.pagination.hasMore = true;
+    if (typeof Reports !== 'undefined') Reports.applyFilters();
+  },
+
+  resetFilters: function() {
+    this.filters = { category: '', status: '', commune: '' };
+    this.pagination.page = 0;
+    this.pagination.hasMore = true;
+    if (typeof Reports !== 'undefined') Reports.applyFilters();
+  },
+
+  getCategoryLabel: function(key) {
+    return (this.categories[key] && this.categories[key].label) || key || '';
+  },
+
+  getStatusLabel: function(key) {
+    return (this.statuses[key] && this.statuses[key].label) || key || '';
+  },
+
+  getPriorityLabel: function(key) {
+    return (this.priorities[key] && this.priorities[key].label) || key || '';
+  },
+
+  getPriorityColor: function(key) {
+    return (this.priorities[key] && this.priorities[key].color) || 'var(--text3)';
   },
 
   esc: function(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   },
 
   ago: function(dateStr) {
     if (!dateStr) return '';
     var now = Date.now();
     var then = new Date(dateStr).getTime();
+    if (isNaN(then)) return '';
     var diff = Math.floor((now - then) / 1000);
     if (diff < 60) return 'maintenant';
     if (diff < 3600) return Math.floor(diff / 60) + 'min';
     if (diff < 86400) return Math.floor(diff / 3600) + 'h';
     if (diff < 2592000) return Math.floor(diff / 86400) + 'j';
     return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  },
+
+  formatDate: function(dateStr) {
+    if (!dateStr) return '';
+    var d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  },
+
+  truncate: function(str, max) {
+    if (!str) return '';
+    max = max || 80;
+    var s = String(str);
+    return s.length > max ? s.slice(0, max) + '…' : s;
+  },
+
+  debounce: function(fn, delay) {
+    var timer;
+    return function() {
+      var args = arguments;
+      var ctx = this;
+      clearTimeout(timer);
+      timer = setTimeout(function() {
+        fn.apply(ctx, args);
+      }, delay || 300);
+    };
+  },
+
+  isLoggedIn: function() {
+    return !!this.currentUser;
+  },
+
+  isAdmin: function() {
+    return !!(this.currentProfile && this.currentProfile.role === 'admin');
+  },
+
+  isMairie: function() {
+    return !!(this.currentProfile && (
+      this.currentProfile.role === 'mairie' ||
+      this.currentProfile.role === 'admin'
+    ));
   }
 };
 
-// Boot
 document.addEventListener('DOMContentLoaded', function() {
-  App.init();
+  App.init().catch(function(e) {
+    console.error('App init failed:', e);
+    var loader = document.getElementById('loading-overlay');
+    if (loader) loader.classList.remove('active');
+  });
 });
