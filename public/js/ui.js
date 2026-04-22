@@ -88,6 +88,86 @@ var UI = {
     if (overlay) overlay.remove();
   },
 
+  function buildCategoryGrid() {
+  var container = document.getElementById('category-grid');
+  if (!container) return;
+
+  var groups = [
+    {
+      label: 'Routes & Signalisation', icon: 'fa-road',
+      items: ['pothole','dangerous_road','damaged_sign','missing_marking','speed_bump_needed']
+    },
+    {
+      label: 'Véhicules', icon: 'fa-car',
+      items: ['abandoned_vehicle','abandoned_boat']
+    },
+    {
+      label: 'Déchets & Pollution', icon: 'fa-trash',
+      items: ['illegal_dump','beach_pollution','river_pollution','overflowing_bin']
+    },
+    {
+      label: 'Éclairage & Câbles', icon: 'fa-lightbulb',
+      items: ['broken_light','exposed_cable']
+    },
+    {
+      label: 'Eau & Assainissement', icon: 'fa-tint',
+      items: ['water_leak','flooding','sewer_issue','stagnant_water']
+    },
+    {
+      label: 'Végétation', icon: 'fa-leaf',
+      items: ['vegetation','fallen_tree','invasive_species']
+    },
+    {
+      label: 'Infrastructure', icon: 'fa-building',
+      items: ['damaged_building','abandoned_building','damaged_sidewalk','missing_railing']
+    },
+    {
+      label: 'Sécurité', icon: 'fa-shield-alt',
+      items: ['dangerous_area','missing_crosswalk','school_zone_issue']
+    },
+    {
+      label: 'Nuisances', icon: 'fa-volume-up',
+      items: ['noise','stray_animals','mosquito_breeding']
+    },
+    {
+      label: 'Autre', icon: 'fa-ellipsis-h',
+      items: ['other']
+    }
+  ];
+
+  var html = '';
+  groups.forEach(function(group) {
+    html += '<div class="catgroup">';
+    html += '<div class="catgroup__label"><i class="fas ' + group.icon + '"></i>' + group.label + '</div>';
+    html += '<div class="catgroup__items">';
+    group.items.forEach(function(key) {
+      var cat = App.categories[key] || { label: key, icon: '❓' };
+      var fa = (typeof MapManager !== 'undefined') ? MapManager.getFaForCat(key) : 'fa-circle';
+      var isOther = key === 'other';
+      html += '<label class="catitem' + (isOther ? ' catitem--other' : '') + '" data-cat="' + key + '">';
+      html += '<input type="radio" name="category" value="' + key + '">';
+      html += '<span class="catitem__ico"><i class="fas ' + fa + '"></i></span>';
+      html += '<span class="catitem__name">' + cat.label + '</span>';
+      html += '</label>';
+    });
+    html += '</div></div>';
+  });
+
+  container.innerHTML = html;
+
+  container.addEventListener('change', function(e) {
+    if (e.target && e.target.name === 'category') {
+      container.querySelectorAll('.catitem').forEach(function(el) {
+        el.classList.remove('selected');
+      });
+      var label = e.target.closest('.catitem');
+      if (label) label.classList.add('selected');
+      var nextBtn = document.getElementById('btn-step1-next');
+      if (nextBtn) nextBtn.disabled = false;
+    }
+  });
+}
+
   openReportForm: function() {
     var anonNotice = document.getElementById('anon-notice');
     if (anonNotice) anonNotice.style.display = App.currentUser ? 'none' : 'block';
