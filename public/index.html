@@ -22,8 +22,24 @@
   <link rel="manifest" href="/manifest.json">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- Dans votre <head> de index.html, ajoutez : -->
+  <style>
+  #app-splash{position:fixed;inset:0;background:#f0f0f0;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:99999;transition:opacity .4s ease}
+  #app-splash.hide{opacity:0;pointer-events:none}
+  #app-splash__logo{font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:800;color:#1a1a1a;margin-bottom:8px}
+  #app-splash__logo span{color:#16a34a}
+  #app-splash__sub{font-size:.78rem;color:#888;margin-bottom:28px;font-family:'JetBrains Mono',monospace}
+  #app-splash__bar{width:180px;height:3px;background:#e0e0e0;border-radius:2px;overflow:hidden}
+  #app-splash__fill{height:100%;width:0%;background:linear-gradient(90deg,#16a34a,#22c55e);border-radius:2px;animation:splashfill 1.8s ease forwards}
+  @keyframes splashfill{0%{width:0%}60%{width:75%}100%{width:100%}}
+  </style>
 </head>
 <body>
+ <div id="app-splash">
+   <div id="app-splash__logo">Gwad<span>Alert</span></div>
+   <div id="app-splash__sub">Chargement...</div>
+   <div id="app-splash__bar"><div id="app-splash__fill"></div></div>
+ </div>
 
   <!-- HEADER -->
   <header class="hdr">
