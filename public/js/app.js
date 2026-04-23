@@ -358,9 +358,34 @@ var App = {
 };
 
 document.addEventListener('DOMContentLoaded', function() {
-  App.init().catch(function(e) {
-    console.error('App init failed:', e);
-    var loader = document.getElementById('loading-overlay');
-    if (loader) loader.classList.remove('active');
-  });
+  var splash = document.getElementById('app-splash');
+  var loader = document.getElementById('loading-overlay');
+
+  App.init()
+    .then(function() {
+      // Succès → on cache le splash proprement
+      if (splash) {
+        splash.classList.add('hide');
+        setTimeout(function() { splash.remove(); }, 500);
+      }
+
+      // Fallback ancien loader
+      if (loader) loader.classList.remove('active');
+    })
+    .catch(function(e) {
+      console.error('App init failed:', e);
+
+      // Même en cas d'erreur → on libère l’écran
+      if (splash) {
+        splash.classList.add('hide');
+        setTimeout(function() { splash.remove(); }, 500);
+      }
+
+      if (loader) loader.classList.remove('active');
+
+      // Optionnel : message utilisateur
+      if (typeof UI !== 'undefined' && typeof UI.toast === 'function') {
+        UI.toast('Erreur au chargement de l’application', 'error');
+      }
+    });
 });
