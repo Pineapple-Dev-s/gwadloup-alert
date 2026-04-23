@@ -26,6 +26,9 @@ var UI = {
     { label: 'Autre', icon: 'fa-map-pin', items: ['other'] }
   ],
 
+  _miniMap: null,
+  _miniMarker: null,
+
   init: function() {
     this.nav();
     this.modals();
@@ -114,7 +117,11 @@ var UI = {
         document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
         var view = document.getElementById('view-' + target);
         if (view) view.classList.add('active');
-        if (target === 'map') { setTimeout(function() { if (typeof MapManager !== 'undefined') MapManager.resize(); }, 150); }
+        if (target === 'map') {
+          setTimeout(function() {
+            if (typeof MapManager !== 'undefined' && MapManager.map) MapManager.map.invalidateSize();
+          }, 150);
+        }
         if (target === 'stats') { if (typeof Reports !== 'undefined') Reports.updateStats(); }
         if (target === 'wiki') { UI.loadWikiStatic(); UI.loadCommunityArticles(); }
         App.trackEvent('nav_' + target);
@@ -180,11 +187,9 @@ var UI = {
       resetBtn.addEventListener('click', function() {
         App.filters = { category: '', status: '', commune: '' };
         ['filter-category', 'filter-status', 'filter-commune'].forEach(function(id) {
-          var el = document.getElementById(id);
-          if (el) el.value = '';
+          var el = document.getElementById(id); if (el) el.value = '';
         });
-        App.pagination.page = 0;
-        App.pagination.hasMore = true;
+        App.pagination.page = 0; App.pagination.hasMore = true;
         if (typeof Reports !== 'undefined') Reports.loadAll();
       });
     }
@@ -219,6 +224,126 @@ var UI = {
     if (step3Back) step3Back.addEventListener('click', function() { UI._goStep(2); });
     if (submitBtn) submitBtn.addEventListener('click', function() { if (typeof Reports !== 'undefined') Reports.submitReport(false); });
     if (submitAnonBtn) submitAnonBtn.addEventListener('click', function() { if (typeof Reports !== 'undefined') Reports.submitReport(true); });
+
+    // Recherche adresse étape 2
+    this._initLocSearch();
+  },
+
+  _initLocSearch: function() {
+    var input = document.getElementById('loc-search-input');
+    var results = document.getElementById('loc-results');
+    if (!input || !results) return;
+
+    var timeout = null;
+    input.addEventListener('input', function() {
+      clearTimeout(timeout);
+      var val = input.value.trim();
+      if (val.length < 3) { results.classList.remove('open'); results.innerHTML = ''; return; }
+      timeout = setTimeout(function() {
+        fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(val + ' Guadeloupe') + '&limit=5&countrycodes=gp&accept-language=fr')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (!data || !data.length) { results.classList.remove('open'); return; }
+            results.innerHTML = '';
+            data.forEach(function(item) {
+              var div = document.createElement('div');
+              div.className = 'loc-r';
+              div.textContent = item.display_name;
+              div.addEventListener('click', function() {
+                var lat = parseFloat(item.lat);
+                var lng = parseFloat(item.lon);
+                input.value = item.display_name;
+                results.classList.remove('open');
+                results.innerHTML = '';
+                UI._setMiniMapLocation(lat, lng, item.display_name);
+              });
+              results.appendChild(div);
+            });
+            results.classList.add('open');
+          })
+          .catch(function() { results.classList.remove('open'); });
+      }, 500);
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!input.contains(e.target) && !results.contains(e.target)) {
+        results.classList.remove('open');
+      }
+    });
+  },
+
+  _initMiniMap: function() {
+    var container = document.getElementById('mini-map');
+    if (!container) return;
+    if (this._miniMap) {
+      this._miniMap.invalidateSize();
+      return;
+    }
+    // Centre Guadeloupe
+    this._miniMap = L.map('mini-map', { zoomControl: true, attributionControl: false }).setView([16.265, -61.551], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(this._miniMap);
+
+    var self = this;
+    this._miniMap.on('click', function(e) {
+      var lat = e.latlng.lat;
+      var lng = e.latlng.lng;
+      self._setMiniMapLocation(lat, lng, null);
+      // Reverse geocode
+      fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng + '&accept-language=fr')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var addr = data.display_name || (lat.toFixed(5) + ', ' + lng.toFixed(5));
+          var commune = '';
+          if (data.address) {
+            commune = data.address.city || data.address.town || data.address.village || data.address.municipality || '';
+          }
+          self._setMiniMapLocation(lat, lng, addr, commune);
+        })
+        .catch(function() {});
+    });
+
+    setTimeout(function() { if (self._miniMap) self._miniMap.invalidateSize(); }, 200);
+  },
+
+  _setMiniMapLocation: function(lat, lng, address, commune) {
+    if (!this._miniMap) this._initMiniMap();
+    if (!this._miniMap) return;
+
+    // Vérif Guadeloupe bounds
+    if (lat < 15.65 || lat > 16.75 || lng < -62.05 || lng > -60.75) {
+      UI.toast('Emplacement hors Guadeloupe', 'error');
+      return;
+    }
+
+    var latEl = document.getElementById('report-lat');
+    var lngEl = document.getElementById('report-lng');
+    var addrEl = document.getElementById('report-address');
+    var comEl = document.getElementById('report-commune');
+    var infoEl = document.getElementById('loc-info');
+    var infoText = document.getElementById('loc-info-text');
+
+    if (latEl) latEl.value = lat;
+    if (lngEl) lngEl.value = lng;
+    if (addrEl && address) addrEl.value = address;
+    if (comEl && commune) comEl.value = commune;
+
+    if (this._miniMarker) {
+      this._miniMarker.setLatLng([lat, lng]);
+    } else {
+      this._miniMarker = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div style="width:16px;height:16px;background:#16a34a;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px #16a34a,0 2px 8px rgba(0,0,0,.3)"></div>',
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        })
+      }).addTo(this._miniMap);
+    }
+
+    this._miniMap.setView([lat, lng], 15);
+
+    if (infoEl) infoEl.style.display = 'flex';
+    if (infoText) infoText.textContent = address ? address.substring(0, 60) + (address.length > 60 ? '...' : '') : lat.toFixed(5) + ', ' + lng.toFixed(5);
   },
 
   _goStep: function(step) {
@@ -232,7 +357,11 @@ var UI = {
         else if (s < step) dot.classList.add('done');
       }
     });
-    if (step === 2) setTimeout(function() { if (typeof MapManager !== 'undefined') MapManager.resizeMini(); }, 150);
+    if (step === 2) {
+      setTimeout(function() {
+        UI._initMiniMap();
+      }, 200);
+    }
   },
 
   openReportForm: function() {
@@ -242,25 +371,38 @@ var UI = {
     if (submitRow) submitRow.style.display = App.currentUser ? 'flex' : 'none';
 
     var form = document.getElementById('report-form');
-    if (form) form.reset();
+    if (form) {
+      // Reset sans déclencher la validation HTML5
+      var inputs = form.querySelectorAll('input:not([type=hidden]):not([type=radio]), textarea, select');
+      inputs.forEach(function(el) { el.value = ''; });
+    }
 
     ['report-lat','report-lng','report-address','report-commune'].forEach(function(id) {
-      var el = document.getElementById(id);
-      if (el) el.value = '';
+      var el = document.getElementById(id); if (el) el.value = '';
     });
 
     document.querySelectorAll('.catc').forEach(function(c) { c.classList.remove('selected'); });
     document.querySelectorAll('#category-grid .catc').forEach(function(c) { c.style.display = ''; });
+    document.querySelectorAll('input[name="category"]').forEach(function(r) { r.checked = false; });
 
     var catSearch = document.getElementById('cat-search');
     if (catSearch) catSearch.value = '';
 
     document.querySelectorAll('.prio').forEach(function(p) { p.classList.remove('selected'); });
     var medPrio = document.querySelector('.prio[data-priority="medium"]');
-    if (medPrio) medPrio.classList.add('selected');
+    if (medPrio) { medPrio.classList.add('selected'); var r = medPrio.querySelector('input'); if (r) r.checked = true; }
 
     var step1Next = document.getElementById('step1-next');
     if (step1Next) step1Next.disabled = true;
+
+    var infoEl = document.getElementById('loc-info');
+    if (infoEl) infoEl.style.display = 'none';
+
+    // Reset mini map
+    if (this._miniMarker && this._miniMap) {
+      this._miniMap.removeLayer(this._miniMarker);
+      this._miniMarker = null;
+    }
 
     if (typeof ImageUpload !== 'undefined') ImageUpload.reset();
     this._goStep(1);
@@ -273,18 +415,17 @@ var UI = {
     if (!container) return;
     var html = '';
     this._categoryGroups.forEach(function(group) {
-      var hasItems = group.items.some(function(key) { return App.categories[key]; });
-      if (!hasItems) return;
+      var validItems = group.items.filter(function(key) { return App.categories[key]; });
+      if (!validItems.length) return;
       html += '<div style="margin-bottom:16px">' +
-        '<div style="font-size:.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:7px;display:flex;align-items:center;gap:5px;padding-left:2px">' +
+        '<div style="font-size:.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:7px;display:flex;align-items:center;gap:5px;padding:0 2px">' +
           '<i class="fas ' + group.icon + '" style="font-size:.6rem"></i> ' + group.label +
         '</div><div class="catgrid">';
-      group.items.forEach(function(key) {
+      validItems.forEach(function(key) {
         var cat = App.categories[key];
-        if (!cat) return;
-        var fa = (typeof MapManager !== 'undefined') ? MapManager.getFaForCat(key) : 'fa-map-pin';
+        var fa = (typeof MapManager !== 'undefined' && MapManager.getFaForCat) ? MapManager.getFaForCat(key) : 'fa-map-pin';
         html += '<label class="catc" data-key="' + key + '" title="' + cat.label + '">' +
-          '<input type="radio" name="category" value="' + key + '">' +
+          '<input type="radio" name="category" value="' + key + '" style="position:absolute;opacity:0;pointer-events:none">' +
           '<span class="catc__ico"><i class="fas ' + fa + '"></i></span>' +
           '<span class="catc__name">' + cat.label + '</span>' +
         '</label>';
@@ -298,7 +439,7 @@ var UI = {
         container.querySelectorAll('.catc').forEach(function(c) { c.classList.remove('selected'); });
         el.classList.add('selected');
         var input = el.querySelector('input[type="radio"]');
-        if (input) { input.checked = true; input.dispatchEvent(new Event('change', { bubbles: true })); }
+        if (input) input.checked = true;
         var nextBtn = document.getElementById('step1-next');
         if (nextBtn) nextBtn.disabled = false;
         App.trackEvent('category_selected', { category: el.getAttribute('data-key') });
@@ -319,6 +460,11 @@ var UI = {
         var key = el.getAttribute('data-key') || '';
         el.style.display = (!val || text.indexOf(val) !== -1 || key.indexOf(val) !== -1) ? '' : 'none';
       });
+      // Masquer les groupes entiers si vides
+      document.querySelectorAll('#category-grid > div').forEach(function(group) {
+        var visible = group.querySelectorAll('.catc:not([style*="display: none"]):not([style*="display:none"])');
+        group.style.display = (!val || visible.length > 0) ? '' : 'none';
+      });
       clearTimeout(aiTimeout);
       if (val.length >= 3) {
         aiTimeout = setTimeout(function() {
@@ -326,7 +472,7 @@ var UI = {
             .then(function(r) { return r.json(); })
             .then(function(data) { if (data && data.category) UI.selectCategory(data.category, true); })
             .catch(function() {});
-        }, 500);
+        }, 600);
       }
     });
   },
@@ -335,9 +481,10 @@ var UI = {
     var el = document.querySelector('#category-grid .catc[data-key="' + catKey + '"]');
     if (!el) return;
     document.querySelectorAll('#category-grid .catc').forEach(function(c) { c.classList.remove('selected'); c.style.display = ''; });
+    document.querySelectorAll('#category-grid > div').forEach(function(g) { g.style.display = ''; });
     el.classList.add('selected');
     var input = el.querySelector('input[type="radio"]');
-    if (input) { input.checked = true; }
+    if (input) input.checked = true;
     var nextBtn = document.getElementById('step1-next');
     if (nextBtn) nextBtn.disabled = false;
     var searchInput = document.getElementById('cat-search');
@@ -380,8 +527,7 @@ var UI = {
       allTabs.forEach(function(t) { if (t) t.classList.remove('active'); });
       if (tab) tab.classList.add('active');
       App.filters.status = status;
-      App.pagination.page = 0;
-      App.pagination.hasMore = true;
+      App.pagination.page = 0; App.pagination.hasMore = true;
       if (typeof Reports !== 'undefined') Reports.loadAll();
     }
     if (tabAll) { tabAll.classList.add('active'); tabAll.addEventListener('click', function() { activateTab(tabAll, ''); }); }
@@ -395,7 +541,7 @@ var UI = {
       info: { bg: 'var(--blue-bg)', border: 'rgba(59,130,246,.3)', color: 'var(--blue2)', icon: 'fa-info-circle' },
       warning: { bg: 'var(--orange-bg)', border: 'rgba(245,158,11,.3)', color: 'var(--orange2)', icon: 'fa-exclamation-triangle' },
       success: { bg: 'var(--green-bg)', border: 'rgba(22,163,74,.3)', color: 'var(--green2)', icon: 'fa-check-circle' },
-      danger: { bg: 'var(--red-bg)', border: 'rgba(239,68,68,.3)', color: 'var(--red2)', icon: 'fa-times-circle' }
+      error: { bg: 'var(--red-bg)', border: 'rgba(239,68,68,.3)', color: 'var(--red2)', icon: 'fa-times-circle' }
     };
     var t = typeMap[banner.type] || typeMap.info;
     var el = document.getElementById('site-banner');
@@ -409,59 +555,125 @@ var UI = {
     el.style.borderBottom = '1px solid ' + t.border;
     el.style.color = t.color;
     el.innerHTML = '<span><i class="fas ' + t.icon + '"></i> ' + App.esc(banner.message) + '</span>' +
-      '<button onclick="document.getElementById(\'site-banner\').remove()" style="background:none;border:none;cursor:pointer;color:inherit;font-size:.85rem"><i class="fas fa-times"></i></button>';
+      '<button onclick="document.getElementById(\'site-banner\').remove()" style="background:none;border:none;cursor:pointer;color:inherit;font-size:.85rem;padding:4px"><i class="fas fa-times"></i></button>';
   },
+
+  // ─── COMMUNAUTÉ ─────────────────────────────────────────
+  // Schéma réel : tag_proposals(id, name, description, author_id, author_name, upvotes, status, icon)
+  // tag_votes(id, user_id, proposal_id)
 
   community: function() {
     var propBtn = document.getElementById('btn-propose-tag');
     var propInput = document.getElementById('tag-proposal-input');
+    var propDesc = document.getElementById('tag-proposal-desc');
     if (propBtn && propInput) {
-      propBtn.addEventListener('click', async function() {
-        if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
-        var val = propInput.value.trim();
-        if (!val || val.length < 2) { UI.toast('Proposition trop courte', 'warning'); return; }
-        try {
-          var result = await App.supabase.from('tag_proposals').insert({ content: val, user_id: App.currentUser.id });
-          if (result.error) throw result.error;
-          propInput.value = '';
-          UI.toast('Proposition envoyée !', 'success');
-          UI.loadTagProposals();
-        } catch(e) { UI.toast('Erreur', 'error'); }
-      });
+      propBtn.addEventListener('click', function() { UI.submitTagProposal(); });
     }
     this.loadTagProposals();
+  },
+
+  submitTagProposal: async function() {
+    if (!App.currentUser) { UI.toast('Connectez-vous pour proposer', 'warning'); return; }
+    var nameInput = document.getElementById('tag-proposal-input');
+    var descInput = document.getElementById('tag-proposal-desc');
+    var name = nameInput ? nameInput.value.trim() : '';
+    var desc = descInput ? descInput.value.trim() : 'Proposition de catégorie';
+    if (!name || name.length < 2) { UI.toast('Nom trop court (min 2 caractères)', 'warning'); return; }
+    if (!desc || desc.length < 5) desc = 'Proposition de la communauté';
+    try {
+      var result = await App.supabase.from('tag_proposals').insert({
+        name: name,
+        description: desc,
+        author_id: App.currentUser.id,
+        author_name: (App.currentProfile && App.currentProfile.username) || 'Citoyen',
+        upvotes: 0,
+        status: 'pending',
+        icon: 'fa-tag'
+      });
+      if (result.error) throw result.error;
+      if (nameInput) nameInput.value = '';
+      if (descInput) descInput.value = '';
+      UI.toast('Proposition envoyée ! 🎉', 'success');
+      this.loadTagProposals();
+    } catch(e) {
+      var msg = e.message || '';
+      if (msg.indexOf('unique') !== -1 || msg.indexOf('duplicate') !== -1) {
+        UI.toast('Cette catégorie existe déjà', 'warning');
+      } else {
+        UI.toast('Erreur : ' + msg, 'error');
+      }
+    }
   },
 
   loadTagProposals: async function() {
     var el = document.getElementById('tag-proposals-list');
     if (!el || !App.supabase) return;
+    el.innerHTML = '<p style="color:var(--text3);font-size:.78rem;padding:8px"><i class="fas fa-spinner fa-spin"></i> Chargement...</p>';
     try {
-      var result = await App.supabase.from('tag_proposals').select('*').order('votes', { ascending: false }).limit(20);
-      if (!result.data || !result.data.length) { el.innerHTML = '<p style="color:var(--text3);font-size:.8rem">Aucune proposition pour le moment</p>'; return; }
+      var result = await App.supabase
+        .from('tag_proposals')
+        .select('id,name,description,author_name,upvotes,status,icon')
+        .order('upvotes', { ascending: false })
+        .limit(20);
+      if (result.error) throw result.error;
+      if (!result.data || !result.data.length) {
+        el.innerHTML = '<p style="color:var(--text3);font-size:.8rem;padding:8px">Aucune proposition pour le moment</p>';
+        return;
+      }
       var html = '';
       result.data.forEach(function(tag) {
-        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg3);border-radius:var(--r);margin-bottom:5px;border:1px solid var(--border)">' +
-          '<span style="font-size:.82rem;font-weight:500">' + App.esc(tag.content) + '</span>' +
-          '<button onclick="UI.voteTag(\'' + tag.id + '\')" style="display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--orange-bg);border:1px solid rgba(245,158,11,.2);border-radius:var(--r);cursor:pointer;font-size:.72rem;font-weight:700;color:var(--orange2);font-family:inherit">' +
-            '<i class="fas fa-arrow-up"></i> ' + (tag.votes || 0) +
-          '</button></div>';
+        var statusColor = tag.status === 'approved' ? 'var(--green2)' : tag.status === 'rejected' ? 'var(--red2)' : 'var(--orange2)';
+        var statusLabel = tag.status === 'approved' ? 'Approuvé' : tag.status === 'rejected' ? 'Rejeté' : 'En attente';
+        html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--r);margin-bottom:6px;border:1px solid var(--border)">' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:.82rem;font-weight:700;display:flex;align-items:center;gap:6px;margin-bottom:2px">' +
+              '<i class="fas ' + (tag.icon || 'fa-tag') + '" style="color:var(--green2);font-size:.7rem"></i>' +
+              App.esc(tag.name) +
+              '<span style="font-size:.62rem;padding:1px 6px;background:' + statusColor + '18;color:' + statusColor + ';border-radius:3px;font-weight:600">' + statusLabel + '</span>' +
+            '</div>' +
+            '<div style="font-size:.72rem;color:var(--text2);margin-bottom:3px">' + App.esc(tag.description || '') + '</div>' +
+            '<div style="font-size:.65rem;color:var(--text3)">Par ' + App.esc(tag.author_name || 'Citoyen') + '</div>' +
+          '</div>' +
+          '<button onclick="UI.voteTag(\'' + tag.id + '\')" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 10px;background:var(--orange-bg);border:1px solid rgba(245,158,11,.2);border-radius:var(--r);cursor:pointer;font-family:inherit;min-width:44px;flex-shrink:0" title="Voter">' +
+            '<i class="fas fa-arrow-up" style="color:var(--orange2);font-size:.72rem"></i>' +
+            '<span style="font-size:.72rem;font-weight:700;color:var(--orange2)">' + (tag.upvotes || 0) + '</span>' +
+          '</button>' +
+        '</div>';
       });
       el.innerHTML = html;
-    } catch(e) {}
+    } catch(e) {
+      el.innerHTML = '<p style="color:var(--text3);font-size:.78rem;padding:8px">Erreur : ' + App.esc(e.message || 'Chargement impossible') + '</p>';
+    }
   },
 
   voteTag: async function(tagId) {
-    if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
+    if (!App.currentUser) { UI.toast('Connectez-vous pour voter', 'warning'); return; }
     try {
-      var check = await App.supabase.from('tag_votes').select('id').eq('tag_id', tagId).eq('user_id', App.currentUser.id).maybeSingle();
-      if (check.data) { UI.toast('Déjà voté', 'info'); return; }
-      await App.supabase.from('tag_votes').insert({ tag_id: tagId, user_id: App.currentUser.id });
-      var tag = await App.supabase.from('tag_proposals').select('votes').eq('id', tagId).single();
-      await App.supabase.from('tag_proposals').update({ votes: ((tag.data && tag.data.votes) || 0) + 1 }).eq('id', tagId);
+      // Vérifie si déjà voté (proposal_id dans tag_votes)
+      var check = await App.supabase
+        .from('tag_votes')
+        .select('id')
+        .eq('proposal_id', tagId)
+        .eq('user_id', App.currentUser.id)
+        .maybeSingle();
+      if (check.data) { UI.toast('Vous avez déjà voté pour cette proposition', 'info'); return; }
+
+      await App.supabase.from('tag_votes').insert({ proposal_id: tagId, user_id: App.currentUser.id });
+
+      var tag = await App.supabase.from('tag_proposals').select('upvotes').eq('id', tagId).single();
+      var newVotes = ((tag.data && tag.data.upvotes) || 0) + 1;
+      await App.supabase.from('tag_proposals').update({ upvotes: newVotes }).eq('id', tagId);
+
       UI.toast('Vote enregistré !', 'success');
       this.loadTagProposals();
     } catch(e) { UI.toast('Erreur', 'error'); }
   },
+
+  // ─── WIKI ────────────────────────────────────────────────
+  // Schéma réel : wiki_articles(id, slug, title, content, category, author_id, author_name, upvotes, views, pinned)
+  // wiki_comments(id, article_id, user_id, content, reply_to)
+  // wiki_votes(id, user_id, article_id)
+  // category ENUM : general, guide, info, discussion, proposition
 
   wikiTabs: function() {
     var tabs = document.querySelectorAll('.wiki-tab');
@@ -491,7 +703,7 @@ var UI = {
     var body = document.getElementById('wiki-body');
     if (!body) return;
     page = page || 'intro';
-    body.innerHTML = '<div class="wiki__load"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;display:block;margin-bottom:12px;color:var(--green2)"></i><p style="font-size:.8rem;color:var(--text3)">Chargement...</p></div>';
+    body.innerHTML = '<div class="wiki__load" style="text-align:center;padding:40px"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;display:block;margin-bottom:12px;color:var(--green2)"></i><p style="font-size:.8rem;color:var(--text3)">Chargement...</p></div>';
     try {
       var resp = await fetch('/api/wiki-static?page=' + encodeURIComponent(page));
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -501,8 +713,8 @@ var UI = {
       body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3)">' +
         '<i class="fas fa-exclamation-circle" style="font-size:2rem;display:block;margin-bottom:12px;color:var(--orange2)"></i>' +
         '<p style="font-weight:600;margin-bottom:6px">Impossible de charger le contenu</p>' +
-        '<p style="font-size:.78rem">Vérifiez votre connexion ou réessayez plus tard.</p>' +
-        '<button class="btn btn--outline" style="margin-top:14px" onclick="UI.loadWikiStatic(\'' + page + '\')"><i class="fas fa-redo"></i> Réessayer</button>' +
+        '<p style="font-size:.78rem;margin-bottom:14px">Vérifiez votre connexion ou réessayez.</p>' +
+        '<button class="btn btn--outline" onclick="UI.loadWikiStatic(\'' + page + '\')"><i class="fas fa-redo"></i> Réessayer</button>' +
       '</div>';
     }
   },
@@ -510,32 +722,40 @@ var UI = {
   loadCommunityArticles: async function() {
     var el = document.getElementById('community-articles');
     if (!el || !App.supabase) return;
-    el.innerHTML = '<div class="wiki__load"><i class="fas fa-spinner fa-spin" style="color:var(--green2)"></i> Chargement...</div>';
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3)"><i class="fas fa-spinner fa-spin" style="color:var(--green2)"></i> Chargement...</div>';
     try {
       var result = await App.supabase
         .from('wiki_articles')
-        .select('*, profiles(username)')
-        .eq('published', true)
+        .select('id,title,content,category,author_name,upvotes,views,pinned,created_at')
+        .order('pinned', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(30);
+      if (result.error) throw result.error;
       if (!result.data || !result.data.length) {
         el.innerHTML = '<div class="empty"><i class="fas fa-book-open"></i><h3>Pas encore d\'articles</h3><p>Soyez le premier à contribuer !</p></div>';
         return;
       }
+      var catLabels = { general: 'Général', guide: 'Guide', info: 'Info', discussion: 'Discussion', proposition: 'Proposition' };
       var html = '';
       result.data.forEach(function(art) {
-        var author = (art.profiles && art.profiles.username) || 'Anonyme';
         var preview = art.content ? art.content.substring(0, 140) : '';
+        var catLabel = catLabels[art.category] || art.category || 'Général';
         html += '<div class="wcard" onclick="UI.openArticle(\'' + art.id + '\')">' +
           '<div class="wcard__head">' +
-            '<span class="wcard__cat">' + App.esc(art.category || 'Général') + '</span>' +
+            '<span class="wcard__cat">' +
+              (art.pinned ? '<i class="fas fa-thumbtack" style="color:var(--orange2);margin-right:3px"></i>' : '') +
+              App.esc(catLabel) +
+            '</span>' +
             '<span class="wcard__date">' + App.ago(art.created_at) + '</span>' +
           '</div>' +
           '<div class="wcard__title">' + App.esc(art.title) + '</div>' +
-          '<div class="wcard__preview">' + App.esc(preview) + (preview.length >= 140 ? '...' : '') + '</div>' +
+          '<div class="wcard__preview">' + App.esc(preview) + (art.content && art.content.length > 140 ? '...' : '') + '</div>' +
           '<div class="wcard__foot">' +
-            '<span class="wcard__author"><i class="fas fa-user"></i> ' + App.esc(author) + '</span>' +
-            '<span class="wcard__votes"><i class="fas fa-arrow-up"></i> ' + (art.votes || 0) + '</span>' +
+            '<span class="wcard__author"><i class="fas fa-user"></i> ' + App.esc(art.author_name || 'Citoyen') + '</span>' +
+            '<div style="display:flex;gap:10px">' +
+              '<span class="wcard__votes"><i class="fas fa-arrow-up"></i> ' + (art.upvotes || 0) + '</span>' +
+              '<span style="font-size:.72rem;color:var(--text3)"><i class="fas fa-eye"></i> ' + (art.views || 0) + '</span>' +
+            '</div>' +
           '</div></div>';
       });
       el.innerHTML = html;
@@ -552,57 +772,90 @@ var UI = {
     if (!App.supabase) return;
     var container = document.getElementById('article-detail');
     if (!container) return;
-    container.innerHTML = '<div class="wiki__load" style="padding:40px;text-align:center"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:var(--green2)"></i></div>';
+    container.innerHTML = '<div style="padding:40px;text-align:center"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:var(--green2)"></i></div>';
     this.openModal('modal-article');
+
+    // Incrémenter les vues
+    App.supabase.from('wiki_articles').select('views').eq('id', id).single().then(function(r) {
+      if (r.data) App.supabase.from('wiki_articles').update({ views: (r.data.views || 0) + 1 }).eq('id', id).then(function() {});
+    });
+
     try {
-      var result = await App.supabase.from('wiki_articles').select('*, profiles(username)').eq('id', id).single();
-      if (!result.data) { container.innerHTML = '<p style="padding:20px;color:var(--text3)">Article introuvable</p>'; return; }
+      var result = await App.supabase
+        .from('wiki_articles')
+        .select('id,title,content,category,author_id,author_name,upvotes,views,pinned,created_at')
+        .eq('id', id)
+        .single();
+      if (result.error) throw result.error;
       var art = result.data;
-      var author = (art.profiles && art.profiles.username) || 'Anonyme';
-      var isAuthor = App.currentUser && art.user_id === App.currentUser.id;
+      var isAuthor = App.currentUser && art.author_id === App.currentUser.id;
       var isAdmin = App.isAdmin();
+      var catLabels = { general: 'Général', guide: 'Guide', info: 'Info', discussion: 'Discussion', proposition: 'Proposition' };
+      var catLabel = catLabels[art.category] || art.category || 'Général';
+
+      // Vérifie si l'utilisateur a déjà voté
+      var hasVoted = false;
+      if (App.currentUser) {
+        try {
+          var vcheck = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).maybeSingle();
+          if (vcheck.data) hasVoted = true;
+        } catch(e) {}
+      }
+
       var html = '<div style="padding:22px">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
-          '<span style="font-size:.68rem;font-weight:700;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:3px;text-transform:uppercase;border:1px solid var(--border)">' + App.esc(art.category || 'Général') + '</span>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">' +
+          '<span style="font-size:.68rem;font-weight:700;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:3px;text-transform:uppercase;border:1px solid var(--border)">' +
+            (art.pinned ? '<i class="fas fa-thumbtack" style="color:var(--orange2);margin-right:3px"></i>' : '') + App.esc(catLabel) +
+          '</span>' +
           '<span style="font-size:.68rem;color:var(--text3)">' + App.ago(art.created_at) + '</span>' +
         '</div>' +
         '<h1 style="font-size:1.35rem;font-weight:700;margin-bottom:10px;line-height:1.3">' + App.esc(art.title) + '</h1>' +
-        '<div style="display:flex;align-items:center;gap:14px;font-size:.78rem;color:var(--text2);margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border)">' +
-          '<span><i class="fas fa-user" style="color:var(--green2)"></i> ' + App.esc(author) + '</span>' +
-          '<span><i class="fas fa-arrow-up" style="color:var(--orange2)"></i> ' + (art.votes || 0) + ' votes</span>' +
+        '<div style="display:flex;align-items:center;gap:14px;font-size:.78rem;color:var(--text2);margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border);flex-wrap:wrap">' +
+          '<span><i class="fas fa-user" style="color:var(--green2)"></i> ' + App.esc(art.author_name || 'Citoyen') + '</span>' +
+          '<span><i class="fas fa-arrow-up" style="color:var(--orange2)"></i> ' + (art.upvotes || 0) + ' votes</span>' +
+          '<span><i class="fas fa-eye" style="color:var(--blue2)"></i> ' + (art.views || 0) + ' vues</span>' +
         '</div>' +
-        '<div style="line-height:1.85;font-size:.88rem;white-space:pre-wrap;margin-bottom:22px">' + App.esc(art.content) + '</div>' +
+        '<div style="line-height:1.85;font-size:.88rem;white-space:pre-wrap;margin-bottom:22px;color:var(--text)">' + App.esc(art.content) + '</div>' +
         '<div style="display:flex;gap:7px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--border)">';
+
       if (App.currentUser) {
-        html += '<button class="btn btn--outline" onclick="UI.voteArticle(\'' + id + '\')"><i class="fas fa-arrow-up"></i> Voter</button>';
+        html += '<button class="btn ' + (hasVoted ? 'btn--primary' : 'btn--outline') + '" onclick="UI.voteArticle(\'' + id + '\')" ' + (hasVoted ? 'disabled' : '') + '>' +
+          '<i class="fas fa-arrow-up"></i> ' + (hasVoted ? 'Voté' : 'Voter') +
+        '</button>';
       }
       if (isAuthor || isAdmin) {
         html += '<button class="btn btn--danger" onclick="UI.deleteArticle(\'' + id + '\')"><i class="fas fa-trash"></i> Supprimer</button>';
       }
       html += '</div>';
+
+      // Commentaires
+      html += '<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">' +
+        '<div style="font-size:.88rem;font-weight:700;margin-bottom:12px"><i class="fas fa-comments" style="color:var(--green2)"></i> Commentaires</div>';
       if (App.currentUser) {
-        html += '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">' +
-          '<div style="font-size:.85rem;font-weight:700;margin-bottom:10px"><i class="fas fa-comments" style="color:var(--green2)"></i> Commentaires</div>' +
-          '<div class="cmtform">' +
-            '<textarea id="article-cmt-' + id + '" placeholder="Votre commentaire..." rows="2"></textarea>' +
-            '<button class="btn btn--primary" onclick="UI.addArticleComment(\'' + id + '\')"><i class="fas fa-paper-plane"></i></button>' +
-          '</div>' +
-          '<div id="article-cmts-' + id + '"></div>' +
+        html += '<div class="cmtform">' +
+          '<textarea id="article-cmt-' + id + '" placeholder="Votre commentaire..." rows="2" style="resize:none"></textarea>' +
+          '<button class="btn btn--primary" onclick="UI.addArticleComment(\'' + id + '\')"><i class="fas fa-paper-plane"></i></button>' +
         '</div>';
+      } else {
+        html += '<p style="font-size:.78rem;color:var(--text3);margin-bottom:10px"><i class="fas fa-lock"></i> Connectez-vous pour commenter</p>';
       }
-      html += '</div>';
+      html += '<div id="article-cmts-' + id + '"></div></div></div>';
+
       container.innerHTML = html;
       this.loadArticleComments(id);
     } catch(e) {
-      container.innerHTML = '<p style="padding:20px;color:var(--text3);text-align:center">Erreur de chargement</p>';
+      container.innerHTML = '<p style="padding:20px;text-align:center;color:var(--text3)">Erreur de chargement</p>';
     }
   },
 
   voteArticle: async function(id) {
     if (!App.currentUser || !App.supabase) { UI.toast('Connectez-vous', 'warning'); return; }
     try {
-      var art = await App.supabase.from('wiki_articles').select('votes').eq('id', id).single();
-      await App.supabase.from('wiki_articles').update({ votes: ((art.data && art.data.votes) || 0) + 1 }).eq('id', id);
+      var check = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).maybeSingle();
+      if (check.data) { UI.toast('Vous avez déjà voté', 'info'); return; }
+      await App.supabase.from('wiki_votes').insert({ article_id: id, user_id: App.currentUser.id });
+      var art = await App.supabase.from('wiki_articles').select('upvotes').eq('id', id).single();
+      await App.supabase.from('wiki_articles').update({ upvotes: ((art.data && art.data.upvotes) || 0) + 1 }).eq('id', id);
       UI.toast('Vote enregistré !', 'success');
       this.openArticle(id);
     } catch(e) { UI.toast('Erreur', 'error'); }
@@ -611,26 +864,39 @@ var UI = {
   deleteArticle: async function(id) {
     if (!confirm('Supprimer cet article définitivement ?')) return;
     try {
+      await App.supabase.from('wiki_comments').delete().eq('article_id', id);
+      await App.supabase.from('wiki_votes').delete().eq('article_id', id);
       await App.supabase.from('wiki_articles').delete().eq('id', id);
       UI.toast('Article supprimé', 'success');
       this.closeModal('modal-article');
       this.loadCommunityArticles();
-    } catch(e) { UI.toast('Erreur', 'error'); }
+    } catch(e) { UI.toast('Erreur lors de la suppression', 'error'); }
   },
 
   loadArticleComments: async function(articleId) {
     var el = document.getElementById('article-cmts-' + articleId);
     if (!el || !App.supabase) return;
     try {
-      var result = await App.supabase.from('article_comments').select('*, profiles(username)').eq('article_id', articleId).order('created_at', { ascending: true });
-      if (!result.data || !result.data.length) { el.innerHTML = '<p style="color:var(--text3);font-size:.78rem;padding:8px">Aucun commentaire</p>'; return; }
+      var result = await App.supabase
+        .from('wiki_comments')
+        .select('id,content,user_id,created_at,reply_to,profiles(username)')
+        .eq('article_id', articleId)
+        .order('created_at', { ascending: true });
+      if (result.error) throw result.error;
+      if (!result.data || !result.data.length) {
+        el.innerHTML = '<p style="color:var(--text3);font-size:.78rem;padding:8px 0">Aucun commentaire — soyez le premier !</p>';
+        return;
+      }
       var html = '';
       result.data.forEach(function(c) {
         var name = (c.profiles && c.profiles.username) || 'Anonyme';
         html += '<div class="cmt">' +
           '<div class="cmt__av">' + name.charAt(0).toUpperCase() + '</div>' +
           '<div class="cmt__body">' +
-            '<div class="cmt__head"><span class="cmt__author">' + App.esc(name) + '</span><span class="cmt__date">' + App.ago(c.created_at) + '</span></div>' +
+            '<div class="cmt__head">' +
+              '<span class="cmt__author">' + App.esc(name) + '</span>' +
+              '<span class="cmt__date">' + App.ago(c.created_at) + '</span>' +
+            '</div>' +
             '<div class="cmt__text">' + App.esc(c.content) + '</div>' +
           '</div></div>';
       });
@@ -644,13 +910,18 @@ var UI = {
     if (!input) return;
     var content = input.value.trim();
     if (!content || content.length < 2) { UI.toast('Trop court', 'warning'); return; }
+    if (content.length > 2000) { UI.toast('Trop long (max 2000)', 'warning'); return; }
     try {
-      var result = await App.supabase.from('article_comments').insert({ article_id: articleId, user_id: App.currentUser.id, content: content });
+      var result = await App.supabase.from('wiki_comments').insert({
+        article_id: articleId,
+        user_id: App.currentUser.id,
+        content: content
+      });
       if (result.error) throw result.error;
       input.value = '';
       UI.toast('Commentaire ajouté', 'success');
       this.loadArticleComments(articleId);
-    } catch(e) { UI.toast('Erreur', 'error'); }
+    } catch(e) { UI.toast('Erreur : ' + (e.message || ''), 'error'); }
   },
 
   wikiWrite: function() {
@@ -670,9 +941,7 @@ var UI = {
         if (text) {
           previewEl.style.display = 'block';
           previewEl.innerHTML = '<div style="padding:14px;background:var(--bg3);border-radius:var(--r);border:1px solid var(--border);font-size:.85rem;line-height:1.8;white-space:pre-wrap">' + App.esc(text) + '</div>';
-        } else {
-          previewEl.style.display = 'none';
-        }
+        } else { previewEl.style.display = 'none'; }
       });
     }
     var publishBtn = document.getElementById('btn-wiki-publish');
@@ -686,29 +955,56 @@ var UI = {
     var contentInput = document.getElementById('wiki-write-content');
     if (!titleInput || !contentInput) return;
     var title = titleInput.value.trim();
-    var category = categoryInput ? categoryInput.value.trim() : 'Général';
+    var category = (categoryInput ? categoryInput.value.trim() : '') || 'general';
     var content = contentInput.value.trim();
-    if (!title || title.length < 5) { UI.toast('Titre trop court (min 5 caractères)', 'warning'); return; }
-    if (!content || content.length < 50) { UI.toast('Contenu trop court (min 50 caractères)', 'warning'); return; }
+
+    // Mapper les valeurs du select vers l'enum DB
+    var catMap = { 'Général': 'general', 'Guide': 'guide', 'Info': 'info', 'Discussion': 'discussion', 'Proposition': 'proposition', 'general': 'general', 'guide': 'guide', 'info': 'info', 'discussion': 'discussion', 'proposition': 'proposition' };
+    category = catMap[category] || 'general';
+
+    if (!title || title.length < 3) { UI.toast('Titre trop court (min 3 caractères)', 'warning'); return; }
+    if (!content || content.length < 10) { UI.toast('Contenu trop court (min 10 caractères)', 'warning'); return; }
+
     var btn = document.getElementById('btn-wiki-publish');
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Publication...'; }
+
     try {
       try {
         var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title, description: content }) });
         var modData = await modResp.json();
         if (modData.flagged && modData.cleaned) { title = modData.cleaned.title; content = modData.cleaned.description; UI.toast('Contenu reformulé', 'info'); }
       } catch(e) {}
-      var slug = title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 60) + '-' + Date.now();
-      var result = await App.supabase.from('wiki_articles').insert({ title: title, content: content, category: category || 'Général', slug: slug, user_id: App.currentUser.id, published: true, votes: 0 });
+
+      var slug = title.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .slice(0, 60) + '-' + Date.now();
+
+      var authorName = (App.currentProfile && App.currentProfile.username) || 'Citoyen';
+
+      var result = await App.supabase.from('wiki_articles').insert({
+        title: title,
+        content: content,
+        category: category,
+        slug: slug,
+        author_id: App.currentUser.id,
+        author_name: authorName,
+        upvotes: 0,
+        views: 0,
+        pinned: false
+      });
       if (result.error) throw result.error;
+
       if (App.currentProfile) {
         var newRep = (App.currentProfile.reputation || 0) + 15;
         await App.supabase.from('profiles').update({ reputation: newRep }).eq('id', App.currentUser.id);
         App.currentProfile.reputation = newRep;
         if (typeof Auth !== 'undefined') Auth.updateUI(true);
       }
+
       titleInput.value = '';
-      if (categoryInput) categoryInput.value = '';
+      if (categoryInput) categoryInput.value = 'general';
       contentInput.value = '';
       var previewEl = document.getElementById('wiki-write-preview');
       if (previewEl) previewEl.style.display = 'none';
@@ -775,17 +1071,7 @@ var UI = {
             '<div style="font-size:1.3rem;font-weight:800;color:var(--yellow2)">' + (u.reputation || 0) + '</div>' +
             '<div style="font-size:.62rem;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-top:3px">Points</div>' +
           '</div>' +
-        '</div>';
-      if (u.badges && u.badges.length) {
-        html += '<div style="margin-top:16px;padding:0 20px;text-align:left">' +
-          '<div style="font-size:.78rem;font-weight:700;margin-bottom:8px"><i class="fas fa-medal" style="color:var(--yellow2)"></i> Badges</div>' +
-          '<div style="display:flex;flex-wrap:wrap;gap:5px">';
-        u.badges.forEach(function(b) {
-          html += '<span style="padding:3px 9px;background:var(--yellow-bg);color:var(--yellow2);border-radius:3px;font-size:.68rem;font-weight:700">' + App.esc(b) + '</span>';
-        });
-        html += '</div></div>';
-      }
-      html += '</div>';
+        '</div></div>';
       container.innerHTML = html;
     } catch(e) {
       container.innerHTML = '<p style="padding:20px;text-align:center;color:var(--text3)">Erreur de chargement</p>';
