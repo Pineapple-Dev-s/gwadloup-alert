@@ -1,15 +1,90 @@
 var UI = {
   catIcons: {
-    road: 'fa-road', warning: 'fa-exclamation-triangle', sign: 'fa-sign', marking: 'fa-grip-lines',
-    bump: 'fa-minus', car: 'fa-car', boat: 'fa-ship', dump: 'fa-dumpster', beach: 'fa-umbrella-beach',
-    river: 'fa-water', bin: 'fa-trash', light: 'fa-lightbulb', cable: 'fa-bolt',
-    leak: 'fa-tint', flood: 'fa-house-flood-water', sewer: 'fa-toilet', stagnant: 'fa-droplet',
-    plant: 'fa-leaf', tree: 'fa-tree', invasive: 'fa-seedling',
-    building: 'fa-building', abandoned: 'fa-house-chimney-crack', sidewalk: 'fa-shoe-prints',
-    railing: 'fa-bars', danger: 'fa-skull-crossbones', crosswalk: 'fa-person-walking',
-    school: 'fa-school', noise: 'fa-volume-high', animals: 'fa-dog', mosquito: 'fa-mosquito',
+    road: 'fa-road',
+    warning: 'fa-exclamation-triangle',
+    sign: 'fa-sign',
+    marking: 'fa-grip-lines',
+    bump: 'fa-minus',
+    car: 'fa-car',
+    boat: 'fa-ship',
+    dump: 'fa-dumpster',
+    beach: 'fa-umbrella-beach',
+    river: 'fa-water',
+    bin: 'fa-trash',
+    light: 'fa-lightbulb',
+    cable: 'fa-bolt',
+    leak: 'fa-tint',
+    flood: 'fa-house-flood-water',
+    sewer: 'fa-toilet',
+    stagnant: 'fa-droplet',
+    plant: 'fa-leaf',
+    tree: 'fa-tree',
+    invasive: 'fa-seedling',
+    building: 'fa-building',
+    abandoned: 'fa-house-chimney-crack',
+    sidewalk: 'fa-shoe-prints',
+    railing: 'fa-bars',
+    danger: 'fa-skull-crossbones',
+    crosswalk: 'fa-person-walking',
+    school: 'fa-school',
+    noise: 'fa-volume-high',
+    animals: 'fa-dog',
+    mosquito: 'fa-mosquito',
     other: 'fa-map-pin'
   },
+
+  _categoryGroups: [
+    {
+      label: 'Routes & Signalisation',
+      icon: 'fa-road',
+      items: ['pothole', 'dangerous_road', 'damaged_sign', 'missing_marking', 'speed_bump_needed']
+    },
+    {
+      label: 'Véhicules',
+      icon: 'fa-car',
+      items: ['abandoned_vehicle', 'abandoned_boat']
+    },
+    {
+      label: 'Déchets & Pollution',
+      icon: 'fa-dumpster',
+      items: ['illegal_dump', 'beach_pollution', 'river_pollution', 'overflowing_bin']
+    },
+    {
+      label: 'Éclairage & Câbles',
+      icon: 'fa-lightbulb',
+      items: ['broken_light', 'exposed_cable']
+    },
+    {
+      label: 'Eau & Assainissement',
+      icon: 'fa-tint',
+      items: ['water_leak', 'flooding', 'sewer_issue', 'stagnant_water']
+    },
+    {
+      label: 'Végétation',
+      icon: 'fa-leaf',
+      items: ['vegetation', 'fallen_tree', 'invasive_species']
+    },
+    {
+      label: 'Infrastructure',
+      icon: 'fa-building',
+      items: ['damaged_building', 'abandoned_building', 'damaged_sidewalk', 'missing_railing']
+    },
+    {
+      label: 'Sécurité',
+      icon: 'fa-shield-alt',
+      items: ['dangerous_area', 'missing_crosswalk', 'school_zone_issue']
+    },
+    {
+      label: 'Nuisances',
+      icon: 'fa-volume-high',
+      items: ['noise', 'stray_animals', 'mosquito_breeding']
+    },
+    {
+      label: 'Autre',
+      icon: 'fa-map-pin',
+      items: ['other']
+    }
+  ],
 
   init: function() {
     this.nav();
@@ -29,13 +104,14 @@ var UI = {
   },
 
   createFAB: function() {
-    var fab = document.createElement('button');
-    fab.id = 'fab-report';
-    fab.className = 'fab-report';
-    fab.innerHTML = '<i class="fas fa-plus"></i>';
-    fab.title = 'Nouveau signalement';
-    fab.addEventListener('click', function() { UI.openReportForm(); });
-    document.body.appendChild(fab);
+    if (document.getElementById('fab-report')) return;
+    var btn = document.createElement('button');
+    btn.id = 'fab-report';
+    btn.className = 'fab-report';
+    btn.title = 'Nouveau signalement';
+    btn.innerHTML = '<i class="fas fa-plus"></i>';
+    btn.addEventListener('click', function() { UI.openReportForm(); });
+    document.body.appendChild(btn);
   },
 
   checkOnboarding: function() {
@@ -44,42 +120,48 @@ var UI = {
   },
 
   showOnboarding: function() {
+    if (document.getElementById('onboarding-overlay')) return;
+    var steps = [
+      { icon: '🗺️', title: 'Carte interactive', text: 'Explorez tous les signalements citoyens de Guadeloupe en temps réel sur la carte interactive.' },
+      { icon: '📍', title: 'Signalez un problème', text: 'Appuyez sur + pour signaler un problème : nid-de-poule, dépôt sauvage, inondation... en quelques secondes.' },
+      { icon: '🤝', title: 'Participez ensemble', text: 'Votez pour les signalements importants, gagnez des badges et montez dans le classement citoyen !' }
+    ];
+    var dotsHtml = steps.map(function(_, i) {
+      return '<span' + (i === 0 ? ' class="active"' : '') + '></span>';
+    }).join('');
+    var stepsHtml = steps.map(function(s, i) {
+      var isLast = i === steps.length - 1;
+      return '<div class="onb__step' + (i === 0 ? ' active' : '') + '" data-step="' + i + '">' +
+        '<div class="onb__icon">' + s.icon + '</div>' +
+        '<h2>' + s.title + '</h2>' +
+        '<p>' + s.text + '</p>' +
+        '<div class="onb__dots">' + dotsHtml + '</div>' +
+        '<div style="display:flex;gap:8px;justify-content:center">' +
+        (i > 0 ? '<button class="btn btn--ghost" onclick="UI.onbNext(' + (i - 1) + ')"><i class="fas fa-chevron-left"></i> Retour</button>' : '') +
+        (isLast
+          ? '<button class="btn btn--primary" onclick="UI.closeOnboarding()"><i class="fas fa-check"></i> Commencer</button>'
+          : '<button class="btn btn--primary" onclick="UI.onbNext(' + (i + 1) + ')">Suivant <i class="fas fa-chevron-right"></i></button>') +
+        '</div>' +
+      '</div>';
+    }).join('');
     var overlay = document.createElement('div');
     overlay.id = 'onboarding-overlay';
-    overlay.innerHTML =
-      '<div class="onb">' +
-        '<div class="onb__steps" id="onb-steps">' +
-          '<div class="onb__step active" id="onb-step-1">' +
-            '<div class="onb__icon">🗺️</div>' +
-            '<h2>Bienvenue sur Gwadloup Alert !</h2>' +
-            '<p>La carte interactive affiche tous les signalements en temps réel.</p>' +
-            '<div class="onb__dots"><span class="active"></span><span></span><span></span></div>' +
-            '<button class="btn btn--primary btn--lg onb__next" onclick="UI.onbNext(2)">Suivant</button>' +
-          '</div>' +
-          '<div class="onb__step" id="onb-step-2">' +
-            '<div class="onb__icon">📍</div>' +
-            '<h2>Signalez un problème</h2>' +
-            '<p>Cliquez sur <strong style="color:var(--green)">+ Signaler</strong> — même <strong>sans compte</strong> !</p>' +
-            '<div class="onb__dots"><span></span><span class="active"></span><span></span></div>' +
-            '<div style="display:flex;gap:8px;justify-content:center"><button class="btn btn--ghost" onclick="UI.onbNext(1)">Retour</button><button class="btn btn--primary btn--lg" onclick="UI.onbNext(3)">Suivant</button></div>' +
-          '</div>' +
-          '<div class="onb__step" id="onb-step-3">' +
-            '<div class="onb__icon">🤝</div>' +
-            '<h2>Soutenez & participez</h2>' +
-            '<p>Votez, commentez, gagnez des <strong style="color:var(--yellow)">badges</strong> !</p>' +
-            '<div class="onb__dots"><span></span><span></span><span class="active"></span></div>' +
-            '<button class="btn btn--primary btn--lg" onclick="UI.closeOnboarding()"><i class="fas fa-rocket"></i> C\'est parti !</button>' +
-          '</div>' +
-        '</div>' +
-        '<button class="onb__skip" onclick="UI.closeOnboarding()">Passer</button>' +
-      '</div>';
+    overlay.innerHTML = '<div class="onb">' +
+      '<button class="onb__skip" onclick="UI.closeOnboarding()">Passer</button>' +
+      stepsHtml +
+    '</div>';
     document.body.appendChild(overlay);
   },
 
   onbNext: function(step) {
-    document.querySelectorAll('.onb__step').forEach(function(s) { s.classList.remove('active'); });
-    var target = document.getElementById('onb-step-' + step);
-    if (target) target.classList.add('active');
+    var steps = document.querySelectorAll('.onb__step');
+    var dots = document.querySelectorAll('.onb__dots span');
+    steps.forEach(function(s, i) {
+      s.classList.toggle('active', i === step);
+    });
+    dots.forEach(function(d, i) {
+      d.classList.toggle('active', i === step);
+    });
   },
 
   closeOnboarding: function() {
@@ -88,777 +170,778 @@ var UI = {
     if (overlay) overlay.remove();
   },
 
-  function buildCategoryGrid() {
-  var container = document.getElementById('category-grid');
-  if (!container) return;
-
-  var groups = [
-    {
-      label: 'Routes & Signalisation', icon: 'fa-road',
-      items: ['pothole','dangerous_road','damaged_sign','missing_marking','speed_bump_needed']
-    },
-    {
-      label: 'Véhicules', icon: 'fa-car',
-      items: ['abandoned_vehicle','abandoned_boat']
-    },
-    {
-      label: 'Déchets & Pollution', icon: 'fa-trash',
-      items: ['illegal_dump','beach_pollution','river_pollution','overflowing_bin']
-    },
-    {
-      label: 'Éclairage & Câbles', icon: 'fa-lightbulb',
-      items: ['broken_light','exposed_cable']
-    },
-    {
-      label: 'Eau & Assainissement', icon: 'fa-tint',
-      items: ['water_leak','flooding','sewer_issue','stagnant_water']
-    },
-    {
-      label: 'Végétation', icon: 'fa-leaf',
-      items: ['vegetation','fallen_tree','invasive_species']
-    },
-    {
-      label: 'Infrastructure', icon: 'fa-building',
-      items: ['damaged_building','abandoned_building','damaged_sidewalk','missing_railing']
-    },
-    {
-      label: 'Sécurité', icon: 'fa-shield-alt',
-      items: ['dangerous_area','missing_crosswalk','school_zone_issue']
-    },
-    {
-      label: 'Nuisances', icon: 'fa-volume-up',
-      items: ['noise','stray_animals','mosquito_breeding']
-    },
-    {
-      label: 'Autre', icon: 'fa-ellipsis-h',
-      items: ['other']
-    }
-  ];
-
-  var html = '';
-  groups.forEach(function(group) {
-    html += '<div class="catgroup">';
-    html += '<div class="catgroup__label"><i class="fas ' + group.icon + '"></i>' + group.label + '</div>';
-    html += '<div class="catgroup__items">';
-    group.items.forEach(function(key) {
-      var cat = App.categories[key] || { label: key, icon: '❓' };
-      var fa = (typeof MapManager !== 'undefined') ? MapManager.getFaForCat(key) : 'fa-circle';
-      var isOther = key === 'other';
-      html += '<label class="catitem' + (isOther ? ' catitem--other' : '') + '" data-cat="' + key + '">';
-      html += '<input type="radio" name="category" value="' + key + '">';
-      html += '<span class="catitem__ico"><i class="fas ' + fa + '"></i></span>';
-      html += '<span class="catitem__name">' + cat.label + '</span>';
-      html += '</label>';
-    });
-    html += '</div></div>';
-  });
-
-  container.innerHTML = html;
-
-  container.addEventListener('change', function(e) {
-    if (e.target && e.target.name === 'category') {
-      container.querySelectorAll('.catitem').forEach(function(el) {
-        el.classList.remove('selected');
-      });
-      var label = e.target.closest('.catitem');
-      if (label) label.classList.add('selected');
-      var nextBtn = document.getElementById('btn-step1-next');
-      if (nextBtn) nextBtn.disabled = false;
-    }
-  });
-}
-
-  openReportForm: function() {
-    var anonNotice = document.getElementById('anon-notice');
-    if (anonNotice) anonNotice.style.display = App.currentUser ? 'none' : 'block';
-    var photoField = document.getElementById('photo-field');
-    if (photoField) photoField.style.display = App.currentUser ? '' : 'none';
-    this._goStep(1);
-    var form = document.getElementById('report-form');
-    if (form) form.reset();
-    var locInfo = document.getElementById('location-info');
-    if (locInfo) locInfo.style.display = 'none';
-    var rLat = document.getElementById('report-lat');
-    var rLng = document.getElementById('report-lng');
-    if (rLat) rLat.value = '';
-    if (rLng) rLng.value = '';
-    var step2Next = document.getElementById('btn-step2-next');
-    if (step2Next) step2Next.disabled = true;
-    var step1Next = document.getElementById('btn-step1-next');
-    if (step1Next) step1Next.disabled = true;
-    document.querySelectorAll('.catc').forEach(function(c) { c.classList.remove('selected'); });
-    if (typeof ImageUpload !== 'undefined') ImageUpload.reset();
-    UI.openModal('modal-report');
-  },
-
-  renderBanner: function(banner) {
-    if (!banner) return;
-    var old = document.getElementById('site-banner');
-    if (old) old.remove();
-    if (localStorage.getItem('banner-dismissed-' + banner.id)) return;
-    var colors = { info: 'var(--blue)', warning: 'var(--orange)', error: 'var(--red)', success: 'var(--green)' };
-    var color = colors[banner.type] || colors.info;
-    var el = document.createElement('div');
-    el.id = 'site-banner';
-    el.style.cssText = 'background:' + color + '15;border-bottom:1px solid ' + color + '30;padding:10px 20px;text-align:center;font-size:.82rem;color:' + color + ';position:relative;z-index:999;display:flex;align-items:center;justify-content:center;gap:10px';
-    el.innerHTML = '<span>' + App.esc(banner.message) + '</span>' +
-      (banner.link ? '<a href="' + App.esc(banner.link) + '" style="color:' + color + ';font-weight:700">' + App.esc(banner.link_text || 'En savoir plus') + '</a>' : '') +
-      '<button onclick="UI.dismissBanner(\'' + banner.id + '\')" style="background:none;border:none;color:' + color + ';cursor:pointer;font-size:1rem;padding:2px 6px;margin-left:auto"><i class="fas fa-times"></i></button>';
-    var main = document.querySelector('.main');
-    if (main) main.parentNode.insertBefore(el, main);
-  },
-
-  dismissBanner: function(id) {
-    localStorage.setItem('banner-dismissed-' + id, '1');
-    var el = document.getElementById('site-banner');
-    if (el) el.remove();
-  },
-
-  showBannerAdmin: function() {
-    return '<div style="margin-bottom:16px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r)">' +
-      '<h4 style="font-size:.82rem;margin-bottom:8px"><i class="fas fa-bullhorn" style="color:var(--orange)"></i> Bannière du site</h4>' +
-      '<div class="field"><input type="text" class="inp" id="admin-banner-msg" placeholder="Message..." maxlength="300"></div>' +
-      '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
-        '<select class="sel" id="admin-banner-type"><option value="info">Info</option><option value="warning">Attention</option><option value="success">Succès</option><option value="error">Erreur</option></select>' +
-        '<button class="btn btn--primary" onclick="UI.publishBanner()"><i class="fas fa-paper-plane"></i> Publier</button>' +
-      '</div></div>';
-  },
-
-  publishBanner: async function() {
-    var msg = document.getElementById('admin-banner-msg');
-    var type = document.getElementById('admin-banner-type');
-    if (!msg || !msg.value.trim()) { UI.toast('Message requis', 'warning'); return; }
-    try {
-      await App.supabase.from('site_banners').update({ active: false }).eq('active', true);
-      var result = await App.supabase.from('site_banners').insert({ message: msg.value.trim(), type: type ? type.value : 'info', active: true, created_by: App.currentUser.id }).select().single();
-      if (result.data) { App.banner = result.data; this.renderBanner(result.data); UI.toast('Bannière publiée', 'success'); msg.value = ''; }
-    } catch(e) { UI.toast('Erreur', 'error'); }
-  },
-
   nav: function() {
     var tabs = document.querySelectorAll('.hdr__tab');
     tabs.forEach(function(tab) {
       tab.addEventListener('click', function() {
-        var view = tab.getAttribute('data-view');
+        var target = tab.getAttribute('data-view');
+        if (!target) return;
         tabs.forEach(function(t) { t.classList.remove('active'); });
         tab.classList.add('active');
-        document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
-        var target = document.getElementById('view-' + view);
-        if (target) target.classList.add('active');
-        var nav = document.getElementById('main-nav');
-        var burger = document.getElementById('burger-menu');
-        if (nav) nav.classList.remove('open');
-        if (burger) burger.classList.remove('open');
-
-        // View-specific actions
-        if (view === 'map' && typeof MapManager !== 'undefined' && MapManager.map) {
-          setTimeout(function() { MapManager.map.invalidateSize(); }, 200);
+        document.querySelectorAll('.view').forEach(function(v) {
+          v.classList.remove('active');
+        });
+        var view = document.getElementById('view-' + target);
+        if (view) view.classList.add('active');
+        if (target === 'map') {
+          setTimeout(function() {
+            if (typeof MapManager !== 'undefined') MapManager.resize();
+          }, 100);
         }
-        // IMPORTANT: Force re-render stats when switching to stats view
-        if (view === 'stats') {
-          if (typeof Reports !== 'undefined') {
-            Reports.updateStats();
-          }
+        if (target === 'stats') {
+          if (typeof Reports !== 'undefined') Reports.updateStats();
         }
-        if (view === 'wiki') {
+        if (target === 'wiki') {
           UI.loadWikiStatic();
-          UI.loadCommunityArticles();
         }
-        var fab = document.getElementById('fab-report');
-        if (fab) fab.style.display = (view === 'map' || view === 'list') ? '' : 'none';
+        App.trackEvent('nav_' + target);
       });
     });
-    var logo = document.getElementById('logo-link');
-    if (logo) {
-      logo.addEventListener('click', function(e) {
-        e.preventDefault();
-        var mapTab = document.querySelector('[data-view="map"]');
-        if (mapTab) mapTab.click();
-      });
-    }
   },
 
   modals: function() {
-    document.querySelectorAll('[data-close]').forEach(function(el) {
-      el.addEventListener('click', function() {
-        var modal = el.closest('.modal');
-        if (modal) modal.classList.remove('open');
-      });
+    document.querySelectorAll('.modal').forEach(function(modal) {
+      var bg = modal.querySelector('.modal__bg');
+      if (bg) {
+        bg.addEventListener('click', function() {
+          UI.closeModal(modal.id);
+        });
+      }
+      var closeBtn = modal.querySelector('.modal__x');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+          UI.closeModal(modal.id);
+        });
+      }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal.open').forEach(function(m) {
+          UI.closeModal(m.id);
+        });
+      }
     });
   },
 
   openModal: function(id) {
     var modal = document.getElementById(id);
-    if (modal) modal.classList.add('open');
+    if (modal) {
+      modal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
   },
 
   closeModal: function(id) {
     var modal = document.getElementById(id);
-    if (modal) modal.classList.remove('open');
-    // Re-render stats when closing admin modal
-    if (id === 'modal-admin' && typeof Reports !== 'undefined') {
-      setTimeout(function() { Reports.updateStats(); }, 100);
+    if (modal) {
+      modal.classList.remove('open');
+      var anyOpen = document.querySelectorAll('.modal.open').length > 0;
+      if (!anyOpen) document.body.style.overflow = '';
     }
+  },
+
+  burger: function() {
+    var btn = document.getElementById('burger-btn');
+    var nav = document.querySelector('.hdr__nav');
+    if (!btn || !nav) return;
+    btn.addEventListener('click', function() {
+      btn.classList.toggle('open');
+      nav.classList.toggle('open');
+    });
+    nav.querySelectorAll('.hdr__tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        btn.classList.remove('open');
+        nav.classList.remove('open');
+      });
+    });
+    document.addEventListener('click', function(e) {
+      if (!btn.contains(e.target) && !nav.contains(e.target)) {
+        btn.classList.remove('open');
+        nav.classList.remove('open');
+      }
+    });
   },
 
   filters: function() {
-    var catFilter = document.getElementById('filter-category');
-    var statusFilter = document.getElementById('filter-status');
-    var communeFilter = document.getElementById('filter-commune');
-    var resetBtn = document.getElementById('btn-reset-filters');
-    function applyFilters() {
-      App.filters.category = catFilter ? catFilter.value : '';
-      App.filters.status = statusFilter ? statusFilter.value : '';
-      App.filters.commune = communeFilter ? communeFilter.value : '';
-      if (typeof Reports !== 'undefined') Reports.loadAll();
-    }
-    if (catFilter) catFilter.addEventListener('change', applyFilters);
-    if (statusFilter) statusFilter.addEventListener('change', applyFilters);
-    if (communeFilter) communeFilter.addEventListener('change', applyFilters);
-    if (resetBtn) resetBtn.addEventListener('click', function() {
-      if (catFilter) catFilter.value = '';
-      if (statusFilter) statusFilter.value = '';
-      if (communeFilter) communeFilter.value = '';
-      applyFilters();
-    });
-  },
-
-  listControls: function() {
-    var toggleBtn = document.getElementById('btn-toggle-view');
-    if (toggleBtn) {
-      toggleBtn.addEventListener('click', function() {
-        if (typeof Reports === 'undefined') return;
-        Reports.viewMode = Reports.viewMode === 'list' ? 'cards' : 'list';
-        toggleBtn.innerHTML = Reports.viewMode === 'cards' ? '<i class="fas fa-list"></i>' : '<i class="fas fa-th-large"></i>';
-        Reports.renderList();
-      });
-    }
-    var sortSelect = document.getElementById('sort-reports');
-    if (sortSelect) sortSelect.addEventListener('change', function() { if (typeof Reports !== 'undefined') Reports.renderList(); });
-    document.querySelectorAll('.list-header__tab').forEach(function(tab) {
-      tab.addEventListener('click', function() {
-        document.querySelectorAll('.list-header__tab').forEach(function(t) { t.classList.remove('active'); });
-        tab.classList.add('active');
-        var filter = tab.getAttribute('data-filter');
-        App.filters.status = filter;
-        var statusFilter = document.getElementById('filter-status');
-        if (statusFilter) statusFilter.value = filter;
+    var self = this;
+    ['filter-category', 'filter-status', 'filter-commune'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', function() {
+        if (id === 'filter-category') App.filters.category = el.value;
+        else if (id === 'filter-status') App.filters.status = el.value;
+        else if (id === 'filter-commune') App.filters.commune = el.value;
+        App.pagination.page = 0;
+        App.pagination.hasMore = true;
         if (typeof Reports !== 'undefined') Reports.loadAll();
       });
     });
+    var resetBtn = document.getElementById('btn-reset-filters');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', function() {
+        App.filters = { category: '', status: '', commune: '' };
+        ['filter-category', 'filter-status', 'filter-commune'].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.value = '';
+        });
+        App.pagination.page = 0;
+        App.pagination.hasMore = true;
+        if (typeof Reports !== 'undefined') Reports.loadAll();
+      });
+    }
   },
 
   form: function() {
     var self = this;
-    var btnNewReport = document.getElementById('btn-new-report');
-    if (btnNewReport) btnNewReport.addEventListener('click', function() { self.openReportForm(); });
-    var step1Next = document.getElementById('btn-step1-next');
-    if (step1Next) step1Next.addEventListener('click', function() { self._goStep(2); });
-    var step2Next = document.getElementById('btn-step2-next');
-    if (step2Next) step2Next.addEventListener('click', function() { self._goStep(3); });
-    document.querySelectorAll('[data-prev]').forEach(function(btn) {
-      btn.addEventListener('click', function() { self._goStep(parseInt(btn.getAttribute('data-prev'))); });
-    });
-    var geoBtn = document.getElementById('btn-geolocate');
-    if (geoBtn) {
-      geoBtn.addEventListener('click', function() {
-        if (!navigator.geolocation) { UI.toast('Géolocalisation non disponible', 'warning'); return; }
-        geoBtn.disabled = true; geoBtn.innerHTML = '<span class="spinner"></span> Localisation...';
-        navigator.geolocation.getCurrentPosition(function(pos) {
-          if (typeof MapManager !== 'undefined' && MapManager.isInGuadeloupe(pos.coords.latitude, pos.coords.longitude)) {
-            MapManager.setPin(pos.coords.latitude, pos.coords.longitude);
-            MapManager.reverseGeo(pos.coords.latitude, pos.coords.longitude);
-          } else { UI.toast('Vous n\'êtes pas en Guadeloupe', 'warning'); }
-          geoBtn.disabled = false; geoBtn.innerHTML = '<i class="fas fa-crosshairs"></i> Localiser';
-        }, function() {
-          UI.toast('Impossible de vous localiser', 'error');
-          geoBtn.disabled = false; geoBtn.innerHTML = '<i class="fas fa-crosshairs"></i> Localiser';
-        }, { enableHighAccuracy: true, timeout: 10000 });
+    var step1Next = document.getElementById('step1-next');
+    var step2Next = document.getElementById('step2-next');
+    var step2Back = document.getElementById('step2-back');
+    var step3Back = document.getElementById('step3-back');
+    var submitBtn = document.getElementById('btn-submit-report');
+    var submitAnonBtn = document.getElementById('btn-submit-anon');
+    if (step1Next) {
+      step1Next.addEventListener('click', function() {
+        var cat = document.querySelector('input[name="category"]:checked');
+        if (!cat) { UI.toast('Choisissez une catégorie', 'warning'); return; }
+        UI._goStep(2);
       });
     }
-    var searchInput = document.getElementById('address-search');
-    var searchResults = document.getElementById('search-results');
-    var searchTimeout = null;
-    if (searchInput && searchResults) {
-      searchInput.addEventListener('input', function() {
-        clearTimeout(searchTimeout);
-        var q = searchInput.value.trim();
-        if (q.length < 3) { searchResults.classList.remove('open'); return; }
-        searchTimeout = setTimeout(function() {
-          if (typeof MapManager !== 'undefined') {
-            MapManager.searchAddr(q).then(function(results) {
-              if (results.length === 0) { searchResults.classList.remove('open'); return; }
-              searchResults.innerHTML = results.map(function(r) {
-                return '<div class="loc-r" data-lat="' + r.lat + '" data-lng="' + r.lon + '">' + App.esc(r.display_name) + '</div>';
-              }).join('');
-              searchResults.classList.add('open');
-              searchResults.querySelectorAll('.loc-r').forEach(function(r) {
-                r.addEventListener('click', function() {
-                  MapManager.setPin(parseFloat(r.getAttribute('data-lat')), parseFloat(r.getAttribute('data-lng')));
-                  MapManager.reverseGeo(parseFloat(r.getAttribute('data-lat')), parseFloat(r.getAttribute('data-lng')));
-                  searchResults.classList.remove('open');
-                  searchInput.value = r.textContent;
-                });
-              });
-            });
-          }
-        }, 400);
+    if (step2Next) {
+      step2Next.addEventListener('click', function() {
+        var lat = document.getElementById('report-lat');
+        var lng = document.getElementById('report-lng');
+        if (!lat || !lat.value || !lng || !lng.value) { UI.toast('Sélectionnez un emplacement sur la carte', 'warning'); return; }
+        UI._goStep(3);
       });
     }
-    var descInput = document.getElementById('report-description');
-    var descCount = document.getElementById('desc-count');
-    if (descInput && descCount) descInput.addEventListener('input', function() { descCount.textContent = descInput.value.length; });
-    document.querySelectorAll('.prio').forEach(function(prio) {
-      prio.addEventListener('click', function() {
-        document.querySelectorAll('.prio').forEach(function(p) { p.classList.remove('selected'); });
-        prio.classList.add('selected');
-        var input = prio.querySelector('input');
-        if (input) input.checked = true;
+    if (step2Back) { step2Back.addEventListener('click', function() { UI._goStep(1); }); }
+    if (step3Back) { step3Back.addEventListener('click', function() { UI._goStep(2); }); }
+    if (submitBtn) {
+      submitBtn.addEventListener('click', function() {
+        if (typeof Reports !== 'undefined') Reports.submitReport(false);
       });
-    });
-    var reportForm = document.getElementById('report-form');
-    if (reportForm) reportForm.addEventListener('submit', function(e) { e.preventDefault(); if (typeof Reports !== 'undefined') Reports.submitReport(); });
+    }
+    if (submitAnonBtn) {
+      submitAnonBtn.addEventListener('click', function() {
+        if (typeof Reports !== 'undefined') Reports.submitReport(true);
+      });
+    }
   },
 
   _goStep: function(step) {
-    document.querySelectorAll('.steps__i').forEach(function(s) {
-      var sNum = parseInt(s.getAttribute('data-step'));
-      s.classList.remove('active', 'done');
-      if (sNum < step) s.classList.add('done');
-      else if (sNum === step) s.classList.add('active');
+    var steps = [1, 2, 3];
+    steps.forEach(function(s) {
+      var el = document.getElementById('fstep-' + s);
+      var dot = document.getElementById('step-dot-' + s);
+      if (el) el.classList.toggle('active', s === step);
+      if (dot) {
+        dot.classList.remove('active', 'done');
+        if (s === step) dot.classList.add('active');
+        else if (s < step) dot.classList.add('done');
+      }
     });
-    document.querySelectorAll('.fstep').forEach(function(s) { s.classList.remove('active'); });
-    var target = document.getElementById('step-' + step);
-    if (target) target.classList.add('active');
-    if (step === 2 && typeof MapManager !== 'undefined') MapManager.initMiniMap();
+    if (step === 2) {
+      setTimeout(function() {
+        if (typeof MapManager !== 'undefined') MapManager.resizeMini();
+      }, 150);
+    }
+  },
+
+  openReportForm: function() {
+    var anonRow = document.getElementById('anon-submit-row');
+    var submitRow = document.getElementById('submit-row');
+    if (App.currentUser) {
+      if (anonRow) anonRow.style.display = 'flex';
+      if (submitRow) submitRow.style.display = 'flex';
+    } else {
+      if (anonRow) anonRow.style.display = 'flex';
+      if (submitRow) submitRow.style.display = 'none';
+    }
+    var form = document.getElementById('report-form');
+    if (form) form.reset();
+    var latEl = document.getElementById('report-lat');
+    var lngEl = document.getElementById('report-lng');
+    var addrEl = document.getElementById('report-address');
+    var comEl = document.getElementById('report-commune');
+    if (latEl) latEl.value = '';
+    if (lngEl) lngEl.value = '';
+    if (addrEl) addrEl.value = '';
+    if (comEl) comEl.value = '';
+    document.querySelectorAll('.catc').forEach(function(c) { c.classList.remove('selected'); });
+    document.querySelectorAll('.prio').forEach(function(p) { p.classList.remove('selected'); });
+    var medPrio = document.querySelector('.prio[data-priority="medium"]');
+    if (medPrio) medPrio.classList.add('selected');
+    if (typeof ImageUpload !== 'undefined') ImageUpload.reset();
+    this._goStep(1);
+    this.openModal('modal-report');
+    App.trackEvent('open_report_form');
+  },
+
+  buildCategoryGrid: function(containerId) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var html = '';
+    this._categoryGroups.forEach(function(group) {
+      html += '<div style="margin-bottom:14px">' +
+        '<div style="font-size:.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;display:flex;align-items:center;gap:5px">' +
+        '<i class="fas ' + group.icon + '" style="font-size:.6rem"></i> ' + group.label + '</div>' +
+        '<div class="catgrid">';
+      group.items.forEach(function(key) {
+        var cat = App.categories[key];
+        if (!cat) return;
+        var iconKey = cat.icon;
+        var faIcon = (typeof MapManager !== 'undefined') ? MapManager.getFaForCat(key) : 'fa-map-pin';
+        html += '<label class="catc" data-key="' + key + '">' +
+          '<input type="radio" name="category" value="' + key + '" style="display:none">' +
+          '<span class="catc__ico"><i class="fas ' + faIcon + '"></i></span>' +
+          '<span class="catc__name">' + cat.label + '</span>' +
+        '</label>';
+      });
+      html += '</div></div>';
+    });
+    container.innerHTML = html;
+    container.querySelectorAll('.catc').forEach(function(el) {
+      el.addEventListener('click', function() {
+        container.querySelectorAll('.catc').forEach(function(c) { c.classList.remove('selected'); });
+        el.classList.add('selected');
+        var input = el.querySelector('input[type="radio"]');
+        if (input) input.checked = true;
+        var nextBtn = document.getElementById('step1-next');
+        if (nextBtn) nextBtn.disabled = false;
+        App.trackEvent('category_selected', { category: el.getAttribute('data-key') });
+      });
+    });
   },
 
   catGrid: function() {
-    var grid = document.getElementById('category-grid');
-    if (!grid) return;
-
-    // AI search bar
-    var searchHtml = '<div style="margin-bottom:10px;position:relative" id="cat-search-wrap">' +
-      '<i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:.72rem;z-index:1"></i>' +
-      '<input type="text" class="inp" id="cat-search" placeholder="Décrivez le problème... (ex: trou dans la route)" style="padding-left:30px;font-size:.78rem">' +
-      '<div id="cat-search-suggest" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px;box-shadow:var(--shadow-lg);z-index:10;font-size:.78rem"></div>' +
-    '</div>';
-
-    var html = '';
-    var keys = Object.keys(App.categories);
-    for (var i = 0; i < keys.length; i++) {
-      var key = keys[i];
-      var cat = App.categories[key];
-      var fa = this.catIcons[cat.icon] || 'fa-map-pin';
-      html += '<label class="catc" data-cat="' + key + '">' +
-        '<input type="radio" name="category" value="' + key + '">' +
-        '<span class="catc__ico"><i class="fas ' + fa + '"></i></span>' +
-        '<span class="catc__name">' + cat.label + '</span></label>';
-    }
-    grid.innerHTML = searchHtml + '<div id="cat-grid-items" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px">' + html + '</div>';
-
-    // Selection handling
-    grid.querySelectorAll('.catc').forEach(function(catEl) {
-      catEl.addEventListener('click', function() {
-        grid.querySelectorAll('.catc').forEach(function(c) { c.classList.remove('selected'); });
-        catEl.classList.add('selected');
-        var step1Next = document.getElementById('btn-step1-next');
-        if (step1Next) step1Next.disabled = false;
-      });
-    });
-
-    // AI search
+    this.buildCategoryGrid('category-grid');
     var searchInput = document.getElementById('cat-search');
-    var suggestEl = document.getElementById('cat-search-suggest');
-    var searchTimeout = null;
-
-    if (searchInput && suggestEl) {
-      searchInput.addEventListener('input', function() {
-        clearTimeout(searchTimeout);
-        var q = searchInput.value.trim();
-
-        if (q.length < 3) {
-          suggestEl.style.display = 'none';
-          // Show all categories
-          grid.querySelectorAll('.catc').forEach(function(c) { c.style.display = ''; });
-          return;
-        }
-
-        // Local filter first (instant)
-        var lower = q.toLowerCase();
-        grid.querySelectorAll('.catc').forEach(function(c) {
-          var label = c.querySelector('.catc__name').textContent.toLowerCase();
-          c.style.display = label.indexOf(lower) !== -1 ? '' : 'none';
-        });
-
-        // AI suggestion (debounced)
-        searchTimeout = setTimeout(function() {
-          if (!App.config.groqAvailable) return;
-          suggestEl.style.display = 'block';
-          suggestEl.innerHTML = '<div style="display:flex;align-items:center;gap:6px;color:var(--text3)"><span class="spinner"></span> Analyse IA...</div>';
-
-          fetch('/api/ai-category', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: q })
-          }).then(function(r) { return r.json(); }).then(function(data) {
-            if (data.category && App.categories[data.category]) {
-              var cat = App.categories[data.category];
-              var fa = UI.catIcons[cat.icon] || 'fa-map-pin';
-              suggestEl.innerHTML =
-                '<div style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:6px;border-radius:var(--r);transition:background .15s" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'none\'" onclick="UI.selectCategory(\'' + data.category + '\')">' +
-                  '<div style="width:36px;height:36px;border-radius:8px;background:var(--green-bg);display:flex;align-items:center;justify-content:center"><i class="fas ' + fa + '" style="color:var(--green)"></i></div>' +
-                  '<div><div style="font-weight:600;font-size:.82rem">' + cat.label + '</div><div style="font-size:.65rem;color:var(--text3)">Suggestion IA basée sur votre description</div></div>' +
-                  '<i class="fas fa-magic" style="color:var(--purple);margin-left:auto"></i>' +
-                '</div>';
-            } else {
-              suggestEl.style.display = 'none';
-            }
-          }).catch(function() { suggestEl.style.display = 'none'; });
-        }, 600);
+    if (!searchInput) return;
+    var self = this;
+    var doSearch = App.debounce(function(val) {
+      val = val.toLowerCase().trim();
+      var labels = document.querySelectorAll('#category-grid .catc');
+      var matched = 0;
+      labels.forEach(function(el) {
+        var name = el.querySelector('.catc__name');
+        var text = name ? name.textContent.toLowerCase() : '';
+        var key = el.getAttribute('data-key') || '';
+        var visible = !val || text.indexOf(val) !== -1 || key.indexOf(val) !== -1;
+        el.style.display = visible ? '' : 'none';
+        if (visible) matched++;
       });
-    }
+      if (val && val.length >= 3) {
+        fetch('/api/ai-category', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: val })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data && data.category) {
+            self.selectCategory(data.category, true);
+          }
+        })
+        .catch(function() {});
+      }
+    }, 350);
+    searchInput.addEventListener('input', function() {
+      doSearch(searchInput.value);
+    });
   },
 
-  selectCategory: function(catKey) {
-    var grid = document.getElementById('category-grid');
-    if (!grid) return;
-    grid.querySelectorAll('.catc').forEach(function(c) {
+  selectCategory: function(catKey, fromAI) {
+    var el = document.querySelector('#category-grid .catc[data-key="' + catKey + '"]');
+    if (!el) return;
+    document.querySelectorAll('#category-grid .catc').forEach(function(c) {
       c.classList.remove('selected');
       c.style.display = '';
-      if (c.getAttribute('data-cat') === catKey) {
-        c.classList.add('selected');
-        var input = c.querySelector('input');
-        if (input) input.checked = true;
-      }
     });
-    var step1Next = document.getElementById('btn-step1-next');
-    if (step1Next) step1Next.disabled = false;
-    var suggest = document.getElementById('cat-search-suggest');
-    if (suggest) suggest.style.display = 'none';
+    el.classList.add('selected');
+    var input = el.querySelector('input[type="radio"]');
+    if (input) input.checked = true;
+    var nextBtn = document.getElementById('step1-next');
+    if (nextBtn) nextBtn.disabled = false;
     var searchInput = document.getElementById('cat-search');
     if (searchInput) searchInput.value = '';
-    UI.toast('Catégorie sélectionnée : ' + (App.categories[catKey] || {}).label, 'success');
+    if (fromAI) {
+      var cat = App.categories[catKey];
+      UI.toast('Suggestion IA : ' + (cat ? cat.label : catKey), 'info');
+    }
   },
 
-  burger: function() {
-    var burgerBtn = document.getElementById('burger-menu');
-    var nav = document.getElementById('main-nav');
-    if (burgerBtn && nav) burgerBtn.addEventListener('click', function() { burgerBtn.classList.toggle('open'); nav.classList.toggle('open'); });
+  listControls: function() {
+    var viewList = document.getElementById('view-list-btn');
+    var viewCards = document.getElementById('view-cards-btn');
+    if (viewList) {
+      viewList.addEventListener('click', function() {
+        Reports.viewMode = 'list';
+        viewList.classList.add('active');
+        if (viewCards) viewCards.classList.remove('active');
+        Reports.renderList();
+      });
+    }
+    if (viewCards) {
+      viewCards.addEventListener('click', function() {
+        Reports.viewMode = 'cards';
+        viewCards.classList.add('active');
+        if (viewList) viewList.classList.remove('active');
+        Reports.renderList();
+      });
+    }
+    var sortEl = document.getElementById('sort-reports');
+    if (sortEl) {
+      sortEl.addEventListener('change', function() {
+        Reports.renderList();
+      });
+    }
+    var tabAll = document.getElementById('tab-all');
+    var tabPending = document.getElementById('tab-pending');
+    var tabResolved = document.getElementById('tab-resolved');
+    function setListTab(status) {
+      App.filters.status = status;
+      App.pagination.page = 0;
+      App.pagination.hasMore = true;
+      Reports.loadAll();
+      [tabAll, tabPending, tabResolved].forEach(function(t) {
+        if (t) t.classList.remove('active');
+      });
+    }
+    if (tabAll) {
+      tabAll.classList.add('active');
+      tabAll.addEventListener('click', function() { setListTab(''); tabAll.classList.add('active'); });
+    }
+    if (tabPending) {
+      tabPending.addEventListener('click', function() { setListTab('pending'); tabPending.classList.add('active'); });
+    }
+    if (tabResolved) {
+      tabResolved.addEventListener('click', function() { setListTab('resolved'); tabResolved.classList.add('active'); });
+    }
+  },
+
+  renderBanner: function(banner) {
+    if (!banner) return;
+    var el = document.getElementById('site-banner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'site-banner';
+      el.style.cssText = 'position:fixed;top:var(--hh);left:0;right:0;z-index:999;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:.82rem;font-weight:500';
+      document.body.style.paddingTop = 'calc(var(--hh) + 40px)';
+      var main = document.querySelector('.main');
+      if (main) main.style.marginTop = 'calc(var(--hh) + 40px)';
+      document.body.appendChild(el);
+    }
+    var typeColors = {
+      info: { bg: 'var(--blue-bg)', border: 'rgba(59,130,246,.3)', color: 'var(--blue2)', icon: 'fa-info-circle' },
+      warning: { bg: 'var(--orange-bg)', border: 'rgba(245,158,11,.3)', color: 'var(--orange2)', icon: 'fa-exclamation-triangle' },
+      success: { bg: 'var(--green-bg)', border: 'rgba(22,163,74,.3)', color: 'var(--green2)', icon: 'fa-check-circle' },
+      danger: { bg: 'var(--red-bg)', border: 'rgba(239,68,68,.3)', color: 'var(--red2)', icon: 'fa-times-circle' }
+    };
+    var t = typeColors[banner.type] || typeColors.info;
+    el.style.background = t.bg;
+    el.style.borderBottom = '1px solid ' + t.border;
+    el.style.color = t.color;
+    el.innerHTML = '<span><i class="fas ' + t.icon + '"></i> ' + App.esc(banner.message) + '</span>' +
+      '<button onclick="this.parentNode.remove();document.body.style.paddingTop=\'\';var m=document.querySelector(\'.main\');if(m)m.style.marginTop=\'\'" style="background:none;border:none;cursor:pointer;color:inherit;font-size:.85rem;padding:2px 6px"><i class="fas fa-times"></i></button>';
   },
 
   community: function() {
-    var proposeBtn = document.getElementById('btn-propose-tag');
-    var formContainer = document.getElementById('tag-proposal-form-container');
-    var cancelBtn = document.getElementById('tp-cancel');
-    var form = document.getElementById('tag-proposal-form');
-    if (proposeBtn && formContainer) proposeBtn.addEventListener('click', function() {
-      if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
-      formContainer.style.display = formContainer.style.display === 'none' ? 'block' : 'none';
-    });
-    if (cancelBtn && formContainer) cancelBtn.addEventListener('click', function() { formContainer.style.display = 'none'; });
-    if (form) form.addEventListener('submit', function(e) { e.preventDefault(); UI.submitTagProposal(); });
+    var self = this;
+    var propBtn = document.getElementById('btn-propose-tag');
+    var propInput = document.getElementById('tag-proposal-input');
+    if (propBtn && propInput) {
+      propBtn.addEventListener('click', async function() {
+        if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
+        var val = propInput.value.trim();
+        if (!val || val.length < 2) { UI.toast('Proposition trop courte', 'warning'); return; }
+        try {
+          var result = await App.supabase.from('tag_proposals').insert({ content: val, user_id: App.currentUser.id });
+          if (result.error) throw result.error;
+          propInput.value = '';
+          UI.toast('Proposition envoyée !', 'success');
+          self.loadTagProposals();
+        } catch(e) { UI.toast('Erreur', 'error'); }
+      });
+    }
     this.loadTagProposals();
-  },
-
-  submitTagProposal: async function() {
-    if (!App.currentUser || !App.currentProfile) return;
-    var name = document.getElementById('tp-name').value.trim();
-    var icon = document.getElementById('tp-icon').value.trim() || 'fa-tag';
-    var desc = document.getElementById('tp-description').value.trim();
-    if (!name || !desc) { UI.toast('Remplissez tous les champs', 'warning'); return; }
-    try {
-      await App.supabase.from('tag_proposals').insert({ name: name, icon: icon, description: desc, author_id: App.currentUser.id, author_name: App.currentProfile.username || 'Anonyme' });
-      UI.toast('Proposition envoyée !', 'success');
-      document.getElementById('tag-proposal-form').reset();
-      document.getElementById('tag-proposal-form-container').style.display = 'none';
-      this.loadTagProposals();
-    } catch(e) { UI.toast('Erreur', 'error'); }
   },
 
   loadTagProposals: async function() {
     var el = document.getElementById('tag-proposals-list');
     if (!el || !App.supabase) return;
     try {
-      var result = await App.supabase.from('tag_proposals').select('*').order('upvotes', { ascending: false }).limit(20);
-      if (!result.data || result.data.length === 0) { el.innerHTML = '<p style="color:var(--text3);font-size:.8rem">Aucune proposition</p>'; return; }
+      var result = await App.supabase.from('tag_proposals').select('*').order('votes', { ascending: false }).limit(20);
+      if (!result.data || !result.data.length) { el.innerHTML = '<p style="color:var(--text3);font-size:.8rem">Aucune proposition</p>'; return; }
       var html = '';
-      for (var i = 0; i < result.data.length; i++) {
-        var t = result.data[i];
-        html += '<div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg3);border-radius:var(--r);margin-bottom:6px">' +
-          '<i class="fas ' + App.esc(t.icon || 'fa-tag') + '" style="font-size:1rem;color:var(--green);width:20px;text-align:center"></i>' +
-          '<div style="flex:1"><div style="font-weight:600;font-size:.82rem">' + App.esc(t.name) + '</div><div style="font-size:.72rem;color:var(--text2)">' + App.esc(t.description) + '</div></div>' +
-          '<button class="btn btn--outline" onclick="UI.voteTagProposal(\'' + t.id + '\')" style="font-size:.7rem"><i class="fas fa-arrow-up"></i> ' + (t.upvotes || 0) + '</button></div>';
-      }
+      result.data.forEach(function(tag) {
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg3);border-radius:var(--r);margin-bottom:5px;border:1px solid var(--border)">' +
+          '<span style="font-size:.82rem;font-weight:500">' + App.esc(tag.content) + '</span>' +
+          '<button onclick="UI.voteTag(\'' + tag.id + '\')" style="display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--orange-bg);border:1px solid rgba(245,158,11,.2);border-radius:var(--r);cursor:pointer;font-size:.75rem;font-weight:700;color:var(--orange2);font-family:inherit"><i class="fas fa-arrow-up"></i> ' + (tag.votes || 0) + '</button>' +
+        '</div>';
+      });
       el.innerHTML = html;
     } catch(e) {}
   },
 
-  voteTagProposal: async function(id) {
+  voteTag: async function(tagId) {
     if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
     try {
-      var existing = await App.supabase.from('tag_votes').select('id').eq('user_id', App.currentUser.id).eq('proposal_id', id).maybeSingle();
-      if (existing.data) { UI.toast('Déjà voté', 'info'); return; }
-      await App.supabase.from('tag_votes').insert({ user_id: App.currentUser.id, proposal_id: id });
-      var allVotes = await App.supabase.from('tag_votes').select('id').eq('proposal_id', id);
-      await App.supabase.from('tag_proposals').update({ upvotes: (allVotes.data && allVotes.data.length) || 0 }).eq('id', id);
-      UI.toast('Voté !', 'success');
+      var check = await App.supabase.from('tag_votes').select('id').eq('tag_id', tagId).eq('user_id', App.currentUser.id).maybeSingle();
+      if (check.data) { UI.toast('Déjà voté', 'info'); return; }
+      await App.supabase.from('tag_votes').insert({ tag_id: tagId, user_id: App.currentUser.id });
+      var tag = await App.supabase.from('tag_proposals').select('votes').eq('id', tagId).single();
+      var newVotes = ((tag.data && tag.data.votes) || 0) + 1;
+      await App.supabase.from('tag_proposals').update({ votes: newVotes }).eq('id', tagId);
+      UI.toast('Vote enregistré !', 'success');
       this.loadTagProposals();
     } catch(e) { UI.toast('Erreur', 'error'); }
   },
 
   wikiTabs: function() {
-    document.querySelectorAll('.wiki-tab').forEach(function(tab) {
+    var tabs = document.querySelectorAll('.wiki-tab');
+    tabs.forEach(function(tab) {
       tab.addEventListener('click', function() {
-        document.querySelectorAll('.wiki-tab').forEach(function(t) { t.classList.remove('active'); });
-        document.querySelectorAll('.wiki-panel').forEach(function(p) { p.classList.remove('active'); });
+        tabs.forEach(function(t) { t.classList.remove('active'); });
         tab.classList.add('active');
-        var panel = document.getElementById('wpanel-' + tab.getAttribute('data-wtab'));
+        var target = tab.getAttribute('data-panel');
+        document.querySelectorAll('.wiki-panel').forEach(function(p) {
+          p.classList.remove('active');
+        });
+        var panel = document.getElementById('wiki-panel-' + target);
         if (panel) panel.classList.add('active');
+        if (target === 'guide') UI.loadWikiStatic();
+        if (target === 'articles') UI.loadCommunityArticles();
       });
     });
-    var catFilter = document.getElementById('wiki-cat-filter');
-    var sortFilter = document.getElementById('wiki-sort');
-    if (catFilter) catFilter.addEventListener('change', function() { UI.loadCommunityArticles(); });
-    if (sortFilter) sortFilter.addEventListener('change', function() { UI.loadCommunityArticles(); });
-  },
-
-  loadWikiStatic: async function() {
-    var nav = document.getElementById('wiki-nav');
-    if (!nav) return;
-    try {
-      var resp = await fetch('/api/wiki-static');
-      var pages = await resp.json();
-      if (pages.length === 0) return;
-      var html = '';
-      for (var i = 0; i < pages.length; i++) html += '<button class="wnav' + (i === 0 ? ' active' : '') + '" data-slug="' + pages[i].slug + '">' + App.esc(pages[i].title) + '</button>';
-      nav.innerHTML = html;
-      if (pages.length > 0) this._loadWikiPage(pages[0].slug);
-      nav.querySelectorAll('.wnav').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-          nav.querySelectorAll('.wnav').forEach(function(b) { b.classList.remove('active'); });
-          btn.classList.add('active');
-          UI._loadWikiPage(btn.getAttribute('data-slug'));
-        });
+    var navBtns = document.querySelectorAll('.wnav');
+    navBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        navBtns.forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        var page = btn.getAttribute('data-page');
+        if (page) UI.loadWikiStatic(page);
       });
-    } catch(e) {}
+    });
   },
 
-  _loadWikiPage: async function(slug) {
-    var content = document.getElementById('wiki-content');
-    if (!content) return;
+  loadWikiStatic: async function(page) {
+    var body = document.getElementById('wiki-body');
+    if (!body) return;
+    page = page || 'intro';
+    body.innerHTML = '<div class="wiki__load"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;margin-bottom:12px;display:block"></i> Chargement...</div>';
     try {
-      var resp = await fetch('/api/wiki-static/' + slug);
-      var md = await resp.text();
-      content.innerHTML = typeof marked !== 'undefined' ? marked.parse(md) : '<pre>' + App.esc(md) + '</pre>';
-    } catch(e) { content.innerHTML = '<p style="color:var(--text3)">Erreur</p>'; }
+      var resp = await fetch('/api/wiki-static?page=' + encodeURIComponent(page));
+      if (!resp.ok) throw new Error('Not found');
+      var data = await resp.json();
+      body.innerHTML = data.html || '<p style="color:var(--text3)">Contenu non disponible</p>';
+    } catch(e) {
+      body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3)"><i class="fas fa-book" style="font-size:2rem;display:block;margin-bottom:12px"></i><p>Contenu non disponible</p></div>';
+    }
   },
 
   loadCommunityArticles: async function() {
-    var el = document.getElementById('community-articles-list');
+    var el = document.getElementById('community-articles');
     if (!el || !App.supabase) return;
+    el.innerHTML = '<div class="wiki__load"><i class="fas fa-spinner fa-spin"></i> Chargement...</div>';
     try {
-      var catFilter = document.getElementById('wiki-cat-filter');
-      var sortFilter = document.getElementById('wiki-sort');
-      var cat = catFilter ? catFilter.value : '';
-      var sort = sortFilter ? sortFilter.value : 'newest';
-      var query = App.supabase.from('wiki_articles').select('*');
-      if (cat) query = query.eq('category', cat);
-      query = sort === 'popular' ? query.order('upvotes', { ascending: false }) : query.order('created_at', { ascending: false });
-      var result = await query.limit(30);
-      if (!result.data || result.data.length === 0) { el.innerHTML = '<div class="empty"><i class="fas fa-pen-fancy"></i><h3>Aucun article</h3></div>'; return; }
-      var catLabels = { general: '📌 Général', guide: '📖 Guide', info: 'ℹ️ Info', discussion: '💬 Discussion', proposition: '💡 Proposition' };
-      var html = '';
-      for (var i = 0; i < result.data.length; i++) {
-        var a = result.data[i];
-        var preview = (a.content || '').replace(/[#*\-\[\]()>`]/g, '').substring(0, 120);
-        html += '<div class="wcard" onclick="UI.openArticle(\'' + a.id + '\')">' +
-          '<div class="wcard__head"><span class="wcard__cat">' + (catLabels[a.category] || '📌') + '</span><span class="wcard__date">' + App.ago(a.created_at) + '</span></div>' +
-          '<div class="wcard__title">' + App.esc(a.title) + '</div><div class="wcard__preview">' + App.esc(preview) + '</div>' +
-          '<div class="wcard__foot"><span class="wcard__author"><i class="fas fa-user"></i> ' + App.esc(a.author_name) + '</span><span class="wcard__votes"><i class="fas fa-arrow-up"></i> ' + (a.upvotes || 0) + '</span></div></div>';
+      var result = await App.supabase.from('wiki_articles').select('*, profiles(username)').eq('published', true).order('created_at', { ascending: false }).limit(30);
+      if (!result.data || !result.data.length) {
+        el.innerHTML = '<div class="empty"><i class="fas fa-book-open"></i><h3>Pas encore d\'articles</h3><p>Soyez le premier à contribuer !</p></div>';
+        return;
       }
+      var html = '';
+      result.data.forEach(function(art) {
+        var author = (art.profiles && art.profiles.username) || 'Anonyme';
+        html += '<div class="wcard" onclick="UI.openArticle(\'' + art.id + '\')">' +
+          '<div class="wcard__head"><span class="wcard__cat">' + App.esc(art.category || 'Général') + '</span><span class="wcard__date">' + App.ago(art.created_at) + '</span></div>' +
+          '<div class="wcard__title">' + App.esc(art.title) + '</div>' +
+          '<div class="wcard__preview">' + App.esc(art.content ? art.content.substring(0, 140) : '') + '...</div>' +
+          '<div class="wcard__foot">' +
+            '<span class="wcard__author"><i class="fas fa-user"></i> ' + App.esc(author) + '</span>' +
+            '<span class="wcard__votes"><i class="fas fa-arrow-up"></i> ' + (art.votes || 0) + '</span>' +
+          '</div></div>';
+      });
       el.innerHTML = html;
-    } catch(e) {}
+    } catch(e) {
+      el.innerHTML = '<p style="color:var(--text3);padding:20px">Erreur de chargement</p>';
+    }
   },
 
   openArticle: async function(id) {
-    var container = document.getElementById('wiki-article-detail');
-    if (!container || !App.supabase) return;
+    if (!App.supabase) return;
     try {
-      App.supabase.from('wiki_articles').select('views').eq('id', id).single().then(function(r) {
-        if (r.data) App.supabase.from('wiki_articles').update({ views: (r.data.views || 0) + 1 }).eq('id', id);
-      });
-      var result = await App.supabase.from('wiki_articles').select('*').eq('id', id).single();
-      if (!result.data) { UI.toast('Article introuvable', 'error'); return; }
-      var a = result.data;
-      var isAuthor = App.currentUser && a.author_id === App.currentUser.id;
-      var isAdmin = App.currentProfile && App.currentProfile.role === 'admin';
-      var hasVoted = false;
-      if (App.currentUser) {
-        var vc = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).maybeSingle();
-        if (vc.data) hasVoted = true;
-      }
-      var voteCount = await App.supabase.from('wiki_votes').select('id').eq('article_id', id);
-      var votes = (voteCount.data && voteCount.data.length) || 0;
-      var contentHtml = typeof marked !== 'undefined' ? marked.parse(a.content || '') : '<pre>' + App.esc(a.content) + '</pre>';
-      var pollHtml = typeof Polls !== 'undefined' && a.poll_data ? Polls.renderPoll(a.poll_data, id) : '';
+      var result = await App.supabase.from('wiki_articles').select('*, profiles(username)').eq('id', id).single();
+      if (!result.data) return;
+      var art = result.data;
+      var author = (art.profiles && art.profiles.username) || 'Anonyme';
+      var isAuthor = App.currentUser && art.user_id === App.currentUser.id;
+      var isAdmin = App.isAdmin();
+      var container = document.getElementById('article-detail');
+      if (!container) return;
       var html = '<div style="padding:24px">' +
-        '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap"><span class="badge badge--cat">' + App.esc(a.category || 'general') + '</span><span style="font-size:.72rem;color:var(--text3)"><i class="fas fa-eye"></i> ' + (a.views || 0) + '</span><span style="font-size:.72rem;color:var(--text3)"><i class="fas fa-clock"></i> ' + App.ago(a.created_at) + '</span></div>' +
-        '<h1 style="font-size:1.4rem;font-weight:700;margin-bottom:16px">' + App.esc(a.title) + '</h1>' +
-        '<div style="margin-bottom:20px;font-size:.82rem;color:var(--text2)"><span onclick="UI.openPublicProfile(\'' + a.author_id + '\')" style="cursor:pointer"><i class="fas fa-user" style="color:var(--green)"></i> ' + App.esc(a.author_name) + '</span></div>' +
-        '<div class="wiki__body" style="border:none;padding:0">' + contentHtml + '</div>' + pollHtml +
-        '<div style="display:flex;gap:8px;margin-top:20px;padding-top:14px;border-top:1px solid var(--border)">' +
-          '<button class="vote-btn' + (hasVoted ? ' voted' : '') + '" onclick="UI.voteArticle(\'' + id + '\')"><i class="fas fa-arrow-up"></i> ' + votes + '</button>' +
-          '<button class="btn btn--outline" onclick="Share.shareArticle(\'' + id + '\')"><i class="fas fa-share-alt"></i></button>' +
-          ((isAuthor || isAdmin) ? '<button class="btn btn--danger" onclick="UI.deleteArticle(\'' + id + '\')"><i class="fas fa-trash"></i></button>' : '') +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+          '<span style="font-size:.7rem;font-weight:700;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:3px;text-transform:uppercase">' + App.esc(art.category || 'Général') + '</span>' +
+          '<span style="font-size:.68rem;color:var(--text3)">' + App.ago(art.created_at) + '</span>' +
         '</div>' +
-        '<div class="comments" style="margin-top:20px"><div class="comments__title"><i class="fas fa-comments"></i> Commentaires</div>';
-      if (App.currentUser) html += '<div class="cmtform"><textarea id="wiki-comment-' + id + '" placeholder="Commentaire..." rows="2"></textarea><button class="btn btn--primary" onclick="UI.addWikiComment(\'' + id + '\')"><i class="fas fa-paper-plane"></i></button></div>';
-      html += '<div id="wiki-comments-' + id + '"></div></div></div>';
+        '<h1 style="font-size:1.4rem;font-weight:700;margin-bottom:10px;line-height:1.3">' + App.esc(art.title) + '</h1>' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border);font-size:.78rem;color:var(--text2)">' +
+          '<span><i class="fas fa-user" style="color:var(--green2)"></i> ' + App.esc(author) + '</span>' +
+          '<span><i class="fas fa-arrow-up" style="color:var(--orange2)"></i> ' + (art.votes || 0) + ' votes</span>' +
+        '</div>' +
+        '<div style="line-height:1.85;font-size:.9rem;color:var(--text);white-space:pre-wrap;margin-bottom:24px">' + App.esc(art.content) + '</div>' +
+        '<div style="display:flex;gap:8px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap">';
+      if (App.currentUser) {
+        html += '<button class="btn btn--outline" onclick="UI.voteArticle(\'' + id + '\')"><i class="fas fa-arrow-up"></i> Voter</button>';
+      }
+      if (isAuthor || isAdmin) {
+        html += '<button class="btn btn--danger" onclick="UI.deleteArticle(\'' + id + '\')"><i class="fas fa-trash"></i> Supprimer</button>';
+      }
+      html += '</div>';
+      if (App.currentUser) {
+        html += '<div style="margin-top:20px;border-top:1px solid var(--border);padding-top:14px">' +
+          '<div style="font-size:.85rem;font-weight:700;margin-bottom:10px"><i class="fas fa-comments" style="color:var(--green2)"></i> Commentaires</div>' +
+          '<div class="cmtform"><textarea id="article-cmt-' + id + '" placeholder="Votre commentaire..." rows="2"></textarea>' +
+          '<button class="btn btn--primary" onclick="UI.addArticleComment(\'' + id + '\')"><i class="fas fa-paper-plane"></i></button></div>' +
+          '<div id="article-cmts-' + id + '"></div></div>';
+      }
+      html += '</div>';
       container.innerHTML = html;
-      UI.openModal('modal-wiki-article');
-      this.loadWikiComments(id);
+      this.openModal('modal-article');
+      this.loadArticleComments(id);
     } catch(e) { UI.toast('Erreur', 'error'); }
   },
 
   voteArticle: async function(id) {
     if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
     try {
-      var existing = await App.supabase.from('wiki_votes').select('id').eq('article_id', id).eq('user_id', App.currentUser.id).maybeSingle();
-      if (existing.data) { await App.supabase.from('wiki_votes').delete().eq('id', existing.data.id); }
-      else { await App.supabase.from('wiki_votes').insert({ article_id: id, user_id: App.currentUser.id }); }
-      var allVotes = await App.supabase.from('wiki_votes').select('id').eq('article_id', id);
-      await App.supabase.from('wiki_articles').update({ upvotes: (allVotes.data && allVotes.data.length) || 0 }).eq('id', id);
+      var art = await App.supabase.from('wiki_articles').select('votes').eq('id', id).single();
+      var newVotes = ((art.data && art.data.votes) || 0) + 1;
+      await App.supabase.from('wiki_articles').update({ votes: newVotes }).eq('id', id);
+      UI.toast('Vote enregistré !', 'success');
+      App.trackEvent('article_voted');
       this.openArticle(id);
     } catch(e) { UI.toast('Erreur', 'error'); }
   },
 
   deleteArticle: async function(id) {
-    if (!confirm('Supprimer ?')) return;
+    if (!confirm('Supprimer cet article ?')) return;
     try {
-      await App.supabase.from('wiki_comments').delete().eq('article_id', id);
-      await App.supabase.from('wiki_votes').delete().eq('article_id', id);
       await App.supabase.from('wiki_articles').delete().eq('id', id);
-      UI.toast('Supprimé', 'success');
-      UI.closeModal('modal-wiki-article');
+      UI.toast('Article supprimé', 'success');
+      this.closeModal('modal-article');
       this.loadCommunityArticles();
     } catch(e) { UI.toast('Erreur', 'error'); }
   },
 
-  loadWikiComments: async function(articleId) {
-    var el = document.getElementById('wiki-comments-' + articleId);
+  loadArticleComments: async function(articleId) {
+    var el = document.getElementById('article-cmts-' + articleId);
     if (!el) return;
     try {
-      var result = await App.supabase.from('wiki_comments').select('*, profiles(username)').eq('article_id', articleId).order('created_at', { ascending: true });
-      if (!result.data || result.data.length === 0) { el.innerHTML = '<p style="color:var(--text3);font-size:.8rem;padding:10px">Aucun commentaire</p>'; return; }
+      var result = await App.supabase.from('article_comments').select('*, profiles(username)').eq('article_id', articleId).order('created_at', { ascending: true });
+      if (!result.data || !result.data.length) { el.innerHTML = '<p style="color:var(--text3);font-size:.78rem;padding:8px">Aucun commentaire</p>'; return; }
       var html = '';
-      for (var i = 0; i < result.data.length; i++) {
-        var c = result.data[i], name = (c.profiles && c.profiles.username) || 'Anonyme';
-        html += '<div class="cmt"><div class="cmt__av">' + name.charAt(0).toUpperCase() + '</div><div class="cmt__body"><div class="cmt__head"><span class="cmt__author">' + App.esc(name) + '</span><span class="cmt__date">' + App.ago(c.created_at) + '</span></div><div class="cmt__text">' + App.esc(c.content) + '</div></div></div>';
-      }
+      result.data.forEach(function(c) {
+        var name = (c.profiles && c.profiles.username) || 'Anonyme';
+        html += '<div class="cmt">' +
+          '<div class="cmt__av">' + name.charAt(0).toUpperCase() + '</div>' +
+          '<div class="cmt__body">' +
+            '<div class="cmt__head"><span class="cmt__author">' + App.esc(name) + '</span><span class="cmt__date">' + App.ago(c.created_at) + '</span></div>' +
+            '<div class="cmt__text">' + App.esc(c.content) + '</div>' +
+          '</div></div>';
+      });
       el.innerHTML = html;
     } catch(e) {}
   },
 
-  addWikiComment: async function(articleId) {
+  addArticleComment: async function(articleId) {
     if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
-    var input = document.getElementById('wiki-comment-' + articleId);
+    var input = document.getElementById('article-cmt-' + articleId);
     if (!input) return;
     var content = input.value.trim();
     if (!content || content.length < 2) { UI.toast('Trop court', 'warning'); return; }
     try {
-      await App.supabase.from('wiki_comments').insert({ article_id: articleId, user_id: App.currentUser.id, content: content });
+      var result = await App.supabase.from('article_comments').insert({ article_id: articleId, user_id: App.currentUser.id, content: content });
+      if (result.error) throw result.error;
       input.value = '';
       UI.toast('Commentaire ajouté', 'success');
-      this.loadWikiComments(articleId);
+      this.loadArticleComments(articleId);
     } catch(e) { UI.toast('Erreur', 'error'); }
   },
 
   wikiWrite: function() {
-    var btnNew = document.getElementById('btn-new-article');
-    if (btnNew) btnNew.addEventListener('click', function() {
-      if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
-      UI.openModal('modal-wiki-write');
-    });
-    var waContent = document.getElementById('wa-content');
-    var waCount = document.getElementById('wa-char-count');
-    if (waContent && waCount) {
-      waContent.addEventListener('input', function() {
-        waCount.textContent = waContent.value.length;
-        var preview = document.getElementById('wa-preview');
-        if (preview && typeof marked !== 'undefined' && waContent.value.length > 0) { preview.style.display = 'block'; preview.innerHTML = marked.parse(waContent.value); }
-        else if (preview) preview.style.display = 'none';
+    var self = this;
+    var writeBtn = document.getElementById('btn-wiki-write');
+    if (writeBtn) {
+      writeBtn.addEventListener('click', function() {
+        if (!App.currentUser) { UI.toast('Connectez-vous pour contribuer', 'warning'); return; }
+        UI.openModal('modal-wiki-write');
       });
     }
-    var form = document.getElementById('wiki-write-form');
-    if (form) form.addEventListener('submit', function(e) { e.preventDefault(); UI.publishArticle(); });
+    var previewBtn = document.getElementById('btn-wiki-preview');
+    var contentInput = document.getElementById('wiki-write-content');
+    var previewEl = document.getElementById('wiki-write-preview');
+    if (previewBtn && contentInput && previewEl) {
+      previewBtn.addEventListener('click', function() {
+        var text = contentInput.value.trim();
+        previewEl.style.display = text ? 'block' : 'none';
+        if (text) {
+          previewEl.innerHTML = '<div style="padding:14px;background:var(--bg3);border-radius:var(--r);border:1px solid var(--border);font-size:.85rem;line-height:1.8;white-space:pre-wrap">' + App.esc(text) + '</div>';
+        }
+      });
+    }
+    var publishBtn = document.getElementById('btn-wiki-publish');
+    if (publishBtn) {
+      publishBtn.addEventListener('click', function() { self.publishArticle(); });
+    }
   },
 
   publishArticle: async function() {
-    if (!App.currentUser || !App.currentProfile) return;
-    var title = document.getElementById('wa-title').value.trim();
-    var content = document.getElementById('wa-content').value.trim();
-    var category = document.getElementById('wa-category').value;
-    if (!title || title.length < 3) { UI.toast('Titre trop court', 'warning'); return; }
-    if (!content || content.length < 10) { UI.toast('Contenu trop court', 'warning'); return; }
+    if (!App.currentUser) { UI.toast('Connectez-vous', 'warning'); return; }
+    var titleInput = document.getElementById('wiki-write-title');
+    var categoryInput = document.getElementById('wiki-write-category');
+    var contentInput = document.getElementById('wiki-write-content');
+    if (!titleInput || !contentInput) return;
+    var title = titleInput.value.trim();
+    var category = categoryInput ? categoryInput.value.trim() : 'Général';
+    var content = contentInput.value.trim();
+    if (!title || title.length < 5) { UI.toast('Titre trop court (min 5)', 'warning'); return; }
+    if (!content || content.length < 50) { UI.toast('Contenu trop court (min 50 caractères)', 'warning'); return; }
     var btn = document.getElementById('btn-wiki-publish');
-    btn.disabled = true;
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Publication...'; }
     try {
-      var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title, description: content, context: 'wiki' }) });
+      var modResp = await fetch('/api/moderate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title, description: content }) });
       var modData = await modResp.json();
-      if (modData.flagged && modData.cleaned) { title = modData.cleaned.title; content = modData.cleaned.description; }
-      var slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36);
-      var pollData = typeof Polls !== 'undefined' ? Polls.getData() : null;
-      await App.supabase.from('wiki_articles').insert({ slug: slug, title: title, content: content, category: category, author_id: App.currentUser.id, author_name: App.currentProfile.username || 'Anonyme', poll_data: pollData });
-      await App.supabase.from('profiles').update({ reputation: (App.currentProfile.reputation || 0) + 15 }).eq('id', App.currentUser.id);
-      App.currentProfile.reputation = (App.currentProfile.reputation || 0) + 15;
-      UI.closeModal('modal-wiki-write');
-      UI.toast('Publié ! +15 pts 🎉', 'success');
-      document.getElementById('wiki-write-form').reset();
+      if (modData.flagged && modData.cleaned) {
+        title = modData.cleaned.title;
+        content = modData.cleaned.description;
+        UI.toast('Contenu reformulé automatiquement', 'info');
+      }
+      var slug = title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').substring(0, 80) + '-' + Date.now();
+      var result = await App.supabase.from('wiki_articles').insert({
+        title: title,
+        content: content,
+        category: category || 'Général',
+        slug: slug,
+        user_id: App.currentUser.id,
+        published: true,
+        votes: 0
+      });
+      if (result.error) throw result.error;
+      if (App.currentProfile) {
+        var newRep = (App.currentProfile.reputation || 0) + 15;
+        await App.supabase.from('profiles').update({ reputation: newRep }).eq('id', App.currentUser.id);
+        App.currentProfile.reputation = newRep;
+        if (typeof Auth !== 'undefined') Auth.updateUI(true);
+      }
+      titleInput.value = '';
+      if (categoryInput) categoryInput.value = '';
+      contentInput.value = '';
+      var previewEl = document.getElementById('wiki-write-preview');
+      if (previewEl) previewEl.style.display = 'none';
+      this.closeModal('modal-wiki-write');
+      UI.toast('Article publié ! +15 pts 🎉', 'success');
+      App.trackEvent('article_published');
       this.loadCommunityArticles();
-    } catch(e) { UI.toast('Erreur', 'error'); }
-    btn.disabled = false;
+    } catch(e) {
+      UI.toast('Erreur : ' + (e.message || 'Échec'), 'error');
+    }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Publier'; }
   },
 
   contactEmail: function() {
-    var link = document.getElementById('contact-email-link');
-    var display = document.getElementById('contact-email-display');
-    var email = (App.config && App.config.contactEmail) || 'maxenceponche971@gmail.com';
-    if (link) link.href = 'mailto:' + email;
-    if (display) display.textContent = email;
+    var links = document.querySelectorAll('.contact-link[data-email]');
+    links.forEach(function(link) {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        var email = link.getAttribute('data-email');
+        if (email) window.location.href = 'mailto:' + email;
+      });
+    });
+  },
+
+  networkStatus: function() {
+    window.addEventListener('offline', function() {
+      UI.toast('Connexion perdue — mode hors ligne', 'warning');
+    });
+    window.addEventListener('online', function() {
+      UI.toast('Connexion rétablie', 'success');
+      if (typeof Reports !== 'undefined') Reports.loadAll();
+    });
   },
 
   openPublicProfile: async function(userId) {
     if (!userId || !App.supabase) return;
+    var container = document.getElementById('public-profile-container');
+    if (!container) return;
+    container.innerHTML = '<div class="wiki__load"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;display:block;margin-bottom:12px"></i> Chargement...</div>';
+    this.openModal('modal-public-profile');
     try {
       var result = await App.supabase.from('profiles').select('*').eq('id', userId).single();
-      if (!result.data) return;
-      var p = result.data;
-      var initial = p.username ? p.username.charAt(0).toUpperCase() : '?';
-      var level = typeof Auth !== 'undefined' ? Auth._getLevel(p.reputation || 0) : { name: '?', num: 1 };
-      var resolved = 0;
-      App.reports.forEach(function(r) { if (r.user_id === userId && r.status === 'resolved') resolved++; });
-      var container = document.getElementById('report-detail');
-      if (!container) return;
-      container.innerHTML = '<div class="pub-profile"><div class="pub-profile__avatar">' + initial + '</div><div class="pub-profile__name">' + App.esc(p.username || 'Anonyme') + '</div><div class="pub-profile__meta">' + (p.commune ? '<i class="fas fa-map-marker-alt"></i> ' + App.esc(p.commune) + ' · ' : '') + 'Niv. ' + level.num + '</div><div class="pub-profile__stats"><div class="profile__stat"><div class="profile__stat-value">' + (p.reports_count || 0) + '</div><div class="profile__stat-label">Signalements</div></div><div class="profile__stat profile__stat--green"><div class="profile__stat-value">' + resolved + '</div><div class="profile__stat-label">Résolus</div></div><div class="profile__stat profile__stat--yellow"><div class="profile__stat-value">' + (p.reputation || 0) + '</div><div class="profile__stat-label">Réputation</div></div></div></div>';
-      UI.openModal('modal-detail');
-    } catch(e) {}
-  },
-
-  networkStatus: function() {
-    window.addEventListener('offline', function() { UI.toast('Hors ligne', 'warning'); });
-    window.addEventListener('online', function() { UI.toast('Connexion rétablie', 'success'); if (typeof Reports !== 'undefined') Reports.loadAll(); });
+      if (!result.data) { container.innerHTML = '<p style="color:var(--text3);padding:20px;text-align:center">Profil introuvable</p>'; return; }
+      var u = result.data;
+      var initial = (u.username || '?').charAt(0).toUpperCase();
+      var repsCount = await App.supabase.from('reports').select('id', { count: 'exact' }).eq('user_id', userId);
+      var resolvedCount = await App.supabase.from('reports').select('id', { count: 'exact' }).eq('user_id', userId).eq('status', 'resolved');
+      var total = (repsCount.count) || 0;
+      var resolved = (resolvedCount.count) || 0;
+      var html = '<div class="pub-profile">' +
+        '<div class="pub-profile__avatar">' + initial + '</div>' +
+        '<div class="pub-profile__name">' + App.esc(u.username || 'Citoyen') + '</div>' +
+        '<div class="pub-profile__meta">' +
+          (u.commune ? '<span><i class="fas fa-map-pin"></i> ' + App.esc(u.commune) + '</span> · ' : '') +
+          '<span>Membre depuis ' + App.formatDate(u.created_at) + '</span>' +
+        '</div>' +
+        '<div class="pub-profile__stats">' +
+          '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center">' +
+            '<div style="font-size:1.3rem;font-weight:800;color:var(--blue2)">' + total + '</div>' +
+            '<div style="font-size:.65rem;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-top:3px">Signalements</div>' +
+          '</div>' +
+          '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center">' +
+            '<div style="font-size:1.3rem;font-weight:800;color:var(--green2)">' + resolved + '</div>' +
+            '<div style="font-size:.65rem;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-top:3px">Résolus</div>' +
+          '</div>' +
+          '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center">' +
+            '<div style="font-size:1.3rem;font-weight:800;color:var(--yellow2)">' + (u.reputation || 0) + '</div>' +
+            '<div style="font-size:.65rem;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-top:3px">Points</div>' +
+          '</div>' +
+        '</div>';
+      if (u.badges && u.badges.length) {
+        html += '<div style="margin-top:16px;text-align:left"><div style="font-size:.78rem;font-weight:700;margin-bottom:8px"><i class="fas fa-medal" style="color:var(--yellow2)"></i> Badges</div><div style="display:flex;flex-wrap:wrap;gap:6px">';
+        u.badges.forEach(function(b) {
+          html += '<span style="padding:3px 10px;background:var(--yellow-bg);color:var(--yellow2);border-radius:3px;font-size:.68rem;font-weight:700">' + App.esc(b) + '</span>';
+        });
+        html += '</div></div>';
+      }
+      html += '</div>';
+      container.innerHTML = html;
+    } catch(e) {
+      container.innerHTML = '<p style="color:var(--text3);padding:20px;text-align:center">Erreur de chargement</p>';
+    }
   },
 
   toast: function(msg, type) {
     type = type || 'info';
-    var container = document.getElementById('toast-container');
-    if (!container) return;
-    var icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+    var icons = { success: 'fa-check-circle', error: 'fa-times-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+    var container = document.getElementById('toasts');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'toasts';
+      container.className = 'toasts';
+      document.body.appendChild(container);
+    }
     var toast = document.createElement('div');
     toast.className = 'toast toast--' + type;
-    toast.innerHTML = '<i class="toast__ico fas ' + (icons[type] || icons.info) + '"></i><span class="toast__msg">' + App.esc(msg) + '</span><button class="toast__x" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>';
+    toast.innerHTML = '<span class="toast__ico"><i class="fas ' + (icons[type] || icons.info) + '"></i></span>' +
+      '<span class="toast__msg">' + App.esc(msg) + '</span>' +
+      '<button class="toast__x" onclick="this.parentNode.remove()"><i class="fas fa-times"></i></button>';
     container.appendChild(toast);
-    setTimeout(function() { if (toast.parentElement) toast.remove(); }, 4000);
+    setTimeout(function() {
+      if (toast.parentNode) {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(80px)';
+        toast.style.transition = 'all .25s ease';
+        setTimeout(function() { if (toast.parentNode) toast.remove(); }, 250);
+      }
+    }, 4000);
   }
 };
