@@ -710,8 +710,8 @@ var Reports = {
       } catch(e) {}
 
       var imageUrls = [];
-      if (!isAnonymous && typeof ImageUpload !== 'undefined') {
-        try { imageUrls = await ImageUpload.uploadAll(); } catch(e) { console.warn('Upload error:', e); }
+      if (typeof ImageUpload !== 'undefined') {
+         try { imageUrls = await ImageUpload.uploadAll(); } catch(e) { console.warn('Upload error:', e); }
       }
 
       var reportData = {
