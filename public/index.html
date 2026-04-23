@@ -1,798 +1,1154 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Gwadloup Alert - Plateforme citoyenne de signalement pour la Guadeloupe. Signalez les problèmes, contribuez au wiki communautaire.">
-  <meta name="theme-color" content="#161b22">
-  <meta property="og:title" content="Gwadloup Alert - Signalement citoyen Guadeloupe">
-  <meta property="og:description" content="Signalez les problèmes urbains en Guadeloupe. Carte interactive, wiki communautaire, 100% gratuit.">
-  <meta property="og:url" content="https://gwadloup.onrender.com/">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="description" content="Gwadloup Alert — Signalez les problèmes de votre commune en Guadeloupe. Nids de poule, dépôts sauvages, inondations... Ensemble, améliorons notre île.">
+  <meta name="theme-color" content="#16a34a">
+  <meta property="og:title" content="Gwadloup Alert 🏝️">
+  <meta property="og:description" content="Plateforme citoyenne de signalement en Guadeloupe">
   <meta property="og:type" content="website">
-  <title>Gwadloup Alert — Signalement citoyen Guadeloupe</title>
+  <meta property="og:image" content="/img/og.png">
+  <title>Gwadloup Alert 🏝️</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏝️</text></svg>">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700;800&display=swap">
   <link rel="stylesheet" href="/css/style.css">
-  <link rel="manifest" href="/manifest.json">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <!-- Dans votre <head> de index.html, ajoutez : -->
   <style>
-  #app-splash{position:fixed;inset:0;background:#f0f0f0;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:99999;transition:opacity .4s ease}
-  #app-splash.hide{opacity:0;pointer-events:none}
-  #app-splash__logo{font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:800;color:#1a1a1a;margin-bottom:8px}
-  #app-splash__logo span{color:#16a34a}
-  #app-splash__sub{font-size:.78rem;color:#888;margin-bottom:28px;font-family:'JetBrains Mono',monospace}
-  #app-splash__bar{width:180px;height:3px;background:#e0e0e0;border-radius:2px;overflow:hidden}
-  #app-splash__fill{height:100%;width:0%;background:linear-gradient(90deg,#16a34a,#22c55e);border-radius:2px;animation:splashfill 1.8s ease forwards}
-  @keyframes splashfill{0%{width:0%}60%{width:75%}100%{width:100%}}
+    #app-splash{position:fixed;inset:0;background:#f0f0f0;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:99999;transition:opacity .4s ease}
+    #app-splash.hide{opacity:0;pointer-events:none}
+    #app-splash__logo{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:800;color:#1a1a1a;margin-bottom:6px;letter-spacing:-.5px}
+    #app-splash__logo span{color:#16a34a}
+    #app-splash__sub{font-size:.75rem;color:#888;margin-bottom:28px;font-family:'JetBrains Mono',monospace;letter-spacing:.5px}
+    #app-splash__bar{width:160px;height:3px;background:#e0e0e0;border-radius:2px;overflow:hidden}
+    #app-splash__fill{height:100%;width:0%;background:linear-gradient(90deg,#16a34a,#22c55e);border-radius:2px;animation:splashfill 2s ease forwards}
+    @keyframes splashfill{0%{width:0%}70%{width:80%}100%{width:100%}}
   </style>
 </head>
 <body>
- <div id="app-splash">
-   <div id="app-splash__logo">Gwad<span>Alert</span></div>
-   <div id="app-splash__sub">Chargement...</div>
-   <div id="app-splash__bar"><div id="app-splash__fill"></div></div>
- </div>
 
-  <!-- HEADER -->
-  <header class="hdr">
-    <div class="hdr__in">
-      <a href="#" class="hdr__logo" id="logo-link">gwadloup<span>alert</span></a>
+<!-- ═══════════════════════════════════════
+     SPLASH SCREEN
+════════════════════════════════════════ -->
+<div id="app-splash">
+  <div id="app-splash__logo">Gwad<span>Alert</span></div>
+  <div id="app-splash__sub">Chargement...</div>
+  <div id="app-splash__bar"><div id="app-splash__fill"></div></div>
+</div>
 
-      <nav class="hdr__nav" id="main-nav">
-        <button class="hdr__tab active" data-view="map"><i class="fas fa-map-marked-alt"></i><span>Carte</span></button>
-        <button class="hdr__tab" data-view="list"><i class="fas fa-list"></i><span>Liste</span></button>
-        <button class="hdr__tab" data-view="stats"><i class="fas fa-chart-bar"></i><span>Stats</span></button>
-        <button class="hdr__tab" data-view="wiki"><i class="fas fa-book-open"></i><span>Wiki</span></button>
-        <button class="hdr__tab" data-view="community"><i class="fas fa-users"></i><span>Communauté</span></button>
-      </nav>
+<!-- ═══════════════════════════════════════
+     LOADER LEGACY (fallback actions)
+════════════════════════════════════════ -->
+<div class="loader" id="loading-overlay">
+  <div class="loader__in">
+    <div class="loader__grid">
+      <div class="loader__cell"></div><div class="loader__cell"></div><div class="loader__cell"></div>
+      <div class="loader__cell"></div><div class="loader__cell"></div><div class="loader__cell"></div>
+      <div class="loader__cell"></div><div class="loader__cell"></div><div class="loader__cell"></div>
+    </div>
+    <div class="loader__text"><span>Gwad</span>Alert</div>
+  </div>
+</div>
 
-      <div class="hdr__right">
-        <button class="btn btn--accent" id="btn-new-report"><i class="fas fa-plus"></i><span>Signaler</span></button>
+<!-- ═══════════════════════════════════════
+     TOASTS
+════════════════════════════════════════ -->
+<div class="toasts" id="toasts"></div>
 
-        <div id="auth-buttons">
-          <button class="btn btn--ghost" id="btn-login"><i class="fas fa-sign-in-alt"></i><span>Connexion</span></button>
-          <button class="btn btn--primary" id="btn-register"><i class="fas fa-user-plus"></i><span>Inscription</span></button>
-        </div>
+<!-- ═══════════════════════════════════════
+     HEADER
+════════════════════════════════════════ -->
+<header class="hdr" id="main-header">
+  <div class="hdr__in">
 
-        <div class="umenu" id="user-menu" style="display:none">
-          <button class="umenu__btn" id="user-menu-btn">
-            <div class="umenu__av" id="user-avatar">C</div>
-            <span class="umenu__name" id="user-display-name">Citoyen</span>
+    <a class="hdr__logo" href="#">
+      Gwad<span>Alert</span>
+    </a>
+
+    <nav class="hdr__nav" id="main-nav">
+      <button class="hdr__tab active" data-view="map">
+        <i class="fas fa-map"></i> Carte
+      </button>
+      <button class="hdr__tab" data-view="list">
+        <i class="fas fa-list"></i> Liste
+      </button>
+      <button class="hdr__tab" data-view="stats">
+        <i class="fas fa-chart-bar"></i> Stats
+      </button>
+      <button class="hdr__tab" data-view="wiki">
+        <i class="fas fa-book"></i> Wiki
+      </button>
+      <button class="hdr__tab" data-view="community">
+        <i class="fas fa-users"></i> Communauté
+      </button>
+    </nav>
+
+    <div class="hdr__right">
+
+      <!-- Bouton signaler visible desktop -->
+      <button class="btn btn--primary" id="btn-open-report" onclick="UI.openReportForm()" style="display:none">
+        <i class="fas fa-plus"></i> <span>Signaler</span>
+      </button>
+
+      <!-- Thème -->
+      <button class="btn btn--ghost" onclick="App.toggleTheme()" title="Changer le thème" style="width:34px;height:34px;padding:0">
+        <i class="fas fa-circle-half-stroke"></i>
+      </button>
+
+      <!-- Auth : non connecté -->
+      <div id="auth-guest" style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn--outline" onclick="UI.openModal('modal-login')">
+          <i class="fas fa-sign-in-alt"></i> <span>Connexion</span>
+        </button>
+        <button class="btn btn--primary" onclick="UI.openModal('modal-register')">
+          <i class="fas fa-user-plus"></i> <span>S'inscrire</span>
+        </button>
+      </div>
+
+      <!-- Auth : connecté -->
+      <div id="auth-user" style="display:none">
+        <div class="umenu" id="user-menu">
+          <button class="umenu__btn" onclick="UI.toggleUserMenu()">
+            <div class="umenu__av" id="user-avatar-hdr">?</div>
+            <span class="umenu__name" id="user-name-hdr">Utilisateur</span>
             <i class="fas fa-chevron-down" style="font-size:.6rem;color:var(--text3)"></i>
           </button>
           <div class="umenu__drop" id="user-dropdown">
             <div class="umenu__head">
-              <div class="umenu__av-lg" id="dropdown-avatar">C</div>
+              <div class="umenu__av-lg" id="user-avatar-drop">?</div>
               <div>
-                <div class="umenu__dn" id="dropdown-name">Citoyen</div>
-                <div class="umenu__rep" id="dropdown-rep">0 pts</div>
+                <div class="umenu__dn" id="user-fullname-drop">Utilisateur</div>
+                <div class="umenu__rep"><i class="fas fa-star" style="color:var(--yellow2)"></i> <span id="user-rep-drop">0</span> pts</div>
               </div>
             </div>
             <div class="umenu__sep"></div>
-            <button class="umenu__item" id="btn-my-reports"><i class="fas fa-flag"></i>Mes signalements</button>
-            <button class="umenu__item" id="btn-profile"><i class="fas fa-cog"></i>Profil</button>
+            <button class="umenu__item" onclick="UI.openModal('modal-my-reports');UI.closeUserMenu()">
+              <i class="fas fa-flag"></i> Mes signalements
+            </button>
+            <button class="umenu__item" onclick="UI.openModal('modal-profile');UI.closeUserMenu()">
+              <i class="fas fa-user-cog"></i> Mon profil
+            </button>
+            <button class="umenu__item umenu__item--special" id="admin-menu-btn" style="display:none" onclick="UI.openModal('modal-admin');UI.closeUserMenu()">
+              <i class="fas fa-shield-alt"></i> Administration
+            </button>
             <div class="umenu__sep"></div>
-            <div id="admin-section" style="display:none">
-              <button class="umenu__item umenu__item--special" id="btn-admin"><i class="fas fa-shield-alt"></i>Admin</button>
-              <div class="umenu__sep"></div>
-            </div>
-            <button class="umenu__item umenu__item--danger" id="btn-logout"><i class="fas fa-sign-out-alt"></i>Déconnexion</button>
+            <button class="umenu__item umenu__item--danger" onclick="Auth.logout();UI.closeUserMenu()">
+              <i class="fas fa-sign-out-alt"></i> Déconnexion
+            </button>
           </div>
         </div>
-
-        <button class="burger" id="burger-menu"><span></span><span></span><span></span></button>
       </div>
+
+      <!-- Burger mobile -->
+      <button class="burger" id="burger-btn" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+
     </div>
-  </header>
+  </div>
+</header>
 
-  <!-- MAIN -->
-  <main class="main">
+<!-- ═══════════════════════════════════════
+     MAIN
+════════════════════════════════════════ -->
+<main class="main">
 
-    <!-- VUE CARTE -->
-    <section class="view active" id="view-map">
-      <div class="map-page">
-        <div class="topbar">
-          <div class="topbar__in">
-            <div class="topbar__stats">
-              <div class="ts"><strong id="stat-total">0</strong><span>total</span></div>
-              <div class="ts ts--warn"><strong id="stat-pending">0</strong><span>attente</span></div>
-              <div class="ts ts--info"><strong id="stat-progress">0</strong><span>cours</span></div>
-              <div class="ts ts--ok"><strong id="stat-resolved">0</strong><span>résolus</span></div>
+  <!-- ════════════════════════════
+       VUE CARTE
+  ═════════════════════════════ -->
+  <section class="view active" id="view-map">
+    <div class="map-page">
+
+      <div class="topbar">
+        <div class="topbar__in">
+          <div class="topbar__stats">
+            <div class="ts ts--info">
+              <i class="fas fa-flag"></i>&nbsp;
+              <strong id="stat-total">0</strong>&nbsp;signalements
             </div>
-            <div class="topbar__filters">
-              <select class="sel" id="filter-category">
-                <option value="">Catégorie</option>
-                <optgroup label="Routes">
-                  <option value="pothole">Nid de poule</option>
-                  <option value="dangerous_road">Route dangereuse</option>
-                  <option value="damaged_sign">Signalisation</option>
-                  <option value="missing_marking">Marquage</option>
-                  <option value="speed_bump_needed">Ralentisseur</option>
-                </optgroup>
-                <optgroup label="Véhicules">
-                  <option value="abandoned_vehicle">Véhicule abandonné</option>
-                  <option value="abandoned_boat">Bateau abandonné</option>
-                </optgroup>
-                <optgroup label="Déchets">
-                  <option value="illegal_dump">Dépôt sauvage</option>
-                  <option value="beach_pollution">Pollution plage</option>
-                  <option value="river_pollution">Pollution rivière</option>
-                  <option value="overflowing_bin">Poubelle pleine</option>
-                </optgroup>
-                <optgroup label="Éclairage">
-                  <option value="broken_light">Éclairage</option>
-                  <option value="exposed_cable">Câble exposé</option>
-                </optgroup>
-                <optgroup label="Eau">
-                  <option value="water_leak">Fuite</option>
-                  <option value="flooding">Inondation</option>
-                  <option value="sewer_issue">Égout</option>
-                  <option value="stagnant_water">Eau stagnante</option>
-                </optgroup>
-                <optgroup label="Végétation">
-                  <option value="vegetation">Végétation</option>
-                  <option value="fallen_tree">Arbre tombé</option>
-                  <option value="invasive_species">Espèce invasive</option>
-                </optgroup>
-                <optgroup label="Infrastructure">
-                  <option value="damaged_building">Bâtiment</option>
-                  <option value="abandoned_building">Abandonné</option>
-                  <option value="damaged_sidewalk">Trottoir</option>
-                  <option value="missing_railing">Garde-fou</option>
-                </optgroup>
-                <optgroup label="Sécurité">
-                  <option value="dangerous_area">Zone dangereuse</option>
-                  <option value="missing_crosswalk">Passage piéton</option>
-                  <option value="school_zone_issue">Zone scolaire</option>
-                </optgroup>
-                <optgroup label="Nuisances">
-                  <option value="noise">Bruit</option>
-                  <option value="stray_animals">Animaux errants</option>
-                  <option value="mosquito_breeding">Moustiques</option>
-                </optgroup>
-                <option value="other">Autre</option>
-              </select>
-
-              <select class="sel" id="filter-status">
-                <option value="">Statut</option>
-                <option value="pending">En attente</option>
-                <option value="acknowledged">Pris en compte</option>
-                <option value="in_progress">En cours</option>
-                <option value="resolved">Résolu</option>
-              </select>
-
-              <select class="sel" id="filter-commune">
-                <option value="">Commune</option>
-                <optgroup label="Grande-Terre">
-                  <option>Les Abymes</option><option>Anse-Bertrand</option><option>Le Gosier</option>
-                  <option>Le Moule</option><option>Morne-à-l'Eau</option><option>Petit-Canal</option>
-                  <option>Pointe-à-Pitre</option><option>Port-Louis</option><option>Saint-François</option>
-                  <option>Sainte-Anne</option>
-                </optgroup>
-                <optgroup label="Basse-Terre">
-                  <option>Baie-Mahault</option><option>Baillif</option><option>Basse-Terre</option>
-                  <option>Bouillante</option><option>Capesterre-Belle-Eau</option><option>Deshaies</option>
-                  <option>Gourbeyre</option><option>Goyave</option><option>Lamentin</option>
-                  <option>Petit-Bourg</option><option>Pointe-Noire</option><option>Saint-Claude</option>
-                  <option>Sainte-Rose</option><option>Trois-Rivières</option><option>Vieux-Fort</option>
-                  <option>Vieux-Habitants</option>
-                </optgroup>
-                <optgroup label="Marie-Galante">
-                  <option>Capesterre-de-Marie-Galante</option><option>Grand-Bourg</option><option>Saint-Louis</option>
-                </optgroup>
-                <optgroup label="Les Saintes">
-                  <option>Terre-de-Haut</option><option>Terre-de-Bas</option>
-                </optgroup>
-                <optgroup label="La Désirade">
-                  <option>La Désirade</option>
-                </optgroup>
-              </select>
-
-              <button class="topbar__reset" id="btn-reset-filters" title="Réinitialiser"><i class="fas fa-undo"></i></button>
+            <div class="ts ts--warn">
+              <i class="fas fa-clock"></i>&nbsp;
+              <strong id="stat-pending">0</strong>&nbsp;en attente
+            </div>
+            <div class="ts ts--info">
+              <i class="fas fa-spinner"></i>&nbsp;
+              <strong id="stat-progress">0</strong>&nbsp;en cours
+            </div>
+            <div class="ts ts--ok">
+              <i class="fas fa-check"></i>&nbsp;
+              <strong id="stat-resolved">0</strong>&nbsp;résolus
             </div>
           </div>
-        </div>
-        <div class="map-container" id="map"></div>
-      </div>
-    </section>
-
-    <!-- VUE LISTE -->
-    <section class="view" id="view-list">
-      <div class="container">
-        <div class="sec-head">
-          <div>
-            <h1><i class="fas fa-list-ul"></i> Signalements</h1>
-            <p id="list-subtitle">Tous les signalements de la communauté</p>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <select class="sel" id="sort-reports">
-              <option value="newest">Plus récents</option>
-              <option value="oldest">Plus anciens</option>
-              <option value="most-voted">Plus soutenus</option>
-            </select>
-            <button class="btn btn--outline" id="btn-toggle-view" title="Changer de vue"><i class="fas fa-th-large"></i></button>
-          </div>
-        </div>
-        <div class="list-header" id="list-header">
-          <div class="list-header__left">
-            <span class="list-header__count"><i class="fas fa-exclamation-circle"></i> <span id="list-count">0</span> signalements</span>
-          </div>
-          <div class="list-header__tabs">
-            <button class="list-header__tab active" data-filter="">Tous</button>
-            <button class="list-header__tab" data-filter="pending">En attente</button>
-            <button class="list-header__tab" data-filter="in_progress">En cours</button>
-            <button class="list-header__tab" data-filter="resolved">Résolus</button>
-          </div>
-        </div>
-        <div class="grid" id="reports-grid"></div>
-        <div class="empty" id="list-empty" style="display:none">
-          <i class="fas fa-inbox"></i>
-          <h3>Aucun signalement</h3>
-          <p>Soyez le premier à signaler un problème</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- VUE STATS -->
-    <section class="view" id="view-stats">
-      <div class="container">
-        <div class="sec-head">
-          <div><h1><i class="fas fa-chart-bar"></i> Tableau de bord</h1><p>Statistiques en temps réel de la plateforme</p></div>
-        </div>
-        <div class="stats-hero">
-          <div class="sc sc--b">
-            <div class="sc__icon"><i class="fas fa-flag"></i></div>
-            <div class="sc__v" id="stats-total">0</div>
-            <div class="sc__l">Total signalements</div>
-            <div class="sc__bar"><div class="sc__bar-fill" style="width:100%;background:var(--blue)"></div></div>
-          </div>
-          <div class="sc sc--o">
-            <div class="sc__icon"><i class="fas fa-clock"></i></div>
-            <div class="sc__v" id="stats-pending">0</div>
-            <div class="sc__l">En attente</div>
-            <div class="sc__bar"><div class="sc__bar-fill" id="bar-pending" style="width:0%;background:var(--orange)"></div></div>
-          </div>
-          <div class="sc sc--p">
-            <div class="sc__icon"><i class="fas fa-wrench"></i></div>
-            <div class="sc__v" id="stats-in-progress">0</div>
-            <div class="sc__l">En cours</div>
-            <div class="sc__bar"><div class="sc__bar-fill" id="bar-progress" style="width:0%;background:var(--purple)"></div></div>
-          </div>
-          <div class="sc sc--g">
-            <div class="sc__icon"><i class="fas fa-check-circle"></i></div>
-            <div class="sc__v" id="stats-resolved">0</div>
-            <div class="sc__l">Résolus</div>
-            <div class="sc__bar"><div class="sc__bar-fill" id="bar-resolved" style="width:0%;background:var(--green)"></div></div>
-          </div>
-        </div>
-        <div class="charts-row">
-          <div class="cbox"><h3><i class="fas fa-tags"></i> Par catégorie</h3><div id="chart-categories"></div></div>
-          <div class="cbox"><h3><i class="fas fa-map-marker-alt"></i> Par commune</h3><div id="chart-communes"></div></div>
-        </div>
-        <div class="mairie-section">
-          <div class="mairie-banner">
-            <div class="mairie-banner__icon"><i class="fas fa-landmark"></i></div>
-            <div class="mairie-banner__content">
-              <div class="mairie-banner__title">Espace Mairies <span class="verified"><i class="fas fa-check-circle"></i></span></div>
-              <div class="mairie-banner__desc">Suivi des signalements par commune. Les mairies partenaires peuvent répondre directement aux citoyens.</div>
-            </div>
-            <div class="mairie-banner__action">
-              <a href="mailto:maxenceponche971@gmail.com?subject=Partenariat%20Mairie%20Gwadloup%20Alert" class="btn btn--primary btn--lg">
-                <i class="fas fa-handshake"></i> Devenir partenaire
-              </a>
-            </div>
-          </div>
-          <div class="mairie-grid" id="mairie-grid"></div>
-        </div>
-        <div class="cbox"><h3><i class="fas fa-trophy"></i> Top contributeurs</h3><div id="leaderboard-list"></div></div>
-      </div>
-    </section>
-
-    <!-- VUE WIKI -->
-    <section class="view" id="view-wiki">
-      <div class="container">
-        <div class="sec-head">
-          <div><h1><i class="fas fa-book-open"></i> Wiki & Forum</h1><p>Documentation officielle et articles communautaires</p></div>
-          <button class="btn btn--primary" id="btn-new-article" style="display:none"><i class="fas fa-pen"></i> Écrire un article</button>
-        </div>
-        <div class="wiki-tabs">
-          <button class="wiki-tab active" data-wtab="official"><i class="fas fa-book"></i> Documentation</button>
-          <button class="wiki-tab" data-wtab="community"><i class="fas fa-users"></i> Articles communautaires</button>
-        </div>
-        <div class="wiki-panel active" id="wpanel-official">
-          <div class="wiki">
-            <aside class="wiki__side">
-              <h3><i class="fas fa-book"></i> Guides</h3>
-              <nav id="wiki-nav"></nav>
-            </aside>
-            <article class="wiki__body" id="wiki-content"><p class="wiki__load">Chargement...</p></article>
-          </div>
-        </div>
-        <div class="wiki-panel" id="wpanel-community">
-          <div class="wiki-filters">
-            <select class="sel" id="wiki-cat-filter">
+          <div class="topbar__filters">
+            <select class="sel" id="filter-category">
               <option value="">Toutes catégories</option>
-              <option value="guide">📖 Guide</option>
-              <option value="info">ℹ️ Info</option>
-              <option value="discussion">💬 Discussion</option>
-              <option value="proposition">💡 Proposition</option>
-              <option value="general">📌 Général</option>
+              <option value="pothole">Nid de poule</option>
+              <option value="dangerous_road">Route dangereuse</option>
+              <option value="damaged_sign">Signalisation</option>
+              <option value="missing_marking">Marquage</option>
+              <option value="speed_bump_needed">Ralentisseur</option>
+              <option value="abandoned_vehicle">Véhicule abandonné</option>
+              <option value="abandoned_boat">Bateau abandonné</option>
+              <option value="illegal_dump">Dépôt sauvage</option>
+              <option value="beach_pollution">Pollution plage</option>
+              <option value="river_pollution">Pollution rivière</option>
+              <option value="overflowing_bin">Poubelle pleine</option>
+              <option value="broken_light">Éclairage</option>
+              <option value="exposed_cable">Câble exposé</option>
+              <option value="water_leak">Fuite d'eau</option>
+              <option value="flooding">Inondation</option>
+              <option value="sewer_issue">Assainissement</option>
+              <option value="stagnant_water">Eau stagnante</option>
+              <option value="vegetation">Végétation</option>
+              <option value="fallen_tree">Arbre tombé</option>
+              <option value="invasive_species">Espèce invasive</option>
+              <option value="damaged_building">Bâtiment endommagé</option>
+              <option value="abandoned_building">Bâtiment abandonné</option>
+              <option value="damaged_sidewalk">Trottoir</option>
+              <option value="missing_railing">Garde-fou</option>
+              <option value="dangerous_area">Zone dangereuse</option>
+              <option value="missing_crosswalk">Passage piéton</option>
+              <option value="school_zone_issue">Zone scolaire</option>
+              <option value="noise">Bruit</option>
+              <option value="stray_animals">Animaux errants</option>
+              <option value="mosquito_breeding">Moustiques</option>
+              <option value="other">Autre</option>
             </select>
-            <select class="sel" id="wiki-sort">
-              <option value="newest">Plus récents</option>
-              <option value="popular">Plus populaires</option>
+            <select class="sel" id="filter-status">
+              <option value="">Tous statuts</option>
+              <option value="pending">En attente</option>
+              <option value="acknowledged">Pris en compte</option>
+              <option value="in_progress">En cours</option>
+              <option value="resolved">Résolu</option>
+              <option value="rejected">Rejeté</option>
             </select>
-          </div>
-          <div id="community-articles-list"><p class="wiki__load">Chargement...</p></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- VUE COMMUNAUTÉ -->
-    <section class="view" id="view-community">
-      <div class="container">
-        <div class="sec-head">
-          <div><h1><i class="fas fa-users"></i> Communauté</h1><p>Proposez des tags, contactez-nous, contribuez au code</p></div>
-        </div>
-
-        <div class="cbox">
-          <h3><i class="fas fa-envelope"></i> Contact</h3>
-          <p style="font-size:.85rem;color:var(--text2);margin-bottom:10px">Pour toute question, suggestion ou partenariat :</p>
-          <a href="#" id="contact-email-link" class="contact-link">
-            <i class="fas fa-envelope"></i>
-            <span id="contact-email-display">maxenceponche971@gmail.com</span>
-          </a>
-        </div>
-
-        <div class="cbox">
-          <h3><i class="fas fa-tag"></i> Propositions de tags</h3>
-          <p style="font-size:.8rem;color:var(--text2);margin-bottom:12px">Proposez de nouvelles catégories. Les plus votées seront ajoutées !</p>
-          <button class="btn btn--primary" id="btn-propose-tag" style="margin-bottom:12px"><i class="fas fa-plus"></i> Proposer un tag</button>
-          <div id="tag-proposal-form-container" style="display:none;margin-bottom:16px">
-            <form id="tag-proposal-form" style="background:var(--bg3);padding:14px;border-radius:var(--r);border:1px solid var(--border)">
-              <div class="field">
-                <label>Nom du tag *</label>
-                <input type="text" class="inp" id="tp-name" placeholder="Ex: Graffiti" minlength="2" maxlength="30" required>
-              </div>
-              <div class="field">
-                <label>Icône Font Awesome</label>
-                <input type="text" class="inp" id="tp-icon" placeholder="fa-spray-can">
-                <small>Voir <a href="https://fontawesome.com/icons" target="_blank">fontawesome.com</a></small>
-              </div>
-              <div class="field">
-                <label>Description *</label>
-                <textarea class="inp" id="tp-description" placeholder="Décrivez..." minlength="5" maxlength="200" rows="2" required></textarea>
-              </div>
-              <div style="display:flex;gap:6px">
-                <button type="submit" class="btn btn--primary"><i class="fas fa-paper-plane"></i> Envoyer</button>
-                <button type="button" class="btn btn--ghost" id="tp-cancel">Annuler</button>
-              </div>
-            </form>
-          </div>
-          <div id="tag-proposals-list"><p style="color:var(--text3);font-size:.8rem">Chargement...</p></div>
-        </div>
-
-        <div class="cbox">
-          <h3><i class="fab fa-github"></i> Open Source</h3>
-          <p style="font-size:.85rem;color:var(--text2);line-height:1.7;margin-bottom:12px">Gwadloup Alert est <strong style="color:var(--green)">100% open source et gratuit</strong>. Contribuez, signalez des bugs, proposez des améliorations !</p>
-          <a href="https://github.com/MaxLananas-debug/gwadloup" target="_blank" rel="noopener" id="repo-link" class="btn btn--outline" style="display:inline-flex">
-            <i class="fab fa-github" style="font-size:1rem"></i>
-            <span>MaxLananas-debug/gwadloup</span>
-            <i class="fas fa-external-link-alt" style="font-size:.6rem;opacity:.5"></i>
-          </a>
-        </div>
-
-        <div class="cbox">
-          <h3><i class="fas fa-gavel"></i> Mentions légales</h3>
-          <div style="font-size:.82rem;color:var(--text2);line-height:1.8">
-            <p><strong style="color:var(--text)">Éditeur :</strong> Gwadloup Alert — Projet citoyen open source</p>
-            <p><strong style="color:var(--text)">Contact :</strong> <a href="mailto:maxenceponche971@gmail.com">maxenceponche971@gmail.com</a></p>
-            <p><strong style="color:var(--text)">Hébergement :</strong> Render.com — <a href="https://render.com" target="_blank" rel="noopener">render.com</a></p>
-            <p><strong style="color:var(--text)">Base de données :</strong> Supabase Inc. — <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a></p>
-            <p><strong style="color:var(--text)">Images :</strong> ImgBB — <a href="https://imgbb.com" target="_blank" rel="noopener">imgbb.com</a></p>
-            <p><strong style="color:var(--text)">Cartographie :</strong> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors, © <a href="https://carto.com/" target="_blank" rel="noopener">CARTO</a></p>
-            <p style="margin-top:12px"><strong style="color:var(--text)">Code source :</strong> Distribué sous licence open source sur <a href="https://github.com/MaxLananas-debug/gwadloup" target="_blank" rel="noopener">GitHub</a>.</p>
-          </div>
-        </div>
-
-        <div class="cbox">
-          <h3><i class="fas fa-shield-alt"></i> Politique de confidentialité</h3>
-          <div style="font-size:.82rem;color:var(--text2);line-height:1.8">
-            <p><strong style="color:var(--text)">Données collectées :</strong></p>
-            <ul style="margin:8px 0 12px 20px">
-              <li><strong>Compte :</strong> email, pseudo, commune (optionnel). Mot de passe hashé (bcrypt).</li>
-              <li><strong>Signalements :</strong> titre, description, localisation GPS, photos, catégorie, priorité.</li>
-              <li><strong>Analytics :</strong> pages visitées, appareil, navigateur, pays. <strong>Aucun cookie</strong>. Identifiant session = hash anonyme non réversible.</li>
-              <li><strong>Anonyme :</strong> aucune donnée personnelle associée (user_id = NULL).</li>
-            </ul>
-            <p><strong style="color:var(--text)">Utilisation :</strong> affichage carte publique, statistiques agrégées, modération IA, classement contributeurs.</p>
-            <p><strong style="color:var(--text)">Partage :</strong> signalements publics, données jamais vendues, images sur ImgBB, modération via API Groq.</p>
-            <p><strong style="color:var(--text)">RGPD :</strong> accès via profil, rectification dans paramètres, suppression par signalement ou email, portabilité sur demande.</p>
-            <p><strong style="color:var(--text)">Conservation :</strong> tant que le service est actif.</p>
-            <p style="margin-top:8px"><strong style="color:var(--text)">Contact DPO :</strong> <a href="mailto:maxenceponche971@gmail.com">maxenceponche971@gmail.com</a></p>
-          </div>
-        </div>
-
-        <div class="cbox">
-          <h3><i class="fas fa-file-contract"></i> Conditions d'utilisation</h3>
-          <div style="font-size:.82rem;color:var(--text2);line-height:1.8">
-            <p>En utilisant Gwadloup Alert, vous acceptez :</p>
-            <ul style="margin:8px 0 12px 20px">
-              <li>Les signalements doivent concerner des problèmes réels en Guadeloupe.</li>
-              <li>Contenu diffamatoire, injurieux ou illégal modéré automatiquement ou supprimé.</li>
-              <li>Pas de faux signalements.</li>
-              <li>Photos sans données personnelles identifiables sauf nécessité.</li>
-              <li>Commentaires courtois et constructifs.</li>
-              <li>Nous ne sommes pas responsables des actions des autorités.</li>
-              <li>Le service est et restera 100% gratuit.</li>
-            </ul>
-            <p style="font-size:.75rem;color:var(--text3)">Dernière mise à jour : Janvier 2025</p>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-  </main>
-
-  <!-- ═══════════════════════════════════════
-       MODALS
-  ═══════════════════════════════════════ -->
-
-  <!-- MODAL SIGNALEMENT -->
-  <div class="modal" id="modal-report">
-    <div class="modal__bg" data-close></div>
-    <div class="modal__box modal__box--lg">
-      <div class="modal__top">
-        <h2><i class="fas fa-exclamation-triangle" style="color:var(--orange);font-size:.9rem"></i> Nouveau signalement</h2>
-        <button class="modal__x" data-close><i class="fas fa-times"></i></button>
-      </div>
-      <form id="report-form">
-
-        <!-- Notice anonyme -->
-        <div id="anon-notice" style="display:none;padding:10px 20px;background:var(--blue-bg);border-bottom:1px solid rgba(88,166,255,.15);font-size:.8rem;color:var(--blue);display:flex;align-items:center;gap:8px">
-          <i class="fas fa-user-secret"></i>
-          <span>Vous n'êtes pas connecté — signalement <strong>anonyme</strong>.</span>
-          <a href="#" id="anon-login-link" style="margin-left:auto;color:var(--green);font-weight:600;white-space:nowrap">Se connecter</a>
-        </div>
-
-        <!-- Steps indicator -->
-        <div class="steps">
-          <div class="steps__i active" data-step="1">1</div>
-          <div class="steps__line"></div>
-          <div class="steps__i" data-step="2">2</div>
-          <div class="steps__line"></div>
-          <div class="steps__i" data-step="3">3</div>
-        </div>
-
-        <!-- STEP 1 — Catégorie -->
-        <div class="fstep active" id="step-1">
-          <h3>Type de problème</h3>
-          <p class="fstep__d">Sélectionnez la catégorie qui correspond le mieux</p>
-
-          <div class="catgroup-list" id="category-grid">
-            <!-- Généré par JS via App.categories — ou statique ci-dessous comme fallback -->
-          </div>
-
-          <div class="fstep__ft">
-            <div></div>
-            <button type="button" class="btn btn--primary" id="btn-step1-next" disabled>
-              Suivant <i class="fas fa-arrow-right"></i>
+            <select class="sel" id="filter-commune">
+              <option value="">Toutes communes</option>
+              <option value="Pointe-à-Pitre">Pointe-à-Pitre</option>
+              <option value="Les Abymes">Les Abymes</option>
+              <option value="Baie-Mahault">Baie-Mahault</option>
+              <option value="Le Gosier">Le Gosier</option>
+              <option value="Petit-Bourg">Petit-Bourg</option>
+              <option value="Sainte-Anne">Sainte-Anne</option>
+              <option value="Saint-François">Saint-François</option>
+              <option value="Morne-à-l'Eau">Morne-à-l'Eau</option>
+              <option value="Le Moule">Le Moule</option>
+              <option value="Capesterre-Belle-Eau">Capesterre-Belle-Eau</option>
+              <option value="Basse-Terre">Basse-Terre</option>
+              <option value="Gourbeyre">Gourbeyre</option>
+              <option value="Trois-Rivières">Trois-Rivières</option>
+              <option value="Bouillante">Bouillante</option>
+              <option value="Deshaies">Deshaies</option>
+              <option value="Pointe-Noire">Pointe-Noire</option>
+              <option value="Lamentin">Lamentin</option>
+              <option value="Sainte-Rose">Sainte-Rose</option>
+              <option value="Anse-Bertrand">Anse-Bertrand</option>
+              <option value="Port-Louis">Port-Louis</option>
+              <option value="Petit-Canal">Petit-Canal</option>
+              <option value="Marie-Galante">Marie-Galante</option>
+              <option value="La Désirade">La Désirade</option>
+              <option value="Les Saintes">Les Saintes</option>
+            </select>
+            <button class="topbar__reset" id="btn-reset-filters" title="Réinitialiser filtres">
+              <i class="fas fa-redo"></i>
             </button>
           </div>
         </div>
-
-        <!-- STEP 2 — Localisation -->
-        <div class="fstep" id="step-2">
-          <h3>Localisation</h3>
-          <p class="fstep__d">Cliquez sur la carte ou utilisez la géolocalisation</p>
-          <div class="loc-bar">
-            <button type="button" class="btn btn--outline" id="btn-geolocate">
-              <i class="fas fa-crosshairs"></i> Me localiser
-            </button>
-            <div class="loc-search">
-              <i class="fas fa-search"></i>
-              <input type="text" id="address-search" placeholder="Adresse en Guadeloupe..." autocomplete="off">
-              <div class="loc-results" id="search-results"></div>
-            </div>
-          </div>
-          <div class="minimap" id="mini-map"></div>
-          <div class="loc-info" id="location-info" style="display:none">
-            <i class="fas fa-map-pin"></i>
-            <span id="selected-address">Emplacement sélectionné</span>
-          </div>
-          <input type="hidden" id="report-lat">
-          <input type="hidden" id="report-lng">
-          <input type="hidden" id="report-address">
-          <input type="hidden" id="report-commune">
-          <div class="fstep__ft">
-            <button type="button" class="btn btn--ghost" data-prev="1"><i class="fas fa-arrow-left"></i> Retour</button>
-            <button type="button" class="btn btn--primary" id="btn-step2-next" disabled>Suivant <i class="fas fa-arrow-right"></i></button>
-          </div>
-        </div>
-
-        <!-- STEP 3 — Détails -->
-        <div class="fstep" id="step-3">
-          <h3>Détails du signalement</h3>
-
-          <div class="field">
-            <label>Titre *</label>
-            <input type="text" class="inp" id="report-title" placeholder="Ex: Nid de poule route de Gosier" minlength="5" maxlength="150" required>
-          </div>
-
-          <div class="field">
-            <label>Description *</label>
-            <textarea class="inp" id="report-description" placeholder="Décrivez le problème en détail..." minlength="10" maxlength="2000" rows="3" required></textarea>
-            <small><span id="desc-count">0</span>/2000 caractères</small>
-          </div>
-
-          <div class="field" id="photo-field">
-            <label>
-              <i class="fas fa-camera" style="color:var(--green)"></i> Photos
-              <span style="font-size:.65rem;color:var(--text3);font-weight:400;margin-left:4px">max 4 — fortement recommandé</span>
-            </label>
-            <div class="dropzone" id="photo-dropzone">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <p><strong>Glissez vos photos</strong> ou cliquez pour sélectionner</p>
-              <p style="font-size:.68rem;color:var(--text3);margin-top:3px">Les signalements avec photos sont traités 3× plus vite</p>
-              <input type="file" id="photo-input" accept="image/*" multiple hidden>
-            </div>
-            <div class="thumbs" id="photo-preview"></div>
-          </div>
-
-          <div class="field">
-            <label>Priorité</label>
-            <div class="prios">
-              <label class="prio">
-                <input type="radio" name="priority" value="low">
-                <i class="fas fa-circle" style="color:#00875A;font-size:.6rem"></i> Faible
-              </label>
-              <label class="prio active selected">
-                <input type="radio" name="priority" value="medium" checked>
-                <i class="fas fa-circle" style="color:#FFAB00;font-size:.6rem"></i> Moyenne
-              </label>
-              <label class="prio">
-                <input type="radio" name="priority" value="high">
-                <i class="fas fa-circle" style="color:#FF8B00;font-size:.6rem"></i> Haute
-              </label>
-              <label class="prio">
-                <input type="radio" name="priority" value="critical">
-                <i class="fas fa-circle" style="color:#DE350B;font-size:.6rem"></i> Critique
-              </label>
-            </div>
-          </div>
-
-          <div class="fstep__ft">
-            <button type="button" class="btn btn--ghost" data-prev="2"><i class="fas fa-arrow-left"></i> Retour</button>
-            <button type="submit" class="btn btn--primary" id="btn-submit-report">
-              <i class="fas fa-paper-plane"></i> Envoyer
-            </button>
-          </div>
-        </div>
-
-      </form>
-    </div>
-  </div>
-
-  <!-- MODAL DETAIL -->
-  <div class="modal" id="modal-detail">
-    <div class="modal__bg" data-close></div>
-    <div class="modal__box modal__box--lg">
-      <button class="modal__x" data-close style="position:absolute;top:12px;right:12px;z-index:2"><i class="fas fa-times"></i></button>
-      <div id="report-detail"></div>
-    </div>
-  </div>
-
-  <!-- MODAL ADMIN -->
-  <div class="modal" id="modal-admin">
-    <div class="modal__bg" data-close></div>
-    <div class="modal__box modal__box--lg">
-      <div class="modal__top">
-        <h2><i class="fas fa-shield-alt" style="color:var(--purple);font-size:.9rem"></i> Administration</h2>
-        <button class="modal__x" data-close><i class="fas fa-times"></i></button>
       </div>
-      <div id="admin-panel"><div id="admin-reports-list"></div></div>
-    </div>
-  </div>
 
-  <!-- MODAL LOGIN -->
-  <div class="modal" id="modal-login">
-    <div class="modal__bg" data-close></div>
-    <div class="modal__box modal__box--sm">
-      <div class="modal__top">
-        <h2>Connexion</h2>
-        <button class="modal__x" data-close><i class="fas fa-times"></i></button>
-      </div>
-      <form class="aform" id="login-form">
-        <div class="field">
-          <label>Email</label>
-          <input type="email" class="inp" id="login-email" placeholder="votre@email.com" required>
-        </div>
-        <div class="field">
-          <label>Mot de passe</label>
-          <input type="password" class="inp" id="login-password" placeholder="••••••••" required>
-        </div>
-        <div class="aform__err" id="login-error" style="display:none"></div>
-        <button type="submit" class="btn btn--primary btn--full" id="btn-login-submit">
-          <i class="fas fa-sign-in-alt"></i> Se connecter
-        </button>
-        <p class="aform__sw">Pas de compte ? <a href="#" id="switch-to-register">S'inscrire</a></p>
-      </form>
+      <div class="map-container" id="map"></div>
     </div>
-  </div>
+  </section>
 
-  <!-- MODAL REGISTER -->
-  <div class="modal" id="modal-register">
-    <div class="modal__bg" data-close></div>
-    <div class="modal__box modal__box--sm">
-      <div class="modal__top">
-        <h2>Inscription</h2>
-        <button class="modal__x" data-close><i class="fas fa-times"></i></button>
-      </div>
-      <form class="aform" id="register-form">
-        <div class="field">
-          <label>Pseudo</label>
-          <input type="text" class="inp" id="register-username" placeholder="Votre pseudo" minlength="3" maxlength="30" required>
+  <!-- ════════════════════════════
+       VUE LISTE
+  ═════════════════════════════ -->
+  <section class="view" id="view-list">
+    <div class="container">
+      <div class="sec-head">
+        <div>
+          <h1><i class="fas fa-list"></i> Signalements</h1>
+          <p>Tous les signalements citoyens de Guadeloupe</p>
         </div>
-        <div class="field">
-          <label>Email</label>
-          <input type="email" class="inp" id="register-email" placeholder="votre@email.com" required>
-        </div>
-        <div class="field">
-          <label>Commune</label>
-          <select class="inp" id="register-commune">
-            <option value="">Choisir...</option>
-            <optgroup label="Grande-Terre">
-              <option>Les Abymes</option><option>Anse-Bertrand</option><option>Le Gosier</option>
-              <option>Le Moule</option><option>Morne-à-l'Eau</option><option>Petit-Canal</option>
-              <option>Pointe-à-Pitre</option><option>Port-Louis</option><option>Saint-François</option><option>Sainte-Anne</option>
-            </optgroup>
-            <optgroup label="Basse-Terre">
-              <option>Baie-Mahault</option><option>Baillif</option><option>Basse-Terre</option>
-              <option>Bouillante</option><option>Capesterre-Belle-Eau</option><option>Deshaies</option>
-              <option>Gourbeyre</option><option>Goyave</option><option>Lamentin</option>
-              <option>Petit-Bourg</option><option>Pointe-Noire</option><option>Saint-Claude</option>
-              <option>Sainte-Rose</option><option>Trois-Rivières</option><option>Vieux-Fort</option><option>Vieux-Habitants</option>
-            </optgroup>
-            <optgroup label="Marie-Galante">
-              <option>Capesterre-de-Marie-Galante</option><option>Grand-Bourg</option><option>Saint-Louis</option>
-            </optgroup>
-            <optgroup label="Les Saintes">
-              <option>Terre-de-Haut</option><option>Terre-de-Bas</option>
-            </optgroup>
-            <optgroup label="La Désirade"><option>La Désirade</option></optgroup>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select class="sel" id="sort-reports">
+            <option value="newest">Plus récents</option>
+            <option value="oldest">Plus anciens</option>
+            <option value="most-voted">Plus votés</option>
           </select>
-        </div>
-        <div class="field">
-          <label>Mot de passe</label>
-          <input type="password" class="inp" id="register-password" placeholder="Min. 6 caractères" minlength="6" required>
-        </div>
-        <div class="field">
-          <label>Confirmer le mot de passe</label>
-          <input type="password" class="inp" id="register-password-confirm" placeholder="Confirmer" minlength="6" required>
-        </div>
-        <div class="aform__err" id="register-error" style="display:none"></div>
-        <button type="submit" class="btn btn--primary btn--full" id="btn-register-submit">
-          <i class="fas fa-user-plus"></i> Créer mon compte
-        </button>
-        <p class="aform__sw">Déjà un compte ? <a href="#" id="switch-to-login">Connexion</a></p>
-      </form>
-    </div>
-  </div>
-
-  <!-- MODAL PROFIL -->
-  <div class="modal" id="modal-profile">
-    <div class="modal__bg" data-close></div>
-    <div class="modal__box modal__box--sm">
-      <div class="modal__top">
-        <h2>Profil</h2>
-        <button class="modal__x" data-close><i class="fas fa-times"></i></button>
-      </div>
-      <div id="profile-content"></div>
-    </div>
-  </div>
-
-  <!-- MODAL MES SIGNALEMENTS -->
-  <div class="modal" id="modal-my-reports">
-    <div class="modal__bg" data-close></div>
-    <div class="modal__box modal__box--lg">
-      <div class="modal__top">
-        <h2><i class="fas fa-flag" style="color:var(--green);font-size:.9rem"></i> Mes signalements</h2>
-        <button class="modal__x" data-close><i class="fas fa-times"></i></button>
-      </div>
-      <div id="my-reports-content"></div>
-    </div>
-  </div>
-
-  <!-- MODAL ARTICLE WIKI -->
-  <div class="modal" id="modal-wiki-article">
-    <div class="modal__bg" data-close></div>
-    <div class="modal__box modal__box--lg">
-      <button class="modal__x" data-close style="position:absolute;top:12px;right:12px;z-index:2"><i class="fas fa-times"></i></button>
-      <div id="wiki-article-detail"></div>
-    </div>
-  </div>
-
-  <!-- MODAL ÉCRIRE ARTICLE -->
-  <div class="modal" id="modal-wiki-write">
-    <div class="modal__bg" data-close></div>
-    <div class="modal__box modal__box--lg">
-      <div class="modal__top">
-        <h2 id="wiki-write-title"><i class="fas fa-pen" style="color:var(--blue);font-size:.9rem"></i> Écrire un article</h2>
-        <button class="modal__x" data-close><i class="fas fa-times"></i></button>
-      </div>
-      <form id="wiki-write-form" style="padding:16px">
-        <div class="field">
-          <label>Titre *</label>
-          <input type="text" class="inp" id="wa-title" placeholder="Titre de l'article" minlength="3" maxlength="150" required>
-        </div>
-        <div class="field">
-          <label>Catégorie</label>
-          <select class="inp" id="wa-category">
-            <option value="general">📌 Général</option>
-            <option value="guide">📖 Guide</option>
-            <option value="info">ℹ️ Info</option>
-            <option value="discussion">💬 Discussion</option>
-            <option value="proposition">💡 Proposition</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Aperçu</label>
-          <div id="wa-preview" class="wiki__body" style="display:none;min-height:auto;max-height:200px;overflow-y:auto;font-size:.82rem"></div>
-        </div>
-        <div class="field">
-          <label>Contenu (Markdown) *</label>
-          <textarea class="inp" id="wa-content" rows="12" style="min-height:250px;font-family:'JetBrains Mono',monospace;font-size:.78rem" placeholder="Écrivez en Markdown..." required></textarea>
-          <small><span id="wa-char-count">0</span> caractères</small>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button type="button" class="btn btn--ghost" data-close>Annuler</button>
-          <button type="submit" class="btn btn--primary" id="btn-wiki-publish">
-            <i class="fas fa-paper-plane"></i> Publier
+          <div class="view-btns">
+            <button class="view-btn active" id="view-list-btn" title="Vue liste">
+              <i class="fas fa-list"></i>
+            </button>
+            <button class="view-btn" id="view-cards-btn" title="Vue cartes">
+              <i class="fas fa-th-large"></i>
+            </button>
+          </div>
+          <button class="btn btn--primary" onclick="UI.openReportForm()">
+            <i class="fas fa-plus"></i> Signaler
           </button>
         </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- TOASTS -->
-  <div class="toasts" id="toast-container"></div>
-
-  <!-- LOADER -->
-  <div class="loader" id="loading-overlay">
-    <div class="loader__in">
-      <div class="loader__grid">
-        <div class="loader__cell"></div><div class="loader__cell"></div><div class="loader__cell"></div>
-        <div class="loader__cell"></div><div class="loader__cell"></div><div class="loader__cell"></div>
-        <div class="loader__cell"></div><div class="loader__cell"></div><div class="loader__cell"></div>
       </div>
-      <div class="loader__text">gwadloup<span>alert</span></div>
+
+      <div class="list-header" id="list-header" style="display:none">
+        <div class="list-header__left">
+          <span class="list-header__count">
+            <i class="fas fa-flag"></i>
+            <span id="list-count">0</span> signalement(s)
+          </span>
+          <div class="list-header__tabs">
+            <button class="list-header__tab active" id="tab-all">Tous</button>
+            <button class="list-header__tab" id="tab-pending">En attente</button>
+            <button class="list-header__tab" id="tab-resolved">Résolus</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid" id="reports-grid"></div>
+
+      <div class="empty" id="list-empty" style="display:none">
+        <i class="fas fa-map-marked-alt"></i>
+        <h3>Aucun signalement</h3>
+        <p>Soyez le premier à signaler un problème dans votre commune !</p>
+        <button class="btn btn--primary" style="margin-top:16px" onclick="UI.openReportForm()">
+          <i class="fas fa-plus"></i> Créer un signalement
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════
+       VUE STATS
+  ═════════════════════════════ -->
+  <section class="view" id="view-stats">
+    <div class="container">
+      <div class="sec-head">
+        <div>
+          <h1><i class="fas fa-chart-bar"></i> Statistiques</h1>
+          <p>Tableau de bord en temps réel de Gwadloup Alert</p>
+        </div>
+      </div>
+
+      <!-- KPI -->
+      <div class="stats-hero">
+        <div class="sc sc--b">
+          <div class="sc__icon"><i class="fas fa-flag"></i></div>
+          <div class="sc__v" id="stats-total">0</div>
+          <div class="sc__l">Total signalements</div>
+          <div class="sc__bar"><div class="sc__bar-fill" style="background:var(--blue2);width:100%"></div></div>
+        </div>
+        <div class="sc sc--o">
+          <div class="sc__icon"><i class="fas fa-clock"></i></div>
+          <div class="sc__v" id="stats-pending">0</div>
+          <div class="sc__l">En attente</div>
+          <div class="sc__bar"><div class="sc__bar-fill" id="bar-pending" style="background:var(--orange2);width:0%"></div></div>
+        </div>
+        <div class="sc sc--p">
+          <div class="sc__icon"><i class="fas fa-spinner"></i></div>
+          <div class="sc__v" id="stats-in-progress">0</div>
+          <div class="sc__l">En cours</div>
+          <div class="sc__bar"><div class="sc__bar-fill" id="bar-progress" style="background:var(--purple2);width:0%"></div></div>
+        </div>
+        <div class="sc sc--g">
+          <div class="sc__icon"><i class="fas fa-check-circle"></i></div>
+          <div class="sc__v" id="stats-resolved">0</div>
+          <div class="sc__l">Résolus</div>
+          <div class="sc__bar"><div class="sc__bar-fill" id="bar-resolved" style="background:var(--green2);width:0%"></div></div>
+        </div>
+      </div>
+
+      <!-- Graphiques -->
+      <div class="charts-row">
+        <div class="cbox">
+          <h3><i class="fas fa-tags"></i> Par catégorie</h3>
+          <div id="chart-categories">
+            <p style="color:var(--text3);font-size:.8rem;text-align:center;padding:20px">Chargement...</p>
+          </div>
+        </div>
+        <div class="cbox">
+          <h3><i class="fas fa-map-pin"></i> Par commune</h3>
+          <div id="chart-communes">
+            <p style="color:var(--text3);font-size:.8rem;text-align:center;padding:20px">Chargement...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mairies -->
+      <div class="cbox mairie-section">
+        <h3><i class="fas fa-landmark"></i> Suivi par commune</h3>
+        <div class="mairie-banner">
+          <div class="mairie-banner__icon"><i class="fas fa-handshake"></i></div>
+          <div class="mairie-banner__content">
+            <div class="mairie-banner__title">
+              Partenariat Mairies
+              <span class="verified"><i class="fas fa-check-circle"></i> Officiel</span>
+            </div>
+            <div class="mairie-banner__desc">
+              Les communes partenaires traitent directement les signalements via Gwadloup Alert.
+            </div>
+          </div>
+          <div class="mairie-banner__action">
+            <button class="btn btn--outline" onclick="document.getElementById('view-community').querySelector('.view').classList.add('active')">
+              <i class="fas fa-info-circle"></i> En savoir plus
+            </button>
+          </div>
+        </div>
+        <div class="mairie-grid" id="mairie-grid">
+          <p style="color:var(--text3);font-size:.8rem">Chargement...</p>
+        </div>
+      </div>
+
+      <!-- Leaderboard -->
+      <div class="cbox">
+        <h3><i class="fas fa-trophy"></i> Classement citoyens</h3>
+        <div id="leaderboard-list">
+          <p style="color:var(--text3);font-size:.8rem;text-align:center;padding:20px">Chargement...</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ════════════════════════════
+       VUE WIKI
+  ═════════════════════════════ -->
+  <section class="view" id="view-wiki">
+    <div class="container">
+      <div class="sec-head">
+        <div>
+          <h1><i class="fas fa-book"></i> Wiki</h1>
+          <p>Documentation et articles de la communauté</p>
+        </div>
+        <button class="btn btn--primary" id="btn-wiki-write">
+          <i class="fas fa-pen"></i> Écrire un article
+        </button>
+      </div>
+
+      <div class="wiki-tabs">
+        <button class="wiki-tab active" data-panel="guide">
+          <i class="fas fa-book-open"></i> Guide officiel
+        </button>
+        <button class="wiki-tab" data-panel="articles">
+          <i class="fas fa-newspaper"></i> Articles communauté
+        </button>
+      </div>
+
+      <!-- Panel Guide -->
+      <div class="wiki-panel active" id="wiki-panel-guide">
+        <div class="wiki">
+          <aside class="wiki__side">
+            <h3><i class="fas fa-list"></i> Sommaire</h3>
+            <nav id="wiki-nav">
+              <button class="wnav active" data-page="intro">Introduction</button>
+              <button class="wnav" data-page="how-to-report">Comment signaler</button>
+              <button class="wnav" data-page="categories">Catégories</button>
+              <button class="wnav" data-page="votes">Votes & points</button>
+              <button class="wnav" data-page="mairie">Rôle des mairies</button>
+              <button class="wnav" data-page="badges">Badges</button>
+              <button class="wnav" data-page="faq">FAQ</button>
+            </nav>
+          </aside>
+          <div class="wiki__body" id="wiki-body">
+            <div class="wiki__load">
+              <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;display:block;margin-bottom:12px;color:var(--green2)"></i>
+              <p style="font-size:.8rem;color:var(--text3)">Chargement...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel Articles -->
+      <div class="wiki-panel" id="wiki-panel-articles">
+        <div class="wiki-filters">
+          <select class="sel" id="wiki-filter-cat">
+            <option value="">Toutes catégories</option>
+            <option value="Guide">Guide</option>
+            <option value="Actualité">Actualité</option>
+            <option value="Témoignage">Témoignage</option>
+            <option value="Astuce">Astuce</option>
+            <option value="Général">Général</option>
+          </select>
+        </div>
+        <div id="community-articles">
+          <div class="wiki__load">
+            <i class="fas fa-spinner fa-spin" style="color:var(--green2)"></i> Chargement...
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════
+       VUE COMMUNAUTÉ
+  ═════════════════════════════ -->
+  <section class="view" id="view-community">
+    <div class="container">
+      <div class="sec-head">
+        <div>
+          <h1><i class="fas fa-users"></i> Communauté</h1>
+          <p>Participez à l'amélioration de Gwadloup Alert</p>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+
+        <!-- Contact -->
+        <div class="cbox" style="margin-bottom:0">
+          <h3><i class="fas fa-envelope"></i> Contact</h3>
+          <p style="font-size:.85rem;color:var(--text2);margin-bottom:14px;line-height:1.7">
+            Une question, un bug à signaler ou une idée d'amélioration ?
+          </p>
+          <a class="contact-link" data-email="contact@gwadloupalert.fr" href="#">
+            <i class="fas fa-envelope"></i> Nous contacter
+          </a>
+        </div>
+
+        <!-- GitHub -->
+        <div class="cbox" style="margin-bottom:0">
+          <h3><i class="fab fa-github"></i> Open Source</h3>
+          <p style="font-size:.85rem;color:var(--text2);margin-bottom:14px;line-height:1.7">
+            Gwadloup Alert est open source. Contribuez au projet sur GitHub !
+          </p>
+          <a class="contact-link" href="https://github.com/gwadloupalert" target="_blank" rel="noopener">
+            <i class="fab fa-github"></i> Voir sur GitHub
+          </a>
+        </div>
+
+        <!-- Propositions de tags -->
+        <div class="cbox" style="margin-bottom:0">
+          <h3><i class="fas fa-tags"></i> Proposer une catégorie</h3>
+          <p style="font-size:.85rem;color:var(--text2);margin-bottom:12px;line-height:1.7">
+            Vous pensez qu'une catégorie manque ? Proposez-la !
+          </p>
+          <div style="display:flex;gap:6px;margin-bottom:12px">
+            <input type="text" class="inp" id="tag-proposal-input" placeholder="Ex: Graffiti, Route fermée..." maxlength="60" style="flex:1">
+            <button class="btn btn--primary" id="btn-propose-tag">
+              <i class="fas fa-plus"></i> Proposer
+            </button>
+          </div>
+          <div id="tag-proposals-list">
+            <p style="color:var(--text3);font-size:.8rem">Chargement...</p>
+          </div>
+        </div>
+
+        <!-- Légal -->
+        <div class="cbox" style="margin-bottom:0">
+          <h3><i class="fas fa-scale-balanced"></i> Mentions légales</h3>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button class="btn btn--ghost" onclick="UI.openModal('modal-legal')" style="justify-content:flex-start">
+              <i class="fas fa-file-contract"></i> Mentions légales
+            </button>
+            <button class="btn btn--ghost" onclick="UI.openModal('modal-privacy')" style="justify-content:flex-start">
+              <i class="fas fa-shield-alt"></i> Politique de confidentialité
+            </button>
+            <button class="btn btn--ghost" onclick="UI.openModal('modal-terms')" style="justify-content:flex-start">
+              <i class="fas fa-file-alt"></i> Conditions d'utilisation
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODALS
+════════════════════════════════════════════════════════════ -->
+
+<!-- ── MODAL SIGNALEMENT ── -->
+<div class="modal" id="modal-report">
+  <div class="modal__bg"></div>
+  <div class="modal__box modal__box--lg">
+    <div class="modal__top">
+      <h2><i class="fas fa-plus-circle" style="color:var(--green2)"></i> Nouveau signalement</h2>
+      <button class="modal__x" onclick="UI.closeModal('modal-report')"><i class="fas fa-times"></i></button>
+    </div>
+
+    <!-- Étapes -->
+    <div class="steps">
+      <div class="steps__i active" id="step-dot-1">1</div>
+      <div class="steps__line"></div>
+      <div class="steps__i" id="step-dot-2">2</div>
+      <div class="steps__line"></div>
+      <div class="steps__i" id="step-dot-3">3</div>
+    </div>
+
+    <form id="report-form" onsubmit="return false">
+
+      <!-- ÉTAPE 1 : Catégorie -->
+      <div class="fstep active" id="fstep-1">
+        <h3>Quelle est la nature du problème ?</h3>
+        <p class="fstep__d">Choisissez la catégorie qui correspond le mieux à votre signalement.</p>
+
+        <!-- Recherche avec IA -->
+        <div style="position:relative;margin-bottom:12px">
+          <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:.75rem"></i>
+          <input type="text" id="cat-search" class="inp" placeholder="Rechercher une catégorie... (ex: route, déchet)" style="padding-left:30px">
+        </div>
+
+        <div id="category-grid" style="max-height:380px;overflow-y:auto;padding-right:4px">
+          <p style="color:var(--text3);font-size:.8rem;text-align:center;padding:20px">
+            <i class="fas fa-spinner fa-spin"></i> Chargement des catégories...
+          </p>
+        </div>
+
+        <div class="fstep__ft">
+          <div></div>
+          <button class="btn btn--primary" id="step1-next" disabled>
+            Suivant <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 2 : Localisation -->
+      <div class="fstep" id="fstep-2">
+        <h3>Où est situé le problème ?</h3>
+        <p class="fstep__d">Cliquez sur la carte ou recherchez une adresse.</p>
+
+        <div class="loc-bar">
+          <div class="loc-search">
+            <i class="fas fa-search"></i>
+            <input type="text" id="loc-search-input" placeholder="Rechercher une adresse en Guadeloupe...">
+            <div class="loc-results" id="loc-results"></div>
+          </div>
+          <button type="button" class="btn btn--outline" onclick="if(typeof MapManager!=='undefined')MapManager.geolocate()" title="Ma position">
+            <i class="fas fa-crosshairs"></i>
+          </button>
+        </div>
+
+        <div class="minimap" id="mini-map"></div>
+
+        <div class="loc-info" id="loc-info" style="display:none">
+          <i class="fas fa-check-circle"></i>
+          <span id="loc-info-text">Emplacement sélectionné</span>
+        </div>
+
+        <input type="hidden" id="report-lat">
+        <input type="hidden" id="report-lng">
+        <input type="hidden" id="report-address">
+        <input type="hidden" id="report-commune">
+
+        <div class="fstep__ft">
+          <button type="button" class="btn btn--ghost" id="step2-back">
+            <i class="fas fa-chevron-left"></i> Retour
+          </button>
+          <button type="button" class="btn btn--primary" id="step2-next">
+            Suivant <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 3 : Détails -->
+      <div class="fstep" id="fstep-3">
+        <h3>Décrivez le problème</h3>
+        <p class="fstep__d">Plus votre signalement est détaillé, plus il sera traité rapidement.</p>
+
+        <div class="field">
+          <label for="report-title">Titre <span style="color:var(--red)">*</span></label>
+          <input type="text" class="inp" id="report-title" placeholder="Ex: Nid de poule dangereux rue Schoelcher" maxlength="150" required>
+          <small>5 caractères minimum, 150 maximum</small>
+        </div>
+
+        <div class="field">
+          <label for="report-description">Description <span style="color:var(--red)">*</span></label>
+          <textarea class="inp" id="report-description" placeholder="Décrivez le problème en détail : taille, dangerosité, depuis quand..." rows="4" maxlength="2000" required></textarea>
+          <small>10 caractères minimum, 2000 maximum</small>
+        </div>
+
+        <div class="field">
+          <label>Priorité</label>
+          <div class="prios">
+            <label class="prio" data-priority="low">
+              <input type="radio" name="priority" value="low">
+              <i class="fas fa-arrow-down" style="color:var(--green2)"></i> Faible
+            </label>
+            <label class="prio selected" data-priority="medium">
+              <input type="radio" name="priority" value="medium" checked>
+              <i class="fas fa-minus" style="color:var(--orange2)"></i> Moyenne
+            </label>
+            <label class="prio" data-priority="high">
+              <input type="radio" name="priority" value="high">
+              <i class="fas fa-arrow-up" style="color:var(--orange)"></i> Haute
+            </label>
+            <label class="prio" data-priority="critical">
+              <input type="radio" name="priority" value="critical">
+              <i class="fas fa-exclamation-triangle" style="color:var(--red)"></i> Critique
+            </label>
+          </div>
+        </div>
+
+        <div class="field" id="photo-field">
+          <label>Photos <span style="color:var(--text3);font-weight:400">(optionnel)</span></label>
+          <div class="dropzone" id="dropzone">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <div>Glissez vos photos ici ou <strong>cliquez pour choisir</strong></div>
+            <div style="font-size:.72rem;color:var(--text3);margin-top:4px">JPG, PNG, WebP — max 10MB par photo</div>
+          </div>
+          <input type="file" id="file-input" accept="image/*" multiple style="display:none">
+          <div class="thumbs" id="thumbs-container"></div>
+        </div>
+
+        <div class="fstep__ft">
+          <button type="button" class="btn btn--ghost" id="step3-back">
+            <i class="fas fa-chevron-left"></i> Retour
+          </button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="submit-actions">
+            <div id="anon-submit-row">
+              <button type="button" class="btn btn--outline" id="btn-submit-anon">
+                <i class="fas fa-user-secret"></i> Anonymement
+              </button>
+            </div>
+            <div id="submit-row">
+              <button type="button" class="btn btn--primary" id="btn-submit-report">
+                <i class="fas fa-paper-plane"></i> Envoyer
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── MODAL DÉTAIL SIGNALEMENT ── -->
+<div class="modal" id="modal-detail">
+  <div class="modal__bg"></div>
+  <div class="modal__box modal__box--lg">
+    <div class="modal__top">
+      <h2><i class="fas fa-flag" style="color:var(--green2)"></i> Détail du signalement</h2>
+      <button class="modal__x" onclick="UI.closeModal('modal-detail')"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="report-detail">
+      <div style="padding:40px;text-align:center;color:var(--text3)">
+        <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;display:block;margin-bottom:12px;color:var(--green2)"></i>
+        Chargement...
+      </div>
     </div>
   </div>
+</div>
 
-  <!-- SCRIPTS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="/js/app.js"></script>
-  <script src="/js/ui.js"></script>
-  <script src="/js/auth.js"></script>
-  <script src="/js/map.js"></script>
-  <script src="/js/imageUpload.js"></script>
-  <script src="/js/reports.js"></script>
-  <script src="/js/badges.js"></script>
-  <script src="/js/share.js"></script>
-  <script src="/js/polls.js"></script>
-  <script src="/js/pwa.js"></script>
+<!-- ── MODAL CONNEXION ── -->
+<div class="modal" id="modal-login">
+  <div class="modal__bg"></div>
+  <div class="modal__box modal__box--sm">
+    <div class="modal__top">
+      <h2><i class="fas fa-sign-in-alt" style="color:var(--green2)"></i> Connexion</h2>
+      <button class="modal__x" onclick="UI.closeModal('modal-login')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="aform">
+      <div id="login-error" class="aform__err" style="display:none">
+        <i class="fas fa-exclamation-circle"></i> <span id="login-error-msg"></span>
+      </div>
+      <div class="field">
+        <label for="login-email">Email</label>
+        <input type="email" class="inp" id="login-email" placeholder="votre@email.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="login-password">Mot de passe</label>
+        <input type="password" class="inp" id="login-password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="btn btn--primary btn--full btn--lg" id="btn-login" onclick="Auth.login()">
+        <i class="fas fa-sign-in-alt"></i> Se connecter
+      </button>
+      <div class="aform__sw">
+        Pas de compte ?
+        <a href="#" onclick="UI.closeModal('modal-login');UI.openModal('modal-register');return false">S'inscrire</a>
+      </div>
+      <div class="aform__sw" style="margin-top:6px">
+        <a href="#" onclick="Auth.resetPassword();return false" style="color:var(--text3);font-size:.75rem">Mot de passe oublié ?</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL INSCRIPTION ── -->
+<div class="modal" id="modal-register">
+  <div class="modal__bg"></div>
+  <div class="modal__box modal__box--sm">
+    <div class="modal__top">
+      <h2><i class="fas fa-user-plus" style="color:var(--green2)"></i> Inscription</h2>
+      <button class="modal__x" onclick="UI.closeModal('modal-register')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="aform">
+      <div id="register-error" class="aform__err" style="display:none">
+        <i class="fas fa-exclamation-circle"></i> <span id="register-error-msg"></span>
+      </div>
+      <div class="field">
+        <label for="register-username">Pseudo</label>
+        <input type="text" class="inp" id="register-username" placeholder="Votre pseudo" maxlength="30" autocomplete="username">
+        <small>Entre 3 et 30 caractères</small>
+      </div>
+      <div class="field">
+        <label for="register-email">Email</label>
+        <input type="email" class="inp" id="register-email" placeholder="votre@email.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="register-password">Mot de passe</label>
+        <input type="password" class="inp" id="register-password" placeholder="Min. 8 caractères" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label for="register-commune">Commune</label>
+        <select class="inp" id="register-commune">
+          <option value="">Sélectionnez votre commune</option>
+          <option value="Pointe-à-Pitre">Pointe-à-Pitre</option>
+          <option value="Les Abymes">Les Abymes</option>
+          <option value="Baie-Mahault">Baie-Mahault</option>
+          <option value="Le Gosier">Le Gosier</option>
+          <option value="Petit-Bourg">Petit-Bourg</option>
+          <option value="Sainte-Anne">Sainte-Anne</option>
+          <option value="Saint-François">Saint-François</option>
+          <option value="Morne-à-l'Eau">Morne-à-l'Eau</option>
+          <option value="Le Moule">Le Moule</option>
+          <option value="Capesterre-Belle-Eau">Capesterre-Belle-Eau</option>
+          <option value="Basse-Terre">Basse-Terre</option>
+          <option value="Gourbeyre">Gourbeyre</option>
+          <option value="Trois-Rivières">Trois-Rivières</option>
+          <option value="Bouillante">Bouillante</option>
+          <option value="Deshaies">Deshaies</option>
+          <option value="Pointe-Noire">Pointe-Noire</option>
+          <option value="Lamentin">Lamentin</option>
+          <option value="Sainte-Rose">Sainte-Rose</option>
+          <option value="Anse-Bertrand">Anse-Bertrand</option>
+          <option value="Port-Louis">Port-Louis</option>
+          <option value="Petit-Canal">Petit-Canal</option>
+          <option value="Marie-Galante">Marie-Galante</option>
+          <option value="La Désirade">La Désirade</option>
+          <option value="Les Saintes">Les Saintes</option>
+          <option value="Autre">Autre</option>
+        </select>
+      </div>
+      <button class="btn btn--primary btn--full btn--lg" id="btn-register" onclick="Auth.register()">
+        <i class="fas fa-user-plus"></i> Créer mon compte
+      </button>
+      <div class="aform__sw">
+        Déjà un compte ?
+        <a href="#" onclick="UI.closeModal('modal-register');UI.openModal('modal-login');return false">Se connecter</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL PROFIL ── -->
+<div class="modal" id="modal-profile">
+  <div class="modal__bg"></div>
+  <div class="modal__box modal__box--sm">
+    <div class="modal__top">
+      <h2><i class="fas fa-user-cog" style="color:var(--green2)"></i> Mon profil</h2>
+      <button class="modal__x" onclick="UI.closeModal('modal-profile')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="profile" id="profile-container">
+      <div class="profile__banner"></div>
+      <div class="profile__header">
+        <div class="profile__avatar-wrap">
+          <div class="profile__avatar" id="profile-avatar">?</div>
+          <span class="profile__level" id="profile-level">LVL 1</span>
+        </div>
+        <div class="profile__name" id="profile-name">Utilisateur</div>
+        <div class="profile__email" id="profile-email"></div>
+        <div class="profile__commune" id="profile-commune"></div>
+        <div class="profile__joined" id="profile-joined"></div>
+      </div>
+      <div class="profile__stats">
+        <div class="profile__stat profile__stat--green">
+          <div class="profile__stat-value" id="profile-reports">0</div>
+          <div class="profile__stat-icon"><i class="fas fa-flag"></i></div>
+          <div class="profile__stat-label">Signalements</div>
+        </div>
+        <div class="profile__stat">
+          <div class="profile__stat-value" id="profile-resolved">0</div>
+          <div class="profile__stat-icon"><i class="fas fa-check"></i></div>
+          <div class="profile__stat-label">Résolus</div>
+        </div>
+        <div class="profile__stat profile__stat--yellow">
+          <div class="profile__stat-value" id="profile-rep">0</div>
+          <div class="profile__stat-icon"><i class="fas fa-star"></i></div>
+          <div class="profile__stat-label">Points</div>
+        </div>
+        <div class="profile__stat profile__stat--purple">
+          <div class="profile__stat-value" id="profile-rank">—</div>
+          <div class="profile__stat-icon"><i class="fas fa-trophy"></i></div>
+          <div class="profile__stat-label">Rang</div>
+        </div>
+      </div>
+      <div class="profile__section">
+        <div class="profile__section-title"><i class="fas fa-cog"></i> Paramètres</div>
+        <div class="profile__setting">
+          <label>Pseudo</label>
+          <input type="text" class="inp" id="profile-username-input" placeholder="Votre pseudo" maxlength="30">
+        </div>
+        <div class="profile__setting">
+          <label>Commune</label>
+          <select class="inp" id="profile-commune-input">
+            <option value="">Sélectionnez</option>
+            <option value="Pointe-à-Pitre">Pointe-à-Pitre</option>
+            <option value="Les Abymes">Les Abymes</option>
+            <option value="Baie-Mahault">Baie-Mahault</option>
+            <option value="Le Gosier">Le Gosier</option>
+            <option value="Petit-Bourg">Petit-Bourg</option>
+            <option value="Sainte-Anne">Sainte-Anne</option>
+            <option value="Saint-François">Saint-François</option>
+            <option value="Capesterre-Belle-Eau">Capesterre-Belle-Eau</option>
+            <option value="Basse-Terre">Basse-Terre</option>
+            <option value="Autre">Autre</option>
+          </select>
+        </div>
+        <button class="btn btn--primary btn--full" onclick="Auth.updateProfile()">
+          <i class="fas fa-save"></i> Sauvegarder
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL MES SIGNALEMENTS ── -->
+<div class="modal" id="modal-my-reports">
+  <div class="modal__bg"></div>
+  <div class="modal__box modal__box--lg">
+    <div class="modal__top">
+      <h2><i class="fas fa-flag" style="color:var(--green2)"></i> Mes signalements</h2>
+      <button class="modal__x" onclick="UI.closeModal('modal-my-reports')"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:16px" id="my-reports-container">
+      <div style="text-align:center;padding:40px;color:var(--text3)">
+        <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;display:block;margin-bottom:12px;color:var(--green2)"></i>
+        Chargement...
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL ADMIN ── -->
+<div class="modal" id="modal-admin">
+  <div class="modal__bg"></div>
+  <div class="modal__box modal__box--lg">
+    <div class="modal__top">
+      <h2><i class="fas fa-shield-alt" style="color:var(--purple2)"></i> Administration</h2>
+      <button class="modal__x" onclick="UI.closeModal('modal-admin')"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="admin-panel">
+      <p style="color:var(--text3);font-size:.85rem;text-align:center;padding:20px">
+        <i class="fas fa-spinner fa-spin"></i> Chargement...
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL ARTICLE WIKI ── -->
+<div class="modal" id="modal-article">
+  <div class="modal__bg"></div>
+  <div class="modal__box modal__box--lg">
+    <div class="modal__top">
+      <h2><i class="fas fa-newspaper" style="color:var(--green2)"></i> Article</h2>
+      <button class="modal__x" onclick="UI.closeModal('modal-article')"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="article-detail">
+      <div style="padding:40px;text-align:center;color:var(--text3)">
+        <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;display:block;margin-bottom:12px;color:var(--green2)"></i>
+        Chargement...
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL ÉCRIRE ARTICLE ── -->
+<div class="modal" id="modal-wiki-write">
+  <div class="modal__bg"></div>
+  <div class="modal__box modal__box--lg">
+    <div class="modal__top">
+      <h2><i class="fas fa-pen" style="color:var(--green2)"></i> Écrire un article</h2>
+      <button class="modal__x" onclick="UI.closeModal('modal-wiki-write')"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:20px">
+      <div class="field">
+        <label for="wiki-write-title">Titre <span style="color:var(--red)">*</span></label>
+        <input type="text" class="inp" id="wiki-write-title" placeholder="Titre de votre article" maxlength="120">
+      </div>
+      <div class="field">
+        <label for="wiki-write-category">Catégorie</label>
+        <select class="inp" id="wiki-write-category">
+          <option value="Général">Général</option>
+          <option value="Guide">Guide</option>
+          <option value="Actualité">Actualité</option>
+          <option value="Témoignage">Témoignage</option>
+          <option value="Astuce">Astuce</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="wiki-write-content">Contenu <span style="color:var(--red)">*</span></label>
+        <textarea class="inp" id="wiki-write-content" placeholder="Rédigez votre article ici..." rows="10" maxlength="10000"></textarea>
+        <small>Minimum 50 caractères</small>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <button class="btn btn--outline" id="btn-wiki-preview">
+          <i class="fas fa-eye"></i> Prévisualiser
+        </button>
+      </div>
+      <div id="wiki-write-preview" style="display:none;margin-bottom:14px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn--ghost" onclick="UI.closeModal('modal-wiki-write')">Annuler</button>
+        <button class="btn btn--primary" id="btn-wiki-publish">
+          <i class="fas fa-paper-plane"></i> Publier
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL PROFIL PUBLIC ── -->
+<div class="modal" id="modal-public-profile">
+  <div class="modal__bg"></div>
+  <div class="modal__box modal__box--sm">
+    <div class="modal__top">
+      <h2><i class="fas fa-user" style="color:var(--green2)"></i> Profil citoyen</h2>
+      <button class="modal__x" onclick="UI.closeModal('modal-public-profile')"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="public-profile-container">
+      <div style="padding:40px;text-align:center;color:var(--text3)">
+        <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;display:block;margin-bottom:12px;color:var(--green2)"></i>
+        Chargement...
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL PARTAGE ── -->
+<div class="modal" id="modal-share">
+  <div class="modal__bg"></div>
+  <div class="modal__box modal__box--sm">
+    <div class="modal__top">
+      <h2><i class="fas fa-share-alt" style="color:var(--green2)"></i> Partager</h2>
+      <button class="modal__x" onclick="UI.closeModal('modal-share')"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:20px">
+      <div class="share-grid" id="share-grid"></div>
+      <div style="margin-top:8px">
+        <label style="font-size:.75rem;font-weight:700;color:var(--text2);display:block;margin-bottom:6px">Lien direct</label>
+        <div style="display:flex;gap:6px">
+          <input type="text" class="inp" id="share-url-input" readonly style="font-size:.75rem;flex:1">
+          <button class="btn btn--outline" onclick="Share.copyUrl()"><i class="fas fa-copy"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL MENTIONS LÉGALES ── -->
+<div class="modal" id="modal-legal">
+  <div class="modal__bg"></div>
+  <div class="modal__box modal__box--lg">
+    <div class="modal__top">
+      <h2><i class="fas fa-file-contract"></i> Mentions légales</h2>
+      <button class="modal__x" onclick="UI.closeModal('modal-legal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:24px;font-size:.85rem;line-height:1.8;color:var(--text2)">
+      <h3 style="color:var(--text);margin-bottom:10px">Éditeur</h3>
+      <p>Gwadloup Alert est une plateforme citoyenne indépendante dédiée au signalement de problèmes en Guadeloupe.</p>
+      <h3 style="color:var(--text);margin:16px 0 10px">Hébergement</h3>
+      <p>Render.com — 525 Brannan St, San Francisco, CA 94107, USA</p>
+      <h3 style="color:var(--text);margin:16px 0 10px">Contact</h3>
+      <p>contact@gwadloupalert.fr</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL CONFIDENTIALITÉ ── -->
+<div class="modal" id="modal-privacy">
+  <div class="modal__bg"></div>
+  <div class="modal__box modal__box--lg">
+    <div class="modal__top">
+      <h2><i class="fas fa-shield-alt"></i> Politique de confidentialité</h2>
+      <button class="modal__x" onclick="UI.closeModal('modal-privacy')"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:24px;font-size:.85rem;line-height:1.8;color:var(--text2)">
+      <p>Vos données personnelles sont traitées conformément au RGPD. Nous collectons uniquement les informations nécessaires au fonctionnement de la plateforme (email, pseudo, commune). Vos données ne sont jamais vendues à des tiers.</p>
+      <h3 style="color:var(--text);margin:16px 0 10px">Données collectées</h3>
+      <ul style="margin-left:16px">
+        <li>Email (authentification)</li>
+        <li>Pseudo et commune (profil public)</li>
+        <li>Signalements et commentaires (contenu public)</li>
+        <li>Logs de connexion (sécurité)</li>
+      </ul>
+      <h3 style="color:var(--text);margin:16px 0 10px">Vos droits</h3>
+      <p>Vous pouvez demander la suppression de vos données à tout moment via contact@gwadloupalert.fr</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL CGU ── -->
+<div class="modal" id="modal-terms">
+  <div class="modal__bg"></div>
+  <div class="modal__box modal__box--lg">
+    <div class="modal__top">
+      <h2><i class="fas fa-file-alt"></i> Conditions d'utilisation</h2>
+      <button class="modal__x" onclick="UI.closeModal('modal-terms')"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:24px;font-size:.85rem;line-height:1.8;color:var(--text2)">
+      <p>En utilisant Gwadloup Alert, vous acceptez de :</p>
+      <ul style="margin-left:16px;margin-top:8px">
+        <li>Signaler uniquement des problèmes réels et vérifiables</li>
+        <li>Ne pas publier de contenu diffamatoire, haineux ou illégal</li>
+        <li>Respecter la vie privée des autres utilisateurs</li>
+        <li>Ne pas utiliser la plateforme à des fins commerciales</li>
+        <li>Ne pas tenter de manipuler le système de votes</li>
+      </ul>
+      <p style="margin-top:12px">Tout manquement peut entraîner la suspension du compte.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPTS
+════════════════════════════════════════════════════════════ -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
+
+<script src="/js/app.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/map.js"></script>
+<script src="/js/imageUpload.js"></script>
+<script src="/js/reports.js"></script>
+<script src="/js/badges.js"></script>
+<script src="/js/share.js"></script>
+<script src="/js/polls.js"></script>
+<script src="/js/pwa.js"></script>
+
+<script>
+  // Toggle user menu
+  UI.toggleUserMenu = function() {
+    var drop = document.getElementById('user-dropdown');
+    if (drop) drop.classList.toggle('open');
+  };
+  UI.closeUserMenu = function() {
+    var drop = document.getElementById('user-dropdown');
+    if (drop) drop.classList.remove('open');
+  };
+  document.addEventListener('click', function(e) {
+    var menu = document.getElementById('user-menu');
+    if (menu && !menu.contains(e.target)) UI.closeUserMenu();
+  });
+
+  // Priorité radio
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.prio').forEach(function(prio) {
+      prio.addEventListener('click', function() {
+        document.querySelectorAll('.prio').forEach(function(p) { p.classList.remove('selected'); });
+        prio.classList.add('selected');
+      });
+    });
+  });
+</script>
+
 </body>
 </html>
