@@ -653,13 +653,13 @@
 
         <div class="field">
           <label for="report-title">Titre <span style="color:var(--red)">*</span></label>
-          <input type="text" class="inp" id="report-title" placeholder="Ex: Nid de poule dangereux rue Schoelcher" maxlength="150" required>
+          <input type="text" class="inp" id="report-title" placeholder="Ex: Nid de poule dangereux rue Schoelcher" maxlength="150">
           <small>5 caractères minimum, 150 maximum</small>
         </div>
 
         <div class="field">
           <label for="report-description">Description <span style="color:var(--red)">*</span></label>
-          <textarea class="inp" id="report-description" placeholder="Décrivez le problème en détail : taille, dangerosité, depuis quand..." rows="4" maxlength="2000" required></textarea>
+          <textarea class="inp" id="report-description" placeholder="Décrivez le problème en détail..." rows="4" maxlength="2000"></textarea>
           <small>10 caractères minimum, 2000 maximum</small>
         </div>
 
@@ -975,11 +975,11 @@
       <div class="field">
         <label for="wiki-write-category">Catégorie</label>
         <select class="inp" id="wiki-write-category">
-          <option value="Général">Général</option>
-          <option value="Guide">Guide</option>
-          <option value="Actualité">Actualité</option>
-          <option value="Témoignage">Témoignage</option>
-          <option value="Astuce">Astuce</option>
+           <option value="general">Général</option>
+           <option value="guide">Guide</option>
+           <option value="info">Info</option>
+           <option value="discussion">Discussion</option>
+           <option value="proposition">Proposition</option>
         </select>
       </div>
       <div class="field">
